@@ -126,6 +126,82 @@ const migrations = [
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     ],
   },
+  {
+    version: 2,
+    name: 'production_billing_schema',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS billing_products (
+        environment VARCHAR(16) CHARACTER SET ascii NOT NULL,
+        product_key VARCHAR(64) CHARACTER SET ascii NOT NULL,
+        provider_product_id VARCHAR(80) CHARACTER SET ascii NOT NULL,
+        status VARCHAR(32) CHARACTER SET ascii NOT NULL DEFAULT 'ACTIVE',
+        payload LONGTEXT NULL,
+        created_at BIGINT UNSIGNED NOT NULL,
+        updated_at BIGINT UNSIGNED NOT NULL,
+        PRIMARY KEY (environment, product_key),
+        UNIQUE KEY billing_products_provider (provider_product_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      `CREATE TABLE IF NOT EXISTS billing_plans (
+        environment VARCHAR(16) CHARACTER SET ascii NOT NULL,
+        plan_key VARCHAR(32) CHARACTER SET ascii NOT NULL,
+        billing_cycle VARCHAR(16) CHARACTER SET ascii NOT NULL,
+        currency CHAR(3) CHARACTER SET ascii NOT NULL,
+        unit_amount DECIMAL(12,2) NOT NULL,
+        provider_plan_id VARCHAR(80) CHARACTER SET ascii NOT NULL,
+        status VARCHAR(32) CHARACTER SET ascii NOT NULL,
+        payload LONGTEXT NULL,
+        created_at BIGINT UNSIGNED NOT NULL,
+        updated_at BIGINT UNSIGNED NOT NULL,
+        PRIMARY KEY (environment, plan_key, billing_cycle),
+        UNIQUE KEY billing_plans_provider (provider_plan_id),
+        INDEX billing_plans_status (environment, status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      `CREATE TABLE IF NOT EXISTS billing_subscriptions (
+        id CHAR(36) CHARACTER SET ascii PRIMARY KEY,
+        user_id CHAR(36) CHARACTER SET ascii NOT NULL,
+        provider_subscription_id VARCHAR(80) CHARACTER SET ascii NOT NULL,
+        provider_plan_id VARCHAR(80) CHARACTER SET ascii NOT NULL,
+        plan_key VARCHAR(32) CHARACTER SET ascii NOT NULL,
+        billing_cycle VARCHAR(16) CHARACTER SET ascii NOT NULL,
+        quantity INT UNSIGNED NOT NULL DEFAULT 1,
+        status VARCHAR(32) CHARACTER SET ascii NOT NULL,
+        payer_id VARCHAR(80) CHARACTER SET ascii NULL,
+        access_expires_at BIGINT UNSIGNED NULL,
+        cancel_at_period_end TINYINT(1) NOT NULL DEFAULT 0,
+        payload LONGTEXT NULL,
+        created_at BIGINT UNSIGNED NOT NULL,
+        updated_at BIGINT UNSIGNED NOT NULL,
+        UNIQUE KEY billing_subscriptions_provider (provider_subscription_id),
+        INDEX billing_subscriptions_user_updated (user_id, updated_at),
+        INDEX billing_subscriptions_status_expiry (status, access_expires_at),
+        CONSTRAINT billing_subscriptions_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      `CREATE TABLE IF NOT EXISTS billing_transactions (
+        id VARCHAR(160) CHARACTER SET ascii PRIMARY KEY,
+        subscription_id CHAR(36) CHARACTER SET ascii NULL,
+        user_id CHAR(36) CHARACTER SET ascii NULL,
+        provider_transaction_id VARCHAR(160) CHARACTER SET ascii NULL,
+        event_type VARCHAR(100) CHARACTER SET ascii NOT NULL,
+        status VARCHAR(40) CHARACTER SET ascii NOT NULL,
+        amount DECIMAL(12,2) NULL,
+        currency CHAR(3) CHARACTER SET ascii NULL,
+        payload LONGTEXT NULL,
+        created_at BIGINT UNSIGNED NOT NULL,
+        INDEX billing_transactions_provider (provider_transaction_id),
+        INDEX billing_transactions_user_created (user_id, created_at),
+        CONSTRAINT billing_transactions_subscription_fk FOREIGN KEY (subscription_id) REFERENCES billing_subscriptions(id) ON DELETE SET NULL,
+        CONSTRAINT billing_transactions_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    ],
+  },
+  {
+    version: 3,
+    name: 'billing_transaction_event_history',
+    statements: [
+      'ALTER TABLE billing_transactions DROP INDEX billing_transactions_provider',
+      'ALTER TABLE billing_transactions ADD INDEX billing_transactions_provider (provider_transaction_id)',
+    ],
+  },
 ]
 
 function connectionOptions() {

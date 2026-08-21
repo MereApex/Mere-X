@@ -122,6 +122,7 @@ export async function cleanupExpired() {
     execute("DELETE FROM jobs WHERE owner_id IS NULL AND updated_at<? AND status IN ('completed','failed','cancelled')", [timestamp - 30 * 24 * 60 * 60 * 1000]),
     execute('DELETE FROM usage_events WHERE created_at<?', [timestamp - 400 * 24 * 60 * 60 * 1000]),
   ])
+  await expireEndedBillingAccess(timestamp)
 }
 
 export async function createPasswordReset(userId, ttlMs = 30 * 60 * 1000) {
@@ -258,4 +259,119 @@ export async function saveKnowledgeStore(ownerId, projectId, storeName, displayN
 export async function recordBillingEvent({ id, userId = null, eventType, payload = null }) {
   const [result] = await execute('INSERT IGNORE INTO billing_events (id,user_id,event_type,payload,processed_at) VALUES (?,?,?,?,?)', [String(id), userId, String(eventType), payload ? JSON.stringify(payload) : null, now()])
   return Number(result.affectedRows || 0) === 1
+}
+
+function publicBillingSubscription(row) {
+  return row ? {
+    id: row.id,
+    userId: row.user_id,
+    subscriptionId: row.provider_subscription_id,
+    plan: row.plan_key,
+    billingCycle: row.billing_cycle,
+    quantity: Number(row.quantity || 1),
+    status: row.status,
+    payerId: row.payer_id || undefined,
+    accessExpiresAt: row.access_expires_at === null ? null : Number(row.access_expires_at),
+    cancelAtPeriodEnd: Boolean(row.cancel_at_period_end),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  } : null
+}
+
+export async function getBillingProduct(environment, productKey = 'mere-x-membership') {
+  const [rows] = await execute('SELECT * FROM billing_products WHERE environment=? AND product_key=? LIMIT 1', [environment, productKey])
+  return rows[0] || null
+}
+
+export async function upsertBillingProduct({ environment, productKey = 'mere-x-membership', providerProductId, status = 'ACTIVE', payload = null }) {
+  const timestamp = now()
+  await execute(`INSERT INTO billing_products (environment,product_key,provider_product_id,status,payload,created_at,updated_at) VALUES (?,?,?,?,?,?,?)
+    ON DUPLICATE KEY UPDATE provider_product_id=VALUES(provider_product_id),status=VALUES(status),payload=VALUES(payload),updated_at=VALUES(updated_at)`, [environment, productKey, providerProductId, status, payload ? JSON.stringify(payload) : null, timestamp, timestamp])
+  return getBillingProduct(environment, productKey)
+}
+
+export async function getBillingPlan(environment, planKey, billingCycle) {
+  const [rows] = await execute('SELECT * FROM billing_plans WHERE environment=? AND plan_key=? AND billing_cycle=? LIMIT 1', [environment, planKey, billingCycle])
+  return rows[0] || null
+}
+
+export async function getBillingPlanByProviderId(providerPlanId) {
+  const [rows] = await execute('SELECT * FROM billing_plans WHERE provider_plan_id=? LIMIT 1', [providerPlanId])
+  return rows[0] || null
+}
+
+export async function upsertBillingPlan({ environment, planKey, billingCycle, currency, unitAmount, providerPlanId, status, payload = null }) {
+  const timestamp = now()
+  await execute(`INSERT INTO billing_plans (environment,plan_key,billing_cycle,currency,unit_amount,provider_plan_id,status,payload,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)
+    ON DUPLICATE KEY UPDATE currency=VALUES(currency),unit_amount=VALUES(unit_amount),provider_plan_id=VALUES(provider_plan_id),status=VALUES(status),payload=VALUES(payload),updated_at=VALUES(updated_at)`, [environment, planKey, billingCycle, currency, unitAmount, providerPlanId, status, payload ? JSON.stringify(payload) : null, timestamp, timestamp])
+  return getBillingPlan(environment, planKey, billingCycle)
+}
+
+export async function createBillingSubscription({ userId, providerSubscriptionId, providerPlanId, planKey, billingCycle, quantity = 1, status = 'APPROVAL_PENDING', payload = null }) {
+  const timestamp = now()
+  const id = randomUUID()
+  await execute(`INSERT INTO billing_subscriptions (id,user_id,provider_subscription_id,provider_plan_id,plan_key,billing_cycle,quantity,status,payload,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    ON DUPLICATE KEY UPDATE payload=VALUES(payload),updated_at=VALUES(updated_at)`, [id, userId, providerSubscriptionId, providerPlanId, planKey, billingCycle, quantity, status, payload ? JSON.stringify(payload) : null, timestamp, timestamp])
+  return getBillingSubscriptionByProviderId(providerSubscriptionId)
+}
+
+export async function getBillingSubscriptionByProviderId(providerSubscriptionId) {
+  const [rows] = await execute('SELECT * FROM billing_subscriptions WHERE provider_subscription_id=? LIMIT 1', [providerSubscriptionId])
+  return publicBillingSubscription(rows[0])
+}
+
+export async function getCurrentBillingSubscription(userId) {
+  const [rows] = await execute(`SELECT * FROM billing_subscriptions WHERE user_id=?
+    ORDER BY FIELD(status,'ACTIVE','APPROVED','APPROVAL_PENDING','SUSPENDED','CANCELLED','EXPIRED'),updated_at DESC LIMIT 1`, [userId])
+  return publicBillingSubscription(rows[0])
+}
+
+export async function syncBillingSubscription({ providerSubscriptionId, status, payerId, accessExpiresAt, cancelAtPeriodEnd, payload = null, planKey = null, billingCycle = null, quantity = null }) {
+  return withTransaction(async connection => {
+    const [rows] = await connection.execute('SELECT * FROM billing_subscriptions WHERE provider_subscription_id=? FOR UPDATE', [providerSubscriptionId])
+    const current = rows[0]
+    if (!current) return null
+    const nextStatus = String(status || current.status).toUpperCase()
+    const nextPlan = planKey || current.plan_key
+    const nextCycle = billingCycle || current.billing_cycle
+    const nextQuantity = quantity === null ? Number(current.quantity) : Math.max(1, Number(quantity) || 1)
+    const nextExpiry = accessExpiresAt === undefined ? current.access_expires_at : accessExpiresAt
+    const nextCancel = cancelAtPeriodEnd === undefined ? Boolean(current.cancel_at_period_end) : Boolean(cancelAtPeriodEnd)
+    const timestamp = now()
+    await connection.execute(`UPDATE billing_subscriptions SET plan_key=?,billing_cycle=?,quantity=?,status=?,payer_id=?,access_expires_at=?,cancel_at_period_end=?,payload=?,updated_at=? WHERE id=?`, [nextPlan, nextCycle, nextQuantity, nextStatus, payerId === undefined ? current.payer_id : payerId, nextExpiry, nextCancel ? 1 : 0, payload ? JSON.stringify(payload) : current.payload, timestamp, current.id])
+    if (nextStatus === 'ACTIVE') {
+      await connection.execute('UPDATE users SET plan=?,updated_at=? WHERE id=?', [nextPlan, timestamp, current.user_id])
+    } else if (['CANCELLED', 'EXPIRED', 'SUSPENDED'].includes(nextStatus) && nextExpiry !== null && Number(nextExpiry) <= timestamp) {
+      const [otherRows] = await connection.execute("SELECT COUNT(*) AS total FROM billing_subscriptions WHERE user_id=? AND id<>? AND status='ACTIVE'", [current.user_id, current.id])
+      if (!Number(otherRows[0]?.total || 0)) await connection.execute("UPDATE users SET plan='free',updated_at=? WHERE id=?", [timestamp, current.user_id])
+    }
+    await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), current.user_id, 'billing.subscription_synced', JSON.stringify({ subscriptionId: providerSubscriptionId, status: nextStatus, plan: nextPlan, cycle: nextCycle }), timestamp])
+    const [updated] = await connection.execute('SELECT * FROM billing_subscriptions WHERE id=?', [current.id])
+    return publicBillingSubscription(updated[0])
+  })
+}
+
+export async function recordBillingTransaction({ id, subscriptionId = null, userId = null, providerTransactionId = null, eventType, status, amount = null, currency = null, payload = null }) {
+  const [result] = await execute(`INSERT IGNORE INTO billing_transactions (id,subscription_id,user_id,provider_transaction_id,event_type,status,amount,currency,payload,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`, [String(id), subscriptionId, userId, providerTransactionId, String(eventType), String(status), amount, currency, payload ? JSON.stringify(payload) : null, now()])
+  return Number(result.affectedRows || 0) === 1
+}
+
+export async function listBillingTransactions(userId, limit = 30) {
+  const safeLimit = Math.max(1, Math.min(100, Number(limit) || 30))
+  const [rows] = await execute(`SELECT id,event_type,status,amount,currency,created_at FROM billing_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT ${safeLimit}`, [userId])
+  return rows.map(row => ({ id: row.id, type: row.event_type, status: row.status, amount: row.amount === null ? null : Number(row.amount), currency: row.currency, createdAt: Number(row.created_at) }))
+}
+
+export async function expireEndedBillingAccess(timestamp = now()) {
+  return withTransaction(async connection => {
+    const [rows] = await connection.execute(`SELECT DISTINCT user_id FROM billing_subscriptions WHERE status IN ('CANCELLED','EXPIRED','SUSPENDED') AND access_expires_at IS NOT NULL AND access_expires_at<=?`, [timestamp])
+    let downgraded = 0
+    for (const row of rows) {
+      const [activeRows] = await connection.execute("SELECT COUNT(*) AS total FROM billing_subscriptions WHERE user_id=? AND status='ACTIVE'", [row.user_id])
+      if (Number(activeRows[0]?.total || 0)) continue
+      const [result] = await connection.execute("UPDATE users SET plan='free',updated_at=? WHERE id=? AND plan<>'free'", [timestamp, row.user_id])
+      downgraded += Number(result.affectedRows || 0)
+    }
+    return downgraded
+  })
 }

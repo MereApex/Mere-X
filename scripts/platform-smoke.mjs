@@ -51,8 +51,11 @@ try {
   assert(usage.window?.resetAt && usage.state, 'Usage summary is incomplete')
   report.usage = usage.state
 
-  const checkout = (await request('/api/billing/checkout', { method: 'POST', body: JSON.stringify({ plan: 'plus' }) })).body
-  assert(checkout.user?.plan === 'plus', 'Development checkout did not update the plan')
+  const billingConfig = (await request('/api/billing/config')).body
+  const billingState = (await request('/api/billing/subscription')).body
+  const billingHistory = (await request('/api/billing/history')).body
+  assert(typeof billingConfig.enabled === 'boolean' && billingConfig.currency, 'Billing configuration is incomplete')
+  assert(billingState.subscription === null && Array.isArray(billingHistory.transactions), 'Billing account state is incomplete')
   report.billing = true
 
   const sessions = (await request('/api/account/sessions')).body

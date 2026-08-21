@@ -73,6 +73,7 @@ import {
 } from 'lucide-react'
 import { Dispatch, FormEvent, ReactNode, SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
 import type { LiveServerMessage, Session } from '@google/genai'
+import { PayPalProvider, usePayPalSubscriptionPaymentSession } from '@paypal/react-paypal-js/sdk-v6'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import mereXEmblem from './assets/mere-x-emblem-transparent.png'
@@ -107,6 +108,8 @@ type UserProfile = { name: string; email: string }
 type AuthUser = UserProfile & { id: string; plan: string }
 type UsageSummary = { plan: string; label: string; state: 'available' | 'active' | 'limited' | 'paused'; window: { state: string; resetAt: number }; tools: { state: string } }
 type AccountSession = { id: string; current: boolean; createdAt: number; expiresAt: number }
+type BillingSubscription = { id: string; subscriptionId: string; plan: string; billingCycle: 'monthly' | 'annual'; quantity: number; status: string; accessExpiresAt: number | null; cancelAtPeriodEnd: boolean; createdAt: number; updatedAt: number }
+type BillingTransaction = { id: string; type: string; status: string; amount: number | null; currency: string | null; createdAt: number }
 type ManagedJob = {
   id: string
   type: string
@@ -1153,6 +1156,50 @@ type SettingsPageProps = {
   modal?: boolean
 }
 
+function BillingManagement({ user, onOpenPricing, onToast }: { user?: AuthUser | null; onOpenPricing: () => void; onToast: (text: string) => void }) {
+  const [subscription, setSubscription] = useState<BillingSubscription | null>(null)
+  const [transactions, setTransactions] = useState<BillingTransaction[]>([])
+  const [loading, setLoading] = useState(Boolean(user))
+  const [cancelling, setCancelling] = useState(false)
+  const load = async () => {
+    if (!user) { setLoading(false); return }
+    setLoading(true)
+    try {
+      const [subscriptionResponse, historyResponse] = await Promise.all([fetch('/api/billing/subscription'), fetch('/api/billing/history')])
+      const subscriptionResult = await subscriptionResponse.json() as { subscription?: BillingSubscription | null }
+      const historyResult = await historyResponse.json() as { transactions?: BillingTransaction[] }
+      if (subscriptionResponse.ok) setSubscription(subscriptionResult.subscription || null)
+      if (historyResponse.ok) setTransactions(historyResult.transactions || [])
+    } finally { setLoading(false) }
+  }
+  useEffect(() => { void load() }, [user?.id])
+  const cancel = async () => {
+    if (!subscription || !window.confirm('Cancel automatic renewal? Your paid access remains available until the current billing period ends.')) return
+    setCancelling(true)
+    try {
+      const response = await fetch('/api/billing/subscription/cancel', { method: 'POST' })
+      const result = await response.json() as { subscription?: BillingSubscription; error?: string }
+      if (!response.ok || !result.subscription) throw new Error(result.error || 'Membership could not be cancelled.')
+      setSubscription(result.subscription); onToast('Automatic renewal cancelled')
+    } catch (cause) { onToast(cause instanceof Error ? cause.message : 'Membership could not be cancelled') }
+    finally { setCancelling(false) }
+  }
+  if (!user) return <SettingsSection title="Billing"><div className="billing-empty"><CreditCard size={19} /><div><b>Sign in to manage billing</b><p>Your membership and payment history are tied to your Mere X account.</p></div></div></SettingsSection>
+  const renewal = subscription?.accessExpiresAt ? new Date(subscription.accessExpiresAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Pending confirmation'
+  return <>
+    <SettingsSection title="Membership">
+      {loading ? <div className="billing-loading-row"><RotateCcw className="spin" size={16} />Loading membership…</div> : subscription ? <div className="membership-manage">
+        <div className="membership-manage-head"><span><CreditCard size={18} /></span><div><b>Mere {subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)}</b><small>{subscription.billingCycle === 'annual' ? 'Annual billing' : 'Monthly billing'}{subscription.quantity > 1 ? ` · ${subscription.quantity} seats` : ''}</small></div><em className={`membership-status ${subscription.cancelAtPeriodEnd ? 'ending' : ''}`}>{subscription.cancelAtPeriodEnd ? 'ENDS THIS PERIOD' : subscription.status}</em></div>
+        <div className="membership-date"><Clock3 size={16} /><span><b>{subscription.cancelAtPeriodEnd ? 'Access available through' : 'Next renewal'}</b><small>{renewal}</small></span></div>
+        <div className="membership-actions"><button className="soft-button" onClick={onOpenPricing}>View plans</button>{['ACTIVE', 'APPROVED'].includes(subscription.status) && !subscription.cancelAtPeriodEnd && <button className="billing-cancel-button" disabled={cancelling} onClick={() => void cancel()}>{cancelling ? 'Cancelling…' : 'Cancel renewal'}</button>}</div>
+      </div> : <div className="billing-empty"><CreditCard size={19} /><div><b>No paid membership</b><p>Choose Plus, Pro or Team to expand Mere Apex access.</p></div><button className="soft-button" onClick={onOpenPricing}>Compare plans</button></div>}
+    </SettingsSection>
+    <SettingsSection title="Payment history">
+      {transactions.length ? <div className="billing-history-list">{transactions.map(transaction => <div key={transaction.id}><span><b>{transaction.type.replaceAll('.', ' ').toLowerCase()}</b><small>{new Date(transaction.createdAt).toLocaleDateString()}</small></span><span><strong>{transaction.amount === null ? '—' : `${transaction.currency || 'USD'} ${transaction.amount.toFixed(2)}`}</strong><em>{transaction.status}</em></span></div>)}</div> : <div className="billing-history-empty"><ShieldCheck size={18} /><span><b>No completed charges yet</b><small>Confirmed payment events and refunds will appear here.</small></span></div>}
+    </SettingsSection>
+  </>
+}
+
 function SettingsPage({ onToast, compact, setCompact, preferences, setPreferences, controls, setControls, profile, user, setProfile, onDeleteChats, onSignOut, onOpenPricing, onOpenHelp, initialTab = 'general', onClose, modal = false }: SettingsPageProps) {
   const [tab, setTab] = useState<SettingsTab>(initialTab)
   const [query, setQuery] = useState('')
@@ -1243,7 +1290,7 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
     if (tab === 'personalization') return <><PageHeading title="Personalization" description="Shape how Mere X understands you and responds." /><SettingsSection title="Memory"><SettingRow icon={<BookOpen size={17} />} title="Reference saved memories" desc="Use details you explicitly ask Mere X to remember"><Toggle label="Reference saved memories" active={preferences.memory} onChange={() => updatePreference('memory', !preferences.memory)} /></SettingRow></SettingsSection><SettingsSection title="Custom instructions"><label className="instruction-label">What should Mere X know about you?</label><textarea className="instruction-box" value={preferences.about} onChange={event => updatePreference('about', event.target.value)} placeholder="Your role, goals and working context..." /><label className="instruction-label">How should Mere X respond?</label><textarea className="instruction-box" value={preferences.responseStyle} onChange={event => updatePreference('responseStyle', event.target.value)} placeholder="Tone, structure and level of detail..." /><button className="primary-button" onClick={() => onToast('Personalization saved and active')}>Save changes</button></SettingsSection></>
     if (tab === 'plugins') return <><PageHeading title="Connections" description="Bring approved tools and knowledge into your Mere X workflow." /><SettingsSection title="Available connections"><SettingRow icon={<Code2 size={17} />} title="Code repositories" desc="Repository access with scoped permissions"><button className="soft-button" onClick={() => onToast('Connection credentials are required before this source can be enabled')}>Configure</button></SettingRow><SettingRow icon={<FileText size={17} />} title="Cloud documents" desc="Connect document storage with secure delegated access"><button className="soft-button" onClick={() => onToast('Connection credentials are required before this source can be enabled')}>Configure</button></SettingRow><SettingRow icon={<Globe2 size={17} />} title="Web research" desc="Research public pages with sources"><span className="connected-state"><Check size={13} />Active</span></SettingRow></SettingsSection></>
     if (tab === 'voice') return <><PageHeading title="Voice" description="Configure listening, spoken responses and accessibility." /><SettingsSection title="Voice experience"><SettingRow icon={<Mic size={17} />} title="Voice input" desc="Dictate prompts from the composer"><Toggle label="Voice input" active={controls.voiceInput ?? true} onChange={() => updateControl('voiceInput', !(controls.voiceInput ?? true))} /></SettingRow><SettingRow icon={<Volume2 size={17} />} title="Response voice" desc="Voice used when reading answers aloud"><select aria-label="Voice" value={preferences.voice} onChange={event => updatePreference('voice', event.target.value)}><option>Nova</option><option>Atlas</option></select></SettingRow><SettingRow icon={<Headphones size={17} />} title="Test voice" desc="Play a short preview with your current selection"><button className="soft-button" onClick={playVoicePreview}>Play preview</button></SettingRow></SettingsSection></>
-    if (tab === 'billing') return <><PageHeading title="Plan & billing" description="Manage your plan, usage and billing information." /><div className="billing-hero"><div><span>CURRENT PLAN</span><h2>Mere {planLabel}</h2><p>Mere Apex 4.0 access with adaptive usage that refreshes throughout the day.</p></div><button className="primary-button" onClick={onOpenPricing}>Compare plans<Sparkles size={15} /></button></div><SettingsSection title="Current usage window"><SettingRow icon={<Clock3 size={17} />} title="Rolling 5-hour window" desc={`Next rolling refresh is visible at ${resetLabel}`}><span className="usage-value">{windowLabel}</span></SettingRow><SettingRow icon={<Globe2 size={17} />} title="Advanced tools" desc="Research, image, agent, computer and video work use the protected tool allowance"><span className="usage-value">{toolsLabel}</span></SettingRow><SettingRow icon={<FileText size={17} />} title="File workflows" desc="Analyze files and create downloadable Office or PDF documents"><span className="usage-value">Included</span></SettingRow></SettingsSection><SettingsSection title="Billing"><button className="manage-button" onClick={() => onToast(planLabel === 'Free' || planLabel === 'Preview' ? 'No invoices on the current plan' : 'Invoice portal requires production billing credentials')}>Billing history<ChevronRight size={15} /></button><button className="manage-button" onClick={onOpenPricing}>Plan details and pricing<ChevronRight size={15} /></button></SettingsSection></>
+    if (tab === 'billing') return <><PageHeading title="Plan & billing" description="Manage your plan, usage, renewal and payment history." /><div className="billing-hero"><div><span>CURRENT PLAN</span><h2>Mere {planLabel}</h2><p>Mere Apex 4.0 access with adaptive usage that refreshes throughout the day.</p></div><button className="primary-button" onClick={onOpenPricing}>Compare plans<Sparkles size={15} /></button></div><SettingsSection title="Current usage window"><SettingRow icon={<Clock3 size={17} />} title="Rolling 5-hour window" desc={`Next rolling refresh is visible at ${resetLabel}`}><span className="usage-value">{windowLabel}</span></SettingRow><SettingRow icon={<Globe2 size={17} />} title="Advanced tools" desc="Research, image, agent, computer and video work use the protected tool allowance"><span className="usage-value">{toolsLabel}</span></SettingRow><SettingRow icon={<FileText size={17} />} title="File workflows" desc="Analyze files and create downloadable Office or PDF documents"><span className="usage-value">Included</span></SettingRow></SettingsSection><BillingManagement user={user} onOpenPricing={onOpenPricing} onToast={onToast} /></>
     if (tab === 'data') return <><PageHeading title="Data controls" description="Control conversation history, exports and product improvement." /><SettingsSection title="Privacy"><SettingRow icon={<ShieldCheck size={17} />} title="Improve Mere X for everyone" desc="Allow de-identified conversations to improve the platform"><Toggle label="Improve Mere X" active={preferences.training} onChange={() => updatePreference('training', !preferences.training)} /></SettingRow><SettingRow icon={<Clock3 size={17} />} title="Chat history" desc="Save new conversations in your history"><Toggle label="Chat history" active={controls.chatHistory ?? true} onChange={() => updateControl('chatHistory', !(controls.chatHistory ?? true))} /></SettingRow></SettingsSection><SettingsSection title="Your data"><button className="danger-row" onClick={exportData}><span><Download size={17} /><span><b>Export workspace data</b><small>Download your conversations and preferences</small></span></span><ChevronRight size={15} /></button><button className="danger-row" onClick={() => { if (window.confirm('Delete every saved conversation? This cannot be undone.')) onDeleteChats() }}><span><Trash2 size={17} /><span><b>Delete all chats</b><small>Permanently clear conversation history</small></span></span><ChevronRight size={15} /></button></SettingsSection></>
     if (tab === 'cloud') return <><PageHeading title="Cloud sync" description="Keep your Mere X workspace consistent across devices." /><SettingsSection title="Synchronization"><SettingRow icon={<Globe2 size={17} />} title="This device" desc="Local workspace continuity is active"><span className="connected-state"><Check size={13} />Active</span></SettingRow><SettingRow icon={<RotateCcw size={17} />} title="Account workspace sync" desc={user ? 'Projects, chats, agents and preferences sync through your account' : 'Sign in to synchronize your workspace across devices'}><span className={user ? 'connected-state' : 'feature-status'}>{user ? <><Check size={13} />Active</> : 'SIGN IN REQUIRED'}</span></SettingRow></SettingsSection></>
     if (tab === 'storage') return <><PageHeading title="Storage" description="Review local workspace usage and cleanup controls." /><div className="storage-meter"><div><span>THIS DEVICE</span><b>{storageLabel}</b></div><i><span style={{ width: `${Math.min(100, Math.max(2, storageBytes / 50000))}%` }} /></i><p>Lightweight local data keeps Mere X responsive. Signed-in workspaces are also synchronized to your account.</p></div><SettingsSection title="Management"><SettingRow icon={<Archive size={17} />} title="Automatic cleanup" desc="Remove temporary previews after 30 days"><Toggle label="Automatic cleanup" active={controls.autoClean ?? false} onChange={() => updateControl('autoClean', !(controls.autoClean ?? false))} /></SettingRow><button className="manage-button" onClick={clearTemporaryCache}>Clear temporary cache<ChevronRight size={15} /></button></SettingsSection></>
@@ -1333,10 +1380,129 @@ function PublicShell({ navigate, current, children, className = '' }: { navigate
   return <div className={`public-page ${className}`}><PublicHeader navigate={navigate} current={current} /><main className="public-main">{children}</main><PublicFooter navigate={navigate} /></div>
 }
 
+type PaymentConfig = { enabled: boolean; clientId?: string; environment: 'sandbox' | 'production'; currency: string; methods: string[] }
+
+function EmbeddedSubscriptionCheckout({ plan, annual, quantity, onSuccess }: { plan: PlanTier; annual: boolean; quantity: number; onSuccess: (user: AuthUser, subscription: BillingSubscription) => void }) {
+  const [state, setState] = useState<'ready' | 'creating' | 'confirming' | 'success'>('ready')
+  const [error, setError] = useState('')
+  const attemptId = useRef(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`)
+  const subscriptionId = useRef('')
+  const createSubscription = async () => {
+    setState('creating'); setError('')
+    const response = await fetch('/api/billing/subscriptions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan: plan.name.toLowerCase(), annual, quantity, requestId: attemptId.current }),
+    })
+    const result = await response.json() as { subscriptionId?: string; error?: string }
+    if (!response.ok || !result.subscriptionId) {
+      setState('ready')
+      throw new Error(result.error || 'Secure checkout is unavailable.')
+    }
+    subscriptionId.current = result.subscriptionId
+    return { subscriptionId: result.subscriptionId }
+  }
+  const confirm = async (approvedId?: string) => {
+    const id = approvedId || subscriptionId.current
+    if (!id) throw new Error('Payment approval could not be verified.')
+    setState('confirming'); setError('')
+    const response = await fetch(`/api/billing/subscriptions/${encodeURIComponent(id)}/confirm`, { method: 'POST' })
+    const result = await response.json() as { user?: AuthUser; subscription?: BillingSubscription; error?: string }
+    if (!response.ok || !result.user || !result.subscription) throw new Error(result.error || 'Payment confirmation is still pending.')
+    setState('success')
+    onSuccess(result.user, result.subscription)
+  }
+  const session = usePayPalSubscriptionPaymentSession({
+    createSubscription,
+    onApprove: async data => {
+      try {
+        await confirm(data.subscriptionId)
+      } catch (cause) {
+        setState('ready')
+        setError(cause instanceof Error ? cause.message : 'Payment confirmation failed.')
+      }
+    },
+    onCancel: () => {
+      setState('ready')
+      setError('Checkout was cancelled. Nothing was charged.')
+    },
+    onError: () => {
+      setState('ready')
+      setError('The payment could not be completed. Try another payment method.')
+    },
+    presentationMode: 'modal',
+  })
+  useEffect(() => {
+    if (!session.error) return
+    setState('ready')
+    setError('The secure payment window could not be opened. Please try again.')
+  }, [session.error])
+  if (state === 'success') return <div className="payment-success"><span><Check size={28} /></span><h3>Membership activated</h3><p>Your payment is confirmed and Mere {plan.name} is now active.</p></div>
+  return <div className="embedded-payment-method">
+    <div className="payment-method-head"><div><b>Pay securely</b><span>PayPal account or eligible debit and credit cards</span></div><ShieldCheck size={20} /></div>
+    <div className="accepted-cards" aria-label="Accepted payment methods"><span>PayPal</span><span>VISA</span><span>Mastercard</span><span>AMEX</span></div>
+    <button
+      type="button"
+      className="payment-primary-action"
+      disabled={state !== 'ready' || session.isPending || Boolean(session.error)}
+      aria-busy={state !== 'ready' || session.isPending}
+      onClick={() => { void session.handleClick().catch(() => { setState('ready'); setError('The secure payment window could not be opened. Please try again.') }) }}
+    >
+      <Lock size={16} />Continue to secure approval<ArrowRight size={16} />
+    </button>
+    {state !== 'ready' && <div className="payment-progress"><RotateCcw className="spin" size={16} />{state === 'confirming' ? 'Confirming membership…' : 'Preparing secure checkout…'}</div>}
+    {error && <div className="payment-inline-error" role="alert"><Info size={15} />{error}</div>}
+    <p className="payment-security-note"><Lock size={14} />Card details are entered in encrypted hosted fields and are never stored by Mere X.</p>
+  </div>
+}
+
+function PaymentModal({ plan, annual, onClose, onCompleted }: { plan: PlanTier; annual: boolean; onClose: () => void; onCompleted: (user: AuthUser, subscription: BillingSubscription) => void }) {
+  const [config, setConfig] = useState<PaymentConfig | null>(null)
+  const [configError, setConfigError] = useState('')
+  const [quantity, setQuantity] = useState(plan.name === 'Team' ? 2 : 1)
+  useEffect(() => {
+    const controller = new AbortController()
+    void fetch('/api/billing/config', { signal: controller.signal }).then(async response => {
+      const result = await response.json() as PaymentConfig & { error?: string }
+      if (!response.ok || !result.enabled || !result.clientId) throw new Error(result.error || 'Secure checkout is unavailable.')
+      setConfig(result)
+    }).catch(cause => { if (!controller.signal.aborted) setConfigError(cause instanceof Error ? cause.message : 'Secure checkout is unavailable.') })
+    return () => controller.abort()
+  }, [])
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [onClose])
+  const perUnit = annual ? (plan.annual || 0) * 12 : (plan.monthly || 0)
+  const total = perUnit * quantity
+  return <div className="payment-modal-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+    <section className="payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-title">
+      <button className="payment-close" aria-label="Close checkout" onClick={onClose}><X size={19} /></button>
+      <div className="payment-summary">
+        <div className="payment-brand"><BrandMark /><span>SECURE MEMBERSHIP</span></div>
+        <p className="payment-kicker">YOUR SELECTION</p>
+        <h2 id="payment-title">Mere {plan.name}</h2>
+        <p>{plan.description}</p>
+        {plan.name === 'Team' && <label className="seat-selector"><span>Team seats</span><div><button type="button" onClick={() => setQuantity(value => Math.max(2, value - 1))}>−</button><b>{quantity}</b><button type="button" onClick={() => setQuantity(value => Math.min(250, value + 1))}>+</button></div></label>}
+        <div className="payment-total"><span>{annual ? 'Annual billing' : 'Monthly billing'}</span><strong>${total.toFixed(2)}</strong><small>{config?.currency || 'USD'} · {annual ? 'charged once per year' : 'charged every month'}{plan.name === 'Team' ? ` · ${quantity} seats` : ''}</small></div>
+        <ul className="payment-terms"><li><Check size={14} />Immediate access after confirmed approval</li><li><Check size={14} />Renews automatically until cancelled</li><li><Check size={14} />Manage cancellation in Mere X settings</li></ul>
+      </div>
+      <div className="payment-checkout">
+        <p className="payment-kicker">PAYMENT</p><h3>Complete checkout</h3><p className="payment-checkout-copy">Approval opens as a secure layer over this page. You stay inside Mere X throughout checkout and confirmation.</p>
+        {!config && !configError && <div className="payment-loading"><RotateCcw className="spin" size={18} />Loading secure payment methods…</div>}
+        {configError && <div className="payment-inline-error"><Info size={16} />{configError}</div>}
+        {config?.clientId && <PayPalProvider clientId={config.clientId} environment={config.environment} components={['paypal-subscriptions']} pageType="checkout"><EmbeddedSubscriptionCheckout plan={plan} annual={annual} quantity={quantity} onSuccess={onCompleted} /></PayPalProvider>}
+        <p className="payment-consent">By continuing, you authorize recurring charges according to the cycle shown and agree to the Mere X Terms and Privacy Policy.</p>
+      </div>
+    </section>
+  </div>
+}
+
 function PricingPage({ navigate, user, onUserUpdated }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null; onUserUpdated: (user: AuthUser) => void }) {
   const [annual, setAnnual] = useState(true)
-  const [selecting, setSelecting] = useState('')
   const [notice, setNotice] = useState('')
+  const [checkoutPlan, setCheckoutPlan] = useState<PlanTier | null>(null)
   const comparison = [
     ['Mere Apex 4.0', 'Included', 'Included', 'Included', 'Included'],
     ['5-hour access', 'Standard', 'Expanded', 'Highest', 'Expanded / member'],
@@ -1352,21 +1518,12 @@ function PricingPage({ navigate, user, onUserUpdated }: { navigate: (route: Publ
     if (plan.name === 'Enterprise') { navigate('help'); return }
     if (!user) { navigate('signup'); return }
     if (plan.name === 'Free') { navigate('app'); return }
-    setSelecting(plan.name); setNotice('')
-    try {
-      const response = await fetch('/api/billing/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: plan.name.toLowerCase(), annual }) })
-      const result = await response.json() as { url?: string; preview?: boolean; user?: AuthUser; error?: string }
-      if (!response.ok) throw new Error(result.error || 'Checkout is unavailable.')
-      if (result.user) { onUserUpdated(result.user); setNotice(`Mere ${plan.name} is active in this development workspace.`); return }
-      if (result.url) { window.location.assign(result.url); return }
-      throw new Error('Checkout is unavailable.')
-    } catch (error) { setNotice(error instanceof Error ? error.message : 'Checkout is unavailable.') }
-    finally { setSelecting('') }
+    setNotice(''); setCheckoutPlan(plan)
   }
   return <PublicShell navigate={navigate} current="pricing" className="pricing-page">
     <section className="public-hero pricing-hero"><p className="landing-kicker">PLANS BUILT TO STAY SUSTAINABLE</p><h1>More capability.<br /><em>Less markup.</em></h1><p>Simple plans with clear limits, one powerful model and no surprise usage charges. Upgrade, downgrade or cancel when you need to.</p><div className="billing-toggle"><button className={!annual ? 'active' : ''} onClick={() => setAnnual(false)}>Monthly</button><button className={annual ? 'active' : ''} onClick={() => setAnnual(true)}>Annual <span>Save up to 22%</span></button></div></section>
     {notice && <div className="pricing-action-notice"><Info size={16} />{notice}</div>}
-    <section className="pricing-grid">{planTiers.map(plan => { const price = annual ? plan.annual : plan.monthly; return <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>{plan.featured && <span className="pricing-ribbon">RECOMMENDED</span>}<p>{plan.eyebrow}</p><h2>{plan.name}</h2><div className="plan-price">{price === null ? <strong>Custom</strong> : <><strong>${price}</strong><span>{price === 0 ? 'forever' : plan.name === 'Team' ? '/ seat / month' : '/ month'}</span></>}</div><small>{price && annual ? `$${price * 12}${plan.name === 'Team' ? ' per seat' : ''} billed annually` : price ? 'Billed monthly' : 'No credit card required'}</small><p className="plan-description">{plan.description}</p><button disabled={Boolean(selecting)} className={plan.featured ? 'primary-button' : 'soft-button'} onClick={() => void choose(plan)}>{selecting === plan.name ? 'Preparing…' : user?.plan === plan.name.toLowerCase() ? 'Current plan' : plan.action}<ArrowRight size={15} /></button><ul>{plan.features.map(feature => <li key={feature}><Check size={15} />{feature}</li>)}</ul></article> })}</section>
+    <section className="pricing-grid">{planTiers.map(plan => { const price = annual ? plan.annual : plan.monthly; const current = user?.plan === plan.name.toLowerCase(); return <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>{plan.featured && <span className="pricing-ribbon">RECOMMENDED</span>}<p>{plan.eyebrow}</p><h2>{plan.name}</h2><div className="plan-price">{price === null ? <strong>Custom</strong> : <><strong>${price}</strong><span>{price === 0 ? 'forever' : plan.name === 'Team' ? '/ seat / month' : '/ month'}</span></>}</div><small>{price && annual ? `$${price * 12}${plan.name === 'Team' ? ' per seat' : ''} billed annually` : price ? 'Billed monthly' : 'No credit card required'}</small><p className="plan-description">{plan.description}</p><button disabled={current} className={plan.featured ? 'primary-button' : 'soft-button'} onClick={() => void choose(plan)}>{current ? 'Current plan' : plan.action}<ArrowRight size={15} /></button><ul>{plan.features.map(feature => <li key={feature}><Check size={15} />{feature}</li>)}</ul></article> })}</section>
     <section className="pricing-note"><Clock3 size={19} /><div><b>Usage refreshes throughout the day.</b><p>Core access runs in rolling 5-hour windows. The amount available adapts to task complexity, file size and demand; advanced tools also use daily fair-use protection. Mere X shows reset timing before access pauses.</p></div></section>
     <section className="comparison-section"><div className="public-section-head"><p className="landing-kicker">COMPARE</p><h2>Know exactly what is included.</h2></div><div className="comparison-scroll"><table><thead><tr><th>Capability</th><th>Free</th><th>Plus</th><th>Pro</th><th>Team</th></tr></thead><tbody>{comparison.map(row => <tr key={row[0]}>{row.map((cell, index) => index === 0 ? <th key={cell}>{cell}</th> : <td key={`${row[0]}-${cell}`}>{cell === 'Included' ? <CheckCircle2 size={16} /> : cell}</td>)}</tr>)}</tbody></table></div></section>
     <section className="public-faq"><div className="public-section-head"><p className="landing-kicker">QUESTIONS</p><h2>Billing without ambiguity.</h2></div><div>{[
@@ -1377,6 +1534,7 @@ function PricingPage({ navigate, user, onUserUpdated }: { navigate: (route: Publ
       ['Is Team content used for training?', 'No. Team and Enterprise workspace content is excluded from product training by default.'],
     ].map(([question, answer]) => <details key={question}><summary>{question}<Plus size={16} /></summary><p>{answer}</p></details>)}</div></section>
     <section className="public-cta"><p className="landing-kicker">START CLEARLY</p><h2>Choose the plan that fits the work.</h2><p>Begin free. Upgrade only when Mere X becomes part of your real workflow.</p><button className="landing-cta large" onClick={() => navigate('signup')}>Create your account<ArrowRight size={16} /></button></section>
+    {checkoutPlan && <PaymentModal plan={checkoutPlan} annual={annual} onClose={() => setCheckoutPlan(null)} onCompleted={(updatedUser) => { onUserUpdated(updatedUser); setNotice(`Mere ${checkoutPlan.name} is active. Payment confirmation is complete.`) }} />}
   </PublicShell>
 }
 

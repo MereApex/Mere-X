@@ -5,6 +5,7 @@ import {
   applyPasswordReset,
   changePassword,
   createJob,
+  createBillingSubscription,
   createPasswordReset,
   createSession,
   createShare,
@@ -12,17 +13,23 @@ import {
   deleteUser,
   findUserByEmail,
   getJob,
+  getCurrentBillingSubscription,
   getSession,
   getShare,
   getStoredFile,
   getWorkspace,
   listJobs,
+  listBillingTransactions,
   listSessions,
   recordBillingEvent,
+  recordBillingTransaction,
   recordUsage,
   saveKnowledgeStore,
   saveWorkspace,
   storeFile,
+  syncBillingSubscription,
+  upsertBillingPlan,
+  upsertBillingProduct,
   updateJob,
   updateUser,
   usageSince,
@@ -39,6 +46,8 @@ const email = `database-smoke-${Date.now()}-${randomUUID().slice(0, 8)}@mere-x.t
 const password = `Mere-X-${randomUUID()}`
 const nextPassword = `Mere-X-next-${randomUUID()}`
 const finalPassword = `Mere-X-final-${randomUUID()}`
+const billingEnvironment = `smoke-${randomUUID().slice(0, 8)}`
+const billingProviderId = `P-SMOKE-${randomUUID()}`
 
 try {
   await initializeDatabase()
@@ -78,7 +87,13 @@ try {
   const billingId = `smoke-${randomUUID()}`
   if (!await recordBillingEvent({ id: billingId, userId: user.id, eventType: 'smoke', payload: { ok: true } })) throw new Error('Billing event persistence failed.')
   if (await recordBillingEvent({ id: billingId, userId: user.id, eventType: 'smoke', payload: { ok: true } })) throw new Error('Billing idempotency failed.')
-  if ((await updateUser(user.id, { plan: 'plus' }))?.plan !== 'plus') throw new Error('Account update failed.')
+  await upsertBillingProduct({ environment: billingEnvironment, providerProductId: `PROD-${randomUUID()}` })
+  const billingPlan = await upsertBillingPlan({ environment: billingEnvironment, planKey: 'plus', billingCycle: 'monthly', currency: 'USD', unitAmount: 18, providerPlanId: `PLAN-${randomUUID()}`, status: 'ACTIVE' })
+  const billingSubscription = await createBillingSubscription({ userId: user.id, providerSubscriptionId: billingProviderId, providerPlanId: billingPlan.provider_plan_id, planKey: 'plus', billingCycle: 'monthly', status: 'APPROVAL_PENDING' })
+  await syncBillingSubscription({ providerSubscriptionId: billingProviderId, status: 'ACTIVE', accessExpiresAt: Date.now() + 86_400_000 })
+  if ((await getCurrentBillingSubscription(user.id))?.status !== 'ACTIVE' || (await updateUser(user.id, {}))?.plan !== 'plus') throw new Error('Subscription activation failed.')
+  if (!await recordBillingTransaction({ id: `transaction-${randomUUID()}`, subscriptionId: billingSubscription.id, userId: user.id, eventType: 'PAYMENT.SALE.COMPLETED', status: 'COMPLETED', amount: 18, currency: 'USD' })) throw new Error('Billing transaction persistence failed.')
+  if ((await listBillingTransactions(user.id)).length !== 1) throw new Error('Billing history failed.')
 
   if (!await changePassword(user.id, password, nextPassword)) throw new Error('Password change failed.')
   const reset = await createPasswordReset(user.id)
@@ -95,11 +110,15 @@ try {
   process.exitCode = 1
 } finally {
   if (user?.id) {
+    await execute('DELETE FROM billing_transactions WHERE user_id=?', [user.id]).catch(() => undefined)
+    await execute('DELETE FROM billing_subscriptions WHERE user_id=?', [user.id]).catch(() => undefined)
     await execute('DELETE FROM billing_events WHERE user_id=?', [user.id]).catch(() => undefined)
     await execute('DELETE FROM audit_events WHERE user_id=?', [user.id]).catch(() => undefined)
   }
   if (shareId) await execute('DELETE FROM shared_conversations WHERE id=?', [shareId]).catch(() => undefined)
   await execute('DELETE FROM usage_events WHERE subject=?', [subject]).catch(() => undefined)
   if (user?.id) await deleteUser(user.id).catch(() => undefined)
+  await execute('DELETE FROM billing_plans WHERE environment=?', [billingEnvironment]).catch(() => undefined)
+  await execute('DELETE FROM billing_products WHERE environment=?', [billingEnvironment]).catch(() => undefined)
   await closeDatabase().catch(() => undefined)
 }

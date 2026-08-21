@@ -27,11 +27,13 @@ import {
   getShare,
   getJob,
   getKnowledgeStore,
+  getCurrentBillingSubscription,
   getStoredFile,
+  getUser,
   getWorkspace,
+  listBillingTransactions,
   listSessions,
   listJobs,
-  recordBillingEvent,
   saveWorkspace,
   saveKnowledgeStore,
   storeFile,
@@ -50,9 +52,18 @@ import {
   usageSummary,
   validateEmail,
   validatePassword,
-  verifySignedWebhook,
 } from './platform.mjs'
 import { collectInteraction, createInteraction, getInteraction, interactionInput, streamInteraction } from './interactions.mjs'
+import {
+  cancelPayPalSubscription,
+  confirmPayPalSubscription,
+  createPayPalSubscription,
+  paymentCatalog,
+  paymentError,
+  processPayPalWebhook,
+  publicPayPalConfig,
+  verifyPayPalWebhook,
+} from './paypal.mjs'
 
 dotenv.config({ path: '.env.local', quiet: true })
 dotenv.config({ quiet: true })
@@ -75,21 +86,16 @@ are, say you are Mere Apex 4.0 by Mere X. Match the user's language unless asked
 app.disable('x-powered-by')
 app.set('trust proxy', 1)
 app.post('/api/billing/webhook', express.raw({ type: 'application/json', limit: '1mb' }), async (req, res) => {
-  const secret = process.env.MERE_BILLING_WEBHOOK_SECRET
   const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from('')
-  if (!verifySignedWebhook(rawBody, req.get('x-mere-signature'), secret)) return res.status(401).json({ error: 'Invalid webhook signature.' })
   try {
     const event = JSON.parse(rawBody.toString('utf8'))
-    const userId = String(event.userId || '')
-    const plan = String(event.plan || '').toLowerCase()
-    if (!userId || !plans[plan] || plan === 'guest') return res.status(400).json({ error: 'Invalid billing event.' })
-    const eventId = String(event.id || req.get('x-mere-event-id') || randomUUID()).slice(0, 160)
-    const fresh = await recordBillingEvent({ id: eventId, userId, eventType: String(event.type || 'plan.updated').slice(0, 80), payload: event })
-    if (!fresh) return res.json({ ok: true, duplicate: true })
-    const user = await updateUser(userId, { plan })
-    if (!user) return res.status(404).json({ error: 'Account not found.' })
-    res.json({ ok: true })
-  } catch { res.status(400).json({ error: 'Invalid billing payload.' }) }
+    if (!await verifyPayPalWebhook(req, event)) return res.status(401).json({ error: 'Invalid webhook signature.' })
+    const result = await processPayPalWebhook(event)
+    res.json({ ok: true, duplicate: result.duplicate })
+  } catch (error) {
+    const failure = paymentError(error)
+    res.status(failure.status === 502 ? 500 : failure.status).json({ error: failure.message, supportId: failure.debugId })
+  }
 })
 app.use(express.json({ limit: '32mb' }))
 app.use((_req, res, next) => {
@@ -508,16 +514,92 @@ app.get('/api/usage', async (req, res) => res.json(await usageSummary(req.identi
 
 app.get('/api/billing/plans', (req, res) => {
   const current = plans[req.identity?.user?.plan] || plans.guest
-  res.json({ current: current.id, plans: Object.values(plans).filter(plan => plan.id !== 'guest').map(({ id, label }) => ({ id, label })) })
+  res.json({
+    current: current.id,
+    currency: publicPayPalConfig().currency,
+    plans: Object.entries(paymentCatalog).map(([id, definition]) => ({
+      id,
+      label: definition.label,
+      monthly: Number(definition.monthly.amount),
+      annual: Number(definition.annual.amount),
+    })),
+  })
 })
 
-app.post('/api/billing/checkout', requireUser, async (req, res) => {
+app.get('/api/billing/config', requireUser, (_req, res) => res.json(publicPayPalConfig()))
+
+function sendPaymentError(res, error) {
+  const failure = paymentError(error)
+  res.status(failure.status).json({ error: failure.message, supportId: failure.debugId })
+}
+
+function requireSameOrigin(req, res, next) {
+  const origin = req.get('origin')
+  if (!origin) return next()
+  try {
+    if (new URL(origin).host !== req.get('host')) return res.status(403).json({ error: 'Cross-site billing requests are not allowed.' })
+  } catch { return res.status(403).json({ error: 'Invalid request origin.' }) }
+  next()
+}
+
+function publicSubscription(subscription) {
+  if (!subscription) return null
+  const { userId: _userId, ...safe } = subscription
+  return safe
+}
+
+app.post('/api/billing/subscriptions', requireUser, requireSameOrigin, async (req, res) => {
   const plan = String(req.body?.plan || '').toLowerCase()
-  if (!['plus', 'pro', 'team'].includes(plan)) return res.status(400).json({ error: 'Choose an available plan.' })
-  const checkoutUrl = process.env[`MERE_BILLING_${plan.toUpperCase()}_URL`]
-  if (checkoutUrl) return res.json({ url: checkoutUrl })
-  if (process.env.NODE_ENV !== 'production') return res.json({ preview: true, user: await updateUser(req.identity.user.id, { plan }) })
-  res.status(503).json({ error: 'Checkout is not configured yet.' })
+  const billingCycle = req.body?.annual ? 'annual' : 'monthly'
+  if (!paymentCatalog[plan]) return res.status(400).json({ error: 'Choose an available plan.' })
+  const existing = await getCurrentBillingSubscription(req.identity.user.id)
+  if (existing && ['ACTIVE', 'APPROVED'].includes(existing.status)) {
+    return res.status(409).json({ error: 'An active membership already exists. Manage it from Plan & billing.' })
+  }
+  if (existing?.status === 'APPROVAL_PENDING' && existing.plan === plan && existing.billingCycle === billingCycle && existing.quantity === (plan === 'team' ? Math.max(2, Number(req.body?.quantity) || 2) : 1)) {
+    return res.json({ subscriptionId: existing.subscriptionId, resumed: true })
+  }
+  try {
+    const result = await createPayPalSubscription({
+      req,
+      user: req.identity.user,
+      planKey: plan,
+      billingCycle,
+      quantity: req.body?.quantity,
+      requestId: req.body?.requestId,
+    })
+    res.status(201).json(result)
+  } catch (error) { sendPaymentError(res, error) }
+})
+
+app.post('/api/billing/subscriptions/:subscriptionId/confirm', requireUser, requireSameOrigin, async (req, res) => {
+  try {
+    const subscription = await confirmPayPalSubscription(req.identity.user.id, String(req.params.subscriptionId))
+    const user = await getUser(req.identity.user.id)
+    res.json({ ok: true, subscription: publicSubscription(subscription), user })
+  } catch (error) { sendPaymentError(res, error) }
+})
+
+app.get('/api/billing/subscription', requireUser, async (req, res) => {
+  const subscription = await getCurrentBillingSubscription(req.identity.user.id)
+  res.json({ subscription: publicSubscription(subscription) })
+})
+
+app.post('/api/billing/subscription/cancel', requireUser, requireSameOrigin, async (req, res) => {
+  const current = await getCurrentBillingSubscription(req.identity.user.id)
+  if (!current || !['ACTIVE', 'APPROVED'].includes(current.status)) return res.status(404).json({ error: 'No active membership was found.' })
+  try {
+    const subscription = await cancelPayPalSubscription(req.identity.user.id, current.subscriptionId)
+    res.json({ ok: true, subscription: publicSubscription(subscription) })
+  } catch (error) { sendPaymentError(res, error) }
+})
+
+app.get('/api/billing/history', requireUser, async (req, res) => {
+  res.json({ transactions: await listBillingTransactions(req.identity.user.id) })
+})
+
+app.post('/api/billing/checkout', requireUser, async (_req, res) => {
+  res.status(410).json({ error: 'Refresh the page to use the secure embedded checkout.' })
 })
 
 app.post('/api/files', async (req, res) => {
