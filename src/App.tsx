@@ -1727,7 +1727,8 @@ function GoogleAuthButton({ mode, onAuthenticated, onNotice }: { mode: 'signin' 
       if (!googleIdentity || !containerRef.current) return
       containerRef.current.replaceChildren()
       googleIdentity.accounts.id.initialize({ client_id: clientId, callback: (response: GoogleCredentialResponse) => void submitCredential(response), ux_mode: 'popup' })
-      googleIdentity.accounts.id.renderButton(containerRef.current, { type: 'standard', theme: 'filled_black', size: 'large', text: mode === 'signup' ? 'signup_with' : 'signin_with', shape: 'rectangular', logo_alignment: 'left', width: 380 })
+      const width = Math.max(240, Math.min(400, Math.floor(containerRef.current.clientWidth || 380)))
+      googleIdentity.accounts.id.renderButton(containerRef.current, { type: 'standard', theme: 'filled_black', size: 'large', text: mode === 'signup' ? 'signup_with' : 'signin_with', shape: 'rectangular', logo_alignment: 'left', width })
     }
     const existing = document.querySelector<HTMLScriptElement>('script[data-mere-google-identity]')
     if ((window as unknown as { google?: GoogleIdentityApi }).google) render()
@@ -1740,10 +1741,11 @@ function GoogleAuthButton({ mode, onAuthenticated, onNotice }: { mode: 'signin' 
       script.addEventListener('load', render, { once: true })
       document.head.appendChild(script)
     }
-    return () => existing?.removeEventListener('load', render)
+    window.addEventListener('resize', render)
+    return () => { existing?.removeEventListener('load', render); window.removeEventListener('resize', render) }
   }, [clientId, mode, onAuthenticated, onNotice])
   if (!clientId) return null
-  return <div className="google-auth-section"><div className="auth-divider"><span>OR</span></div><div className="google-auth-button" ref={containerRef} /></div>
+  return <div className="google-auth-section"><div className="google-auth-button" ref={containerRef} /></div>
 }
 
 function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signup'; navigate: (route: PublicRoute) => void; onAuthenticated: (user: AuthUser) => void }) {
@@ -1806,6 +1808,7 @@ function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signu
         <p className="landing-kicker">{isSignUp ? challengeId ? 'VERIFY YOUR EMAIL' : 'CREATE YOUR ACCOUNT' : 'WELCOME BACK'}</p>
         <h1>{isSignUp ? challengeId ? 'Check your inbox.' : 'Begin with Mere X.' : 'Sign in to Mere X.'}</h1>
         <p>{isSignUp ? challengeId ? `Enter the 6-digit code sent to ${email}.` : 'Your workspace for deeper thinking and better work.' : 'Continue to your conversations, projects and library.'}</p>
+        {!challengeId && <><GoogleAuthButton mode={mode} onAuthenticated={user => { onAuthenticated(user); navigate('app') }} onNotice={setAuthNotice} /><div className="auth-divider"><span>OR CONTINUE WITH EMAIL</span></div></>}
         <form onSubmit={event => void submit(event)}>
           {isSignUp && challengeId ? <label><span>Verification code</span><input className="verification-code-input" value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" inputMode="numeric" autoComplete="one-time-code" autoFocus /></label> : <>
             {isSignUp && <label><span>Name</span><input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" autoComplete="name" /></label>}
@@ -1817,7 +1820,6 @@ function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signu
           {authNotice && <div className="auth-notice" role="status"><Mail size={14} />{authNotice}</div>}
           <button className="auth-submit" type="submit" disabled={submitting || (challengeId ? code.length !== 6 : !email || !password || !passwordValid || (isSignUp && !name))}>{submitting ? 'Please wait…' : isSignUp ? challengeId ? 'Verify and create account' : 'Send verification code' : 'Sign in'}<ArrowRight size={15} /></button>
         </form>
-        {!challengeId && <GoogleAuthButton mode={mode} onAuthenticated={user => { onAuthenticated(user); navigate('app') }} onNotice={setAuthNotice} />}
         {isSignUp && challengeId ? <p className="auth-switch">Wrong email? <button onClick={() => { setChallengeId(''); setCode(''); setAuthNotice('') }}>Go back</button></p> : <p className="auth-switch">{isSignUp ? 'Already have an account?' : 'New to Mere X?'} <button onClick={() => navigate(isSignUp ? 'signin' : 'signup')}>{isSignUp ? 'Sign in' : 'Create an account'}</button></p>}
       </div>
       <div className="auth-side-foot"><span>Protected by Mere X Security</span><span>English<ChevronDown size={12} /></span></div>

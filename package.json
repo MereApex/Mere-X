@@ -14,6 +14,7 @@
     "test:database": "node scripts/mysql-smoke.mjs",
     "test:platform": "node scripts/platform-smoke.mjs",
     "test:payment-ui": "node scripts/ui-payment-smoke.mjs",
+    "test:auth-ui": "node scripts/ui-auth-smoke.mjs",
     "test:ui": "node scripts/ui-all-smoke.mjs",
     "test:landing": "node scripts/ui-landing-smoke.mjs",
     "test:chat-ui": "node scripts/ui-chat-design-smoke.mjs",
