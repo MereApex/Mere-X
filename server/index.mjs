@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
+import { OAuth2Client } from 'google-auth-library'
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx'
 import dotenv from 'dotenv'
 import ExcelJS from 'exceljs'
@@ -12,13 +13,15 @@ import path from 'node:path'
 import { PassThrough } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import {
-  applyPasswordReset,
+  applyPasswordResetCode,
+  applyPasswordChangeCode,
+  consumeSignupChallenge,
+  createPasswordChangeChallenge,
+  createPasswordResetChallenge,
+  createSignupChallenge,
   createJob,
-  createPasswordReset,
   createSession,
   createShare,
-  createUser,
-  changePassword,
   cleanupExpired,
   deleteOtherSessions,
   deleteSession,
@@ -36,6 +39,7 @@ import {
   listJobs,
   saveWorkspace,
   saveKnowledgeStore,
+  signInWithGoogleIdentity,
   storeFile,
   updateUser,
   updateJob,
@@ -64,6 +68,7 @@ import {
   publicPayPalConfig,
   verifyPayPalWebhook,
 } from './paypal.mjs'
+import { emailConfigured, sendAccountCode } from './email.mjs'
 
 dotenv.config({ path: '.env.local', quiet: true })
 dotenv.config({ quiet: true })
@@ -72,6 +77,7 @@ const app = express()
 const port = Number(process.env.PORT || process.env.MERE_PORT || 8787)
 const primaryModel = process.env.MERE_PRIMARY_MODEL || 'gemini-3.7-flash'
 const imageModel = process.env.MERE_IMAGE_MODEL || 'gemini-3-pro-image'
+const computerModel = process.env.MERE_COMPUTER_MODEL || 'gemini-3.6-flash'
 const configuredKey = process.env.MERE_API_KEY || process.env.GEMINI_API_KEY
 const apiKey = configuredKey && !configuredKey.includes('PLACEHOLDER') ? configuredKey : undefined
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
@@ -102,7 +108,7 @@ app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(self)')
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
   next()
 })
 app.use('/api', async (req, res, next) => {
@@ -121,6 +127,41 @@ app.use('/api', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store')
   next()
 })
+
+const sensitiveRequestLog = new Map()
+function allowSensitiveRequest(key, limit, windowMs) {
+  const timestamp = Date.now()
+  const recent = (sensitiveRequestLog.get(key) || []).filter(item => timestamp - item < windowMs)
+  if (recent.length >= limit) return false
+  recent.push(timestamp)
+  sensitiveRequestLog.set(key, recent)
+  return true
+}
+
+function requireSameOrigin(req, res, next) {
+  const origin = req.get('origin')
+  if (!origin) return next()
+  try {
+    const originUrl = new URL(origin)
+    const forwardedHost = String(req.get('x-forwarded-host') || '').split(',')[0].trim()
+    const configuredHost = process.env.PUBLIC_APP_URL ? new URL(process.env.PUBLIC_APP_URL).host : ''
+    const allowedHosts = new Set([req.get('host'), forwardedHost, configuredHost].filter(Boolean))
+    const localDevelopment = process.env.NODE_ENV !== 'production' && ['localhost', '127.0.0.1', '[::1]'].includes(originUrl.hostname)
+    if (!allowedHosts.has(originUrl.host) && !localDevelopment) return res.status(403).json({ error: 'Cross-site requests are not allowed.' })
+  } catch { return res.status(403).json({ error: 'Invalid request origin.' }) }
+  next()
+}
+
+function authPreview(email, code) {
+  const enabled = process.env.AUTH_PREVIEW_CODES === 'true' && process.env.NODE_ENV !== 'production' && !process.env.RAILWAY_ENVIRONMENT
+  return enabled && String(email).toLowerCase().endsWith('.test') ? code : undefined
+}
+
+async function deliverAuthCode({ email, challenge, purpose }) {
+  const previewCode = authPreview(email, challenge.code)
+  if (!previewCode) await sendAccountCode({ to: email, code: challenge.code, purpose, challengeId: challenge.id })
+  return previewCode
+}
 
 function client() {
   if (!apiKey) return null
@@ -406,26 +447,45 @@ app.get('/api/health', async (_req, res) => {
   res.status(database.ok ? 200 : 503).json({ ok: database.ok, configured: Boolean(apiKey), database, model: 'Mere Apex 4.0' })
 })
 
-app.post('/api/auth/signup', async (req, res) => {
+app.get('/api/auth/config', (_req, res) => {
+  res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null, emailVerification: emailConfigured() })
+})
+
+app.post('/api/auth/signup', requireSameOrigin, async (req, res) => {
+  if (req.body?.challengeId && req.body?.code) {
+    if (!allowSensitiveRequest(`signup-verify:${req.ip}:${String(req.body.challengeId)}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
+    try {
+      const user = await consumeSignupChallenge({ id: req.body.challengeId, code: String(req.body.code).replace(/\D/g, '').slice(0, 6) })
+      if (!user) return res.status(400).json({ error: 'The verification code is incorrect or expired.' })
+      const session = await createSession(user.id)
+      setSessionCookie(res, session.token, session.expiresAt)
+      return res.status(201).json({ user })
+    } catch (error) {
+      if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'An account with this email already exists.' })
+      console.error('[signup-verify]', { message: String(error?.message || error).slice(0, 300) })
+      return res.status(500).json({ error: 'The account could not be created.' })
+    }
+  }
   const email = String(req.body?.email || '').trim()
   const password = String(req.body?.password || '')
   const name = String(req.body?.name || '').trim()
   if (!name || name.length > 100) return res.status(400).json({ error: 'Enter your name.' })
   if (!validateEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' })
   if (!validatePassword(password)) return res.status(400).json({ error: 'Use a password with at least 8 characters.' })
+  if (!allowSensitiveRequest(`signup-start:${req.ip}:${email.toLowerCase()}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification codes requested. Try again later.' })
   try {
-    const user = await createUser({ email, password, name })
-    const session = await createSession(user.id)
-    setSessionCookie(res, session.token, session.expiresAt)
-    res.status(201).json({ user })
+    if (await findUserByEmail(email)) return res.status(409).json({ error: 'An account with this email already exists.' })
+    const challenge = await createSignupChallenge({ email, password, name })
+    const previewCode = await deliverAuthCode({ email, challenge, purpose: 'signup' })
+    res.status(202).json({ challengeId: challenge.id, expiresAt: challenge.expiresAt, message: 'We sent a 6-digit verification code to your email.', previewCode })
   } catch (error) {
     if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'An account with this email already exists.' })
     console.error('[signup]', { message: String(error?.message || error).slice(0, 300) })
-    res.status(500).json({ error: 'The account could not be created.' })
+    res.status(Number(error?.statusCode) === 503 ? 503 : 502).json({ error: 'The verification email could not be sent. Check the email service configuration.' })
   }
 })
 
-app.post('/api/auth/signin', async (req, res) => {
+app.post('/api/auth/signin', requireSameOrigin, async (req, res) => {
   const email = String(req.body?.email || '').trim()
   const password = String(req.body?.password || '')
   const row = await findUserByEmail(email)
@@ -433,6 +493,28 @@ app.post('/api/auth/signin', async (req, res) => {
   const session = await createSession(row.id, req.body?.remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)
   setSessionCookie(res, session.token, session.expiresAt)
   res.json({ user: { id: row.id, email: row.email, name: row.name, plan: row.plan } })
+})
+
+app.post('/api/auth/google', requireSameOrigin, async (req, res) => {
+  const clientId = String(process.env.GOOGLE_CLIENT_ID || '').trim()
+  const credential = String(req.body?.credential || '')
+  if (!clientId) return res.status(503).json({ error: 'Google sign-in is not configured.' })
+  if (!credential || credential.length > 10_000) return res.status(400).json({ error: 'Google sign-in did not return a valid credential.' })
+  if (!allowSensitiveRequest(`google-auth:${req.ip}`, 12, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-in attempts. Try again later.' })
+  try {
+    const ticket = await new OAuth2Client(clientId).verifyIdToken({ idToken: credential, audience: clientId })
+    const payload = ticket.getPayload()
+    if (!payload?.sub || !payload.email || !payload.email_verified) return res.status(401).json({ error: 'Google could not verify this email address.' })
+    const authoritativeEmail = payload.email.toLowerCase().endsWith('@gmail.com') || Boolean(payload.hd)
+    const result = await signInWithGoogleIdentity({ subject: payload.sub, email: payload.email, name: payload.name || payload.given_name || '', authoritativeEmail })
+    if (result.conflict) return res.status(409).json({ error: 'Sign in with your password first, then connect Google from account settings.' })
+    const session = await createSession(result.user.id, 30 * 24 * 60 * 60 * 1000)
+    setSessionCookie(res, session.token, session.expiresAt)
+    res.json({ user: result.user, created: result.created })
+  } catch (error) {
+    console.error('[google-auth]', { message: String(error?.message || error).slice(0, 180) })
+    res.status(401).json({ error: 'Google sign-in could not be verified.' })
+  }
 })
 
 app.post('/api/auth/signout', async (req, res) => {
@@ -445,15 +527,26 @@ app.get('/api/auth/session', (req, res) => {
   res.json({ authenticated: Boolean(req.identity?.user), user: req.identity?.user || null })
 })
 
-app.post('/api/auth/forgot-password', async (req, res) => {
-  const row = await findUserByEmail(req.body?.email)
-  const resetToken = row ? await createPasswordReset(row.id) : null
-  res.json({ ok: true, message: 'If the account exists, reset instructions are ready.', previewResetToken: process.env.NODE_ENV === 'production' ? undefined : resetToken })
+app.post('/api/auth/forgot-password', requireSameOrigin, async (req, res) => {
+  const email = String(req.body?.email || '').trim()
+  if (!validateEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' })
+  if (!allowSensitiveRequest(`password-reset:${req.ip}:${email.toLowerCase()}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many reset codes requested. Try again later.' })
+  try {
+    const row = await findUserByEmail(email)
+    if (!row) return res.json({ ok: true, challengeId: randomUUID(), message: 'If the account exists, a 6-digit reset code was sent.' })
+    const challenge = await createPasswordResetChallenge({ userId: row.id, email: row.email })
+    const previewCode = await deliverAuthCode({ email: row.email, challenge, purpose: 'password_reset' })
+    res.json({ ok: true, challengeId: challenge.id, expiresAt: challenge.expiresAt, message: 'If the account exists, a 6-digit reset code was sent.', previewCode })
+  } catch (error) {
+    console.error('[password-reset-request]', { message: String(error?.message || error).slice(0, 300) })
+    res.status(Number(error?.statusCode) === 503 ? 503 : 502).json({ error: 'The reset email could not be sent. Check the email service configuration.' })
+  }
 })
 
-app.post('/api/auth/reset-password', async (req, res) => {
+app.post('/api/auth/reset-password', requireSameOrigin, async (req, res) => {
   if (!validatePassword(req.body?.password)) return res.status(400).json({ error: 'Use a password with at least 8 characters.' })
-  if (!await applyPasswordReset(String(req.body?.token || ''), req.body.password)) return res.status(400).json({ error: 'The reset link is invalid or expired.' })
+  if (!allowSensitiveRequest(`password-reset-verify:${req.ip}:${String(req.body?.challengeId || '')}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
+  if (!await applyPasswordResetCode({ id: String(req.body?.challengeId || ''), code: String(req.body?.code || '').replace(/\D/g, '').slice(0, 6), password: req.body.password })) return res.status(400).json({ error: 'The reset code is incorrect or expired.' })
   res.json({ ok: true })
 })
 
@@ -476,12 +569,25 @@ app.patch('/api/account', requireUser, async (req, res) => {
 })
 
 app.post('/api/account/password', requireUser, async (req, res) => {
+  if (req.body?.challengeId && req.body?.code) {
+    if (!allowSensitiveRequest(`password-change-verify:${req.identity.user.id}:${String(req.body.challengeId)}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
+    if (!await applyPasswordChangeCode({ id: req.body.challengeId, code: String(req.body.code).replace(/\D/g, '').slice(0, 6), userId: req.identity.user.id })) return res.status(400).json({ error: 'The verification code is incorrect or expired.' })
+    await deleteOtherSessions(req.identity.user.id, req.identity.sessionToken)
+    return res.json({ ok: true })
+  }
   const currentPassword = String(req.body?.currentPassword || '')
   const password = String(req.body?.password || '')
   if (!validatePassword(password)) return res.status(400).json({ error: 'Use a password with at least 8 characters.' })
-  if (!await changePassword(req.identity.user.id, currentPassword, password)) return res.status(401).json({ error: 'Current password is incorrect.' })
-  await deleteOtherSessions(req.identity.user.id, req.identity.sessionToken)
-  res.json({ ok: true })
+  if (!allowSensitiveRequest(`password-change:${req.identity.user.id}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification codes requested. Try again later.' })
+  const challenge = await createPasswordChangeChallenge({ userId: req.identity.user.id, currentPassword, password })
+  if (!challenge) return res.status(401).json({ error: 'Current password is incorrect.' })
+  try {
+    const previewCode = await deliverAuthCode({ email: challenge.email, challenge, purpose: 'password_change' })
+    res.status(202).json({ challengeId: challenge.id, expiresAt: challenge.expiresAt, message: 'We sent a 6-digit confirmation code to your email.', previewCode })
+  } catch (error) {
+    console.error('[password-change-request]', { message: String(error?.message || error).slice(0, 300) })
+    res.status(Number(error?.statusCode) === 503 ? 503 : 502).json({ error: 'The confirmation email could not be sent. Check the email service configuration.' })
+  }
 })
 
 app.get('/api/account/sessions', requireUser, async (req, res) => {
@@ -531,15 +637,6 @@ app.get('/api/billing/config', requireUser, (_req, res) => res.json(publicPayPal
 function sendPaymentError(res, error) {
   const failure = paymentError(error)
   res.status(failure.status).json({ error: failure.message, supportId: failure.debugId })
-}
-
-function requireSameOrigin(req, res, next) {
-  const origin = req.get('origin')
-  if (!origin) return next()
-  try {
-    if (new URL(origin).host !== req.get('host')) return res.status(403).json({ error: 'Cross-site billing requests are not allowed.' })
-  } catch { return res.status(403).json({ error: 'Invalid request origin.' }) }
-  next()
 }
 
 function publicSubscription(subscription) {
@@ -661,7 +758,7 @@ app.post('/api/tools/computer', requireUser, (req, res) => void startManagedJob(
   type: 'computer-workspace',
   agent: 'antigravity-preview-05-2026',
   environment: 'remote',
-  agentConfig: { type: 'antigravity', model: 'gemini-3.7-flash', max_total_tokens: 120000 },
+  agentConfig: { type: 'antigravity', model: computerModel, max_total_tokens: 120000 },
   usageKind: 'computer',
 }))
 
@@ -669,7 +766,7 @@ app.post('/api/agents/run', requireUser, (req, res) => void startManagedJob(req,
   type: 'managed-agent',
   agent: 'antigravity-preview-05-2026',
   environment: 'remote',
-  agentConfig: { type: 'antigravity', model: 'gemini-3.7-flash', max_total_tokens: 100000 },
+  agentConfig: { type: 'antigravity', model: computerModel, max_total_tokens: 100000 },
   usageKind: 'agent',
 }))
 

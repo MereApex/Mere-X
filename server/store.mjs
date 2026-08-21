@@ -1,7 +1,8 @@
-import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto'
 import { execute, withTransaction } from './database.mjs'
 
 const now = () => Date.now()
+const productionRuntime = () => process.env.NODE_ENV === 'production' || Boolean(process.env.RAILWAY_ENVIRONMENT)
 const normalizeEmail = (email = '') => String(email).trim().toLowerCase()
 const tokenHash = (token) => createHash('sha256').update(String(token)).digest('hex')
 const jsonParse = (value, fallback = null) => {
@@ -28,11 +29,28 @@ function publicUser(row) {
   return row ? { id: row.id, email: row.email, name: row.name, plan: row.plan, createdAt: Number(row.created_at) } : null
 }
 
+function challengeHash(id, code) {
+  const configured = String(process.env.AUTH_CODE_SECRET || '')
+  if (productionRuntime() && configured.length < 32) throw new Error('AUTH_CODE_SECRET must contain at least 32 characters.')
+  const secret = configured || 'mere-x-local-email-code-secret-do-not-use-in-production'
+  return createHmac('sha256', secret).update(`${id}:${String(code)}`).digest('hex')
+}
+
+function validChallengeCode(row, code) {
+  const actual = Buffer.from(challengeHash(row.id, code), 'hex')
+  const expected = Buffer.from(String(row.code_hash || ''), 'hex')
+  return actual.length === expected.length && timingSafeEqual(actual, expected)
+}
+
+function verificationCode() {
+  return String(randomInt(0, 1_000_000)).padStart(6, '0')
+}
+
 export async function createUser({ email, password, name }) {
   const timestamp = now()
   const user = { id: randomUUID(), email: normalizeEmail(email), name: String(name).trim(), plan: 'free', createdAt: timestamp }
   await withTransaction(async connection => {
-    await connection.execute('INSERT INTO users (id,email,password_hash,name,plan,created_at,updated_at) VALUES (?,?,?,?,?,?,?)', [user.id, user.email, hashPassword(password), user.name, user.plan, timestamp, timestamp])
+    await connection.execute('INSERT INTO users (id,email,password_hash,name,plan,email_verified_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)', [user.id, user.email, hashPassword(password), user.name, user.plan, timestamp, timestamp, timestamp])
     await connection.execute('INSERT INTO workspaces (user_id,version,data,updated_at) VALUES (?,?,?,?)', [user.id, 1, '{}', timestamp])
     await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), user.id, 'account.created', null, timestamp])
   })
@@ -118,11 +136,141 @@ export async function cleanupExpired() {
   await Promise.all([
     execute('DELETE FROM sessions WHERE expires_at<=?', [timestamp]),
     execute('DELETE FROM password_resets WHERE expires_at<=? OR used_at IS NOT NULL', [timestamp]),
+    execute('DELETE FROM email_challenges WHERE expires_at<=? OR consumed_at IS NOT NULL', [timestamp]),
     execute('DELETE FROM shared_conversations WHERE expires_at IS NOT NULL AND expires_at<=?', [timestamp]),
     execute("DELETE FROM jobs WHERE owner_id IS NULL AND updated_at<? AND status IN ('completed','failed','cancelled')", [timestamp - 30 * 24 * 60 * 60 * 1000]),
     execute('DELETE FROM usage_events WHERE created_at<?', [timestamp - 400 * 24 * 60 * 60 * 1000]),
   ])
   await expireEndedBillingAccess(timestamp)
+}
+
+export async function createSignupChallenge({ email, password, name, ttlMs = 10 * 60 * 1000 }) {
+  const id = randomUUID()
+  const code = verificationCode()
+  const normalizedEmail = normalizeEmail(email)
+  const timestamp = now()
+  await withTransaction(async connection => {
+    await connection.execute("DELETE FROM email_challenges WHERE email=? AND purpose='signup' AND consumed_at IS NULL", [normalizedEmail])
+    await connection.execute(`INSERT INTO email_challenges (id,email,purpose,code_hash,name,password_hash,attempts,expires_at,created_at)
+      VALUES (?,?,'signup',?,?,?,?,?,?)`, [id, normalizedEmail, challengeHash(id, code), String(name).trim(), hashPassword(password), 0, timestamp + ttlMs, timestamp])
+  })
+  return { id, code, expiresAt: timestamp + ttlMs }
+}
+
+export async function consumeSignupChallenge({ id, code }) {
+  return withTransaction(async connection => {
+    const [rows] = await connection.execute("SELECT * FROM email_challenges WHERE id=? AND purpose='signup' FOR UPDATE", [String(id)])
+    const challenge = rows[0]
+    if (!challenge || challenge.consumed_at !== null || Number(challenge.expires_at) <= now() || Number(challenge.attempts) >= 5) return null
+    if (!validChallengeCode(challenge, code)) {
+      await connection.execute('UPDATE email_challenges SET attempts=attempts+1 WHERE id=?', [challenge.id])
+      return null
+    }
+    const [existing] = await connection.execute('SELECT id FROM users WHERE email=? LIMIT 1', [challenge.email])
+    if (existing[0]) throw Object.assign(new Error('An account with this email already exists.'), { code: 'ER_DUP_ENTRY' })
+    const timestamp = now()
+    const user = { id: randomUUID(), email: challenge.email, name: challenge.name, plan: 'free', created_at: timestamp }
+    await connection.execute('INSERT INTO users (id,email,password_hash,name,plan,email_verified_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)', [user.id, user.email, challenge.password_hash, user.name, user.plan, timestamp, timestamp, timestamp])
+    await connection.execute('INSERT INTO workspaces (user_id,version,data,updated_at) VALUES (?,?,?,?)', [user.id, 1, '{}', timestamp])
+    await connection.execute('UPDATE email_challenges SET consumed_at=? WHERE id=?', [timestamp, challenge.id])
+    await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), user.id, 'account.created', JSON.stringify({ method: 'email_code' }), timestamp])
+    return publicUser(user)
+  })
+}
+
+export async function createPasswordResetChallenge({ userId, email, ttlMs = 10 * 60 * 1000 }) {
+  const id = randomUUID()
+  const code = verificationCode()
+  const normalizedEmail = normalizeEmail(email)
+  const timestamp = now()
+  await withTransaction(async connection => {
+    await connection.execute("DELETE FROM email_challenges WHERE email=? AND purpose='password_reset' AND consumed_at IS NULL", [normalizedEmail])
+    await connection.execute(`INSERT INTO email_challenges (id,email,purpose,code_hash,name,password_hash,attempts,expires_at,created_at)
+      VALUES (?,?,'password_reset',?,NULL,NULL,0,?,?)`, [id, normalizedEmail, challengeHash(id, code), timestamp + ttlMs, timestamp])
+    await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), userId, 'account.password_reset_requested', null, timestamp])
+  })
+  return { id, code, expiresAt: timestamp + ttlMs }
+}
+
+export async function applyPasswordResetCode({ id, code, password }) {
+  return withTransaction(async connection => {
+    const [rows] = await connection.execute("SELECT * FROM email_challenges WHERE id=? AND purpose='password_reset' FOR UPDATE", [String(id)])
+    const challenge = rows[0]
+    if (!challenge || challenge.consumed_at !== null || Number(challenge.expires_at) <= now() || Number(challenge.attempts) >= 5) return false
+    if (!validChallengeCode(challenge, code)) {
+      await connection.execute('UPDATE email_challenges SET attempts=attempts+1 WHERE id=?', [challenge.id])
+      return false
+    }
+    const [users] = await connection.execute('SELECT id FROM users WHERE email=? LIMIT 1 FOR UPDATE', [challenge.email])
+    const user = users[0]
+    if (!user) return false
+    const timestamp = now()
+    await connection.execute('UPDATE users SET password_hash=?,updated_at=? WHERE id=?', [hashPassword(password), timestamp, user.id])
+    await connection.execute('UPDATE email_challenges SET consumed_at=? WHERE id=?', [timestamp, challenge.id])
+    await connection.execute('DELETE FROM sessions WHERE user_id=?', [user.id])
+    await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), user.id, 'account.password_reset', JSON.stringify({ method: 'email_code' }), timestamp])
+    return true
+  })
+}
+
+export async function createPasswordChangeChallenge({ userId, currentPassword, password, ttlMs = 10 * 60 * 1000 }) {
+  return withTransaction(async connection => {
+    const [users] = await connection.execute('SELECT id,email,password_hash FROM users WHERE id=? FOR UPDATE', [userId])
+    const user = users[0]
+    if (!user || !verifyPassword(currentPassword, user.password_hash)) return null
+    const id = randomUUID()
+    const code = verificationCode()
+    const timestamp = now()
+    await connection.execute("DELETE FROM email_challenges WHERE email=? AND purpose='password_change' AND consumed_at IS NULL", [user.email])
+    await connection.execute(`INSERT INTO email_challenges (id,email,purpose,code_hash,name,password_hash,attempts,expires_at,created_at)
+      VALUES (?,?,'password_change',?,NULL,?,0,?,?)`, [id, user.email, challengeHash(id, code), hashPassword(password), timestamp + ttlMs, timestamp])
+    await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), userId, 'account.password_change_requested', null, timestamp])
+    return { id, code, email: user.email, expiresAt: timestamp + ttlMs }
+  })
+}
+
+export async function applyPasswordChangeCode({ id, code, userId }) {
+  return withTransaction(async connection => {
+    const [rows] = await connection.execute("SELECT * FROM email_challenges WHERE id=? AND purpose='password_change' FOR UPDATE", [String(id)])
+    const challenge = rows[0]
+    if (!challenge || challenge.consumed_at !== null || Number(challenge.expires_at) <= now() || Number(challenge.attempts) >= 5) return false
+    const [users] = await connection.execute('SELECT id,email FROM users WHERE id=? FOR UPDATE', [userId])
+    const user = users[0]
+    if (!user || normalizeEmail(user.email) !== normalizeEmail(challenge.email)) return false
+    if (!validChallengeCode(challenge, code)) {
+      await connection.execute('UPDATE email_challenges SET attempts=attempts+1 WHERE id=?', [challenge.id])
+      return false
+    }
+    const timestamp = now()
+    await connection.execute('UPDATE users SET password_hash=?,updated_at=? WHERE id=?', [challenge.password_hash, timestamp, user.id])
+    await connection.execute('UPDATE email_challenges SET consumed_at=? WHERE id=?', [timestamp, challenge.id])
+    await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), user.id, 'account.password_changed', JSON.stringify({ method: 'email_code' }), timestamp])
+    return true
+  })
+}
+
+export async function signInWithGoogleIdentity({ subject, email, name, authoritativeEmail }) {
+  const provider = 'google'
+  const normalizedEmail = normalizeEmail(email)
+  return withTransaction(async connection => {
+    const [identityRows] = await connection.execute(`SELECT users.* FROM auth_identities
+      JOIN users ON users.id=auth_identities.user_id WHERE auth_identities.provider=? AND auth_identities.provider_subject=? LIMIT 1 FOR UPDATE`, [provider, String(subject)])
+    if (identityRows[0]) return { user: publicUser(identityRows[0]), created: false }
+    const [emailRows] = await connection.execute('SELECT * FROM users WHERE email=? LIMIT 1 FOR UPDATE', [normalizedEmail])
+    let userRow = emailRows[0]
+    if (userRow && !authoritativeEmail) return { conflict: true }
+    const timestamp = now()
+    let created = false
+    if (!userRow) {
+      created = true
+      userRow = { id: randomUUID(), email: normalizedEmail, name: String(name || normalizedEmail.split('@')[0]).trim().slice(0, 100), plan: 'free', created_at: timestamp }
+      await connection.execute('INSERT INTO users (id,email,password_hash,name,plan,email_verified_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)', [userRow.id, userRow.email, hashPassword(randomBytes(32).toString('base64url')), userRow.name, userRow.plan, timestamp, timestamp, timestamp])
+      await connection.execute('INSERT INTO workspaces (user_id,version,data,updated_at) VALUES (?,?,?,?)', [userRow.id, 1, '{}', timestamp])
+    }
+    await connection.execute('INSERT INTO auth_identities (provider,provider_subject,user_id,provider_email,created_at) VALUES (?,?,?,?,?)', [provider, String(subject), userRow.id, normalizedEmail, timestamp])
+    await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), userRow.id, created ? 'account.created' : 'account.identity_linked', JSON.stringify({ method: 'google' }), timestamp])
+    return { user: publicUser(userRow), created }
+  })
 }
 
 export async function createPasswordReset(userId, ttlMs = 30 * 60 * 1000) {

@@ -202,6 +202,38 @@ const migrations = [
       'ALTER TABLE billing_transactions ADD INDEX billing_transactions_provider (provider_transaction_id)',
     ],
   },
+  {
+    version: 4,
+    name: 'verified_email_and_federated_identity',
+    statements: [
+      'ALTER TABLE users ADD COLUMN email_verified_at BIGINT UNSIGNED NULL AFTER plan',
+      'UPDATE users SET email_verified_at=created_at WHERE email_verified_at IS NULL',
+      `CREATE TABLE IF NOT EXISTS auth_identities (
+        provider VARCHAR(32) CHARACTER SET ascii NOT NULL,
+        provider_subject VARCHAR(255) CHARACTER SET ascii NOT NULL,
+        user_id CHAR(36) CHARACTER SET ascii NOT NULL,
+        provider_email VARCHAR(320) NOT NULL,
+        created_at BIGINT UNSIGNED NOT NULL,
+        PRIMARY KEY (provider, provider_subject),
+        INDEX auth_identities_user (user_id),
+        CONSTRAINT auth_identities_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      `CREATE TABLE IF NOT EXISTS email_challenges (
+        id CHAR(36) CHARACTER SET ascii PRIMARY KEY,
+        email VARCHAR(320) NOT NULL,
+        purpose VARCHAR(32) CHARACTER SET ascii NOT NULL,
+        code_hash CHAR(64) CHARACTER SET ascii NOT NULL,
+        name VARCHAR(100) NULL,
+        password_hash VARCHAR(255) CHARACTER SET ascii NULL,
+        attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+        expires_at BIGINT UNSIGNED NOT NULL,
+        consumed_at BIGINT UNSIGNED NULL,
+        created_at BIGINT UNSIGNED NOT NULL,
+        INDEX email_challenges_email_purpose (email, purpose, created_at),
+        INDEX email_challenges_expiry (expires_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    ],
+  },
 ]
 
 function connectionOptions() {
@@ -249,17 +281,21 @@ export async function execute(sql, values = []) {
 }
 
 export async function withTransaction(callback) {
-  const connection = await getPool().getConnection()
-  try {
-    await connection.beginTransaction()
-    const result = await callback(connection)
-    await connection.commit()
-    return result
-  } catch (error) {
-    await connection.rollback().catch(() => undefined)
-    throw error
-  } finally {
-    connection.release()
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const connection = await getPool().getConnection()
+    try {
+      await connection.beginTransaction()
+      const result = await callback(connection)
+      await connection.commit()
+      return result
+    } catch (error) {
+      await connection.rollback().catch(() => undefined)
+      const retryable = error?.code === 'ER_LOCK_DEADLOCK' || error?.code === 'ER_LOCK_WAIT_TIMEOUT'
+      if (!retryable || attempt === 2) throw error
+      await new Promise(resolve => setTimeout(resolve, 30 * (attempt + 1)))
+    } finally {
+      connection.release()
+    }
   }
 }
 

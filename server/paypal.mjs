@@ -431,6 +431,7 @@ export async function createPayPalWebhook(webhookUrl) {
     body: {
       url,
       event_types: [
+        { name: 'BILLING.SUBSCRIPTION.CREATED' },
         { name: 'BILLING.SUBSCRIPTION.ACTIVATED' },
         { name: 'BILLING.SUBSCRIPTION.UPDATED' },
         { name: 'BILLING.SUBSCRIPTION.SUSPENDED' },

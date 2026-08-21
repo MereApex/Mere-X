@@ -131,9 +131,12 @@ type WorkspaceSnapshot = {
   thread?: Message[]
 }
 
+type GoogleCredentialResponse = { credential?: string }
+type GoogleIdentityApi = { accounts: { id: { initialize: (options: { client_id: string; callback: (response: GoogleCredentialResponse) => void; ux_mode?: 'popup' | 'redirect' }) => void; renderButton: (element: HTMLElement, options: { type?: 'standard'; theme?: 'outline' | 'filled_black'; size?: 'large'; text?: 'signin_with' | 'signup_with' | 'continue_with'; shape?: 'rectangular'; logo_alignment?: 'left'; width?: number }) => void } } }
+
 const defaultPreferences: Preferences = { memory: true, training: false, about: '', responseStyle: '', language: 'English', reasoning: 'Adaptive', voice: 'Nova' }
 const defaultSettingsControls: SettingsControls = { notifications: true, email: false, autoClean: false, safeMode: true, voiceInput: true, chatHistory: true }
-const defaultUserProfile: UserProfile = { name: 'Nika K.', email: 'nika@example.com' }
+const defaultUserProfile: UserProfile = { name: 'Mere User', email: '' }
 
 function profileInitials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase()).join('') || 'MX'
@@ -152,53 +155,9 @@ function usePersistentState<T>(key: string, initialValue: T): [T, Dispatch<SetSt
   return [value, setValue]
 }
 
-const chatHistory = [
-  { group: 'Today', items: ['Design system audit', 'Q3 launch strategy', 'Explain neural networks'] },
-  { group: 'Yesterday', items: ['Portfolio copy revision', 'Research synthesis'] },
-  { group: 'Previous 7 days', items: ['Build a product roadmap', 'Contract key points', 'Tokyo itinerary'] },
-]
-
-const defaultConversations: ConversationRecord[] = chatHistory.flatMap((section, groupIndex) => section.items.map((title, itemIndex) => ({
-  id: `sample-chat-${groupIndex}-${itemIndex}`,
-  title,
-  updated: section.group,
-  messages: [
-    { id: groupIndex * 100 + itemIndex * 2 + 1, role: 'user' as const, content: title === 'Design system audit' ? 'Create a focused design direction for a premium AI platform.' : `Help me continue this topic: ${title}` },
-    { id: groupIndex * 100 + itemIndex * 2 + 2, role: 'assistant' as const, content: 'mock' },
-  ],
-})))
-
-const projectCards = [
-  { name: 'Mere X launch', detail: '8 chats · 4 files', updated: 'Updated 12m ago', icon: Sparkles },
-  { name: 'Product research', detail: '14 chats · 11 files', updated: 'Updated yesterday', icon: FolderKanban },
-  { name: 'Personal knowledge', detail: '6 chats · 19 files', updated: 'Updated 3d ago', icon: BookOpen },
-]
-
-const defaultProjects: ProjectRecord[] = projectCards.map((project, index) => ({
-  id: `project-${index + 1}`,
-  name: project.name,
-  description: index === 0 ? 'Product strategy, launch planning and brand direction.' : index === 1 ? 'Market findings, competitor notes and source material.' : 'Personal references and long-term working context.',
-  chatCount: Number(project.detail.match(/\d+/)?.[0] || 0),
-  fileCount: Number(project.detail.match(/· (\d+)/)?.[1] || 0),
-  updated: project.updated,
-}))
-
-const libraryItems = [
-  { title: 'Market landscape brief', type: 'Document', date: 'Today, 10:42', icon: FileText },
-  { title: 'Landing page concept', type: 'Code', date: 'Yesterday, 18:05', icon: Code2 },
-  { title: 'Brand direction', type: 'Image', date: 'Aug 18, 14:22', icon: Image },
-  { title: 'Quarterly analysis', type: 'Document', date: 'Aug 16, 09:14', icon: FileText },
-  { title: 'Dashboard component', type: 'Code', date: 'Aug 14, 16:50', icon: FileCode2 },
-  { title: 'Campaign structure', type: 'Canvas', date: 'Aug 10, 11:08', icon: LayoutGrid },
-]
-
-const defaultLibrary: LibraryRecord[] = libraryItems.map((item, index) => ({
-  id: `library-${index + 1}`,
-  title: item.title,
-  type: item.type as LibraryRecord['type'],
-  date: item.date,
-  content: item.type === 'Code' ? '// Continue editing this output with Mere X.' : `${item.title}\n\nSaved in your Mere X library.`,
-}))
+const defaultConversations: ConversationRecord[] = []
+const defaultProjects: ProjectRecord[] = []
+const defaultLibrary: LibraryRecord[] = []
 
 const agents = [
   { name: 'Research analyst', desc: 'Finds, verifies and synthesizes information into clear briefs.', tag: 'Research', icon: Search },
@@ -1207,6 +1166,8 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
   const [sessions, setSessions] = useState<AccountSession[]>([])
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
+  const [passwordChallengeId, setPasswordChallengeId] = useState('')
+  const [passwordCode, setPasswordCode] = useState('')
   const [deletePassword, setDeletePassword] = useState('')
   const [accountBusy, setAccountBusy] = useState(false)
   useEffect(() => setTab(initialTab), [initialTab])
@@ -1242,13 +1203,17 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'mere-x-data.json'; anchor.click(); URL.revokeObjectURL(url); onToast('Workspace data exported')
   }
   const updatePassword = async (event: FormEvent) => {
-    event.preventDefault(); if (!currentPassword || nextPassword.length < 8) return
+    event.preventDefault(); if (passwordChallengeId ? passwordCode.length !== 6 : !currentPassword || nextPassword.length < 8) return
     setAccountBusy(true)
     try {
-      const response = await fetch('/api/account/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword, password: nextPassword }) })
-      const result = await response.json() as { error?: string }
+      const body = passwordChallengeId ? { challengeId: passwordChallengeId, code: passwordCode } : { currentPassword, password: nextPassword }
+      const response = await fetch('/api/account/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const result = await response.json() as { challengeId?: string; previewCode?: string; message?: string; error?: string }
       if (!response.ok) throw new Error(result.error || 'Password could not be changed.')
-      setCurrentPassword(''); setNextPassword(''); onToast('Password changed and other sessions signed out')
+      if (response.status === 202 && result.challengeId) {
+        setPasswordChallengeId(result.challengeId); setPasswordCode(result.previewCode || ''); onToast(result.message || 'Confirmation code sent'); return
+      }
+      setCurrentPassword(''); setNextPassword(''); setPasswordChallengeId(''); setPasswordCode(''); onToast('Password changed and other sessions signed out')
     } catch (error) { onToast(error instanceof Error ? error.message : 'Password could not be changed') }
     finally { setAccountBusy(false) }
   }
@@ -1295,7 +1260,7 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
     if (tab === 'cloud') return <><PageHeading title="Cloud sync" description="Keep your Mere X workspace consistent across devices." /><SettingsSection title="Synchronization"><SettingRow icon={<Globe2 size={17} />} title="This device" desc="Local workspace continuity is active"><span className="connected-state"><Check size={13} />Active</span></SettingRow><SettingRow icon={<RotateCcw size={17} />} title="Account workspace sync" desc={user ? 'Projects, chats, agents and preferences sync through your account' : 'Sign in to synchronize your workspace across devices'}><span className={user ? 'connected-state' : 'feature-status'}>{user ? <><Check size={13} />Active</> : 'SIGN IN REQUIRED'}</span></SettingRow></SettingsSection></>
     if (tab === 'storage') return <><PageHeading title="Storage" description="Review local workspace usage and cleanup controls." /><div className="storage-meter"><div><span>THIS DEVICE</span><b>{storageLabel}</b></div><i><span style={{ width: `${Math.min(100, Math.max(2, storageBytes / 50000))}%` }} /></i><p>Lightweight local data keeps Mere X responsive. Signed-in workspaces are also synchronized to your account.</p></div><SettingsSection title="Management"><SettingRow icon={<Archive size={17} />} title="Automatic cleanup" desc="Remove temporary previews after 30 days"><Toggle label="Automatic cleanup" active={controls.autoClean ?? false} onChange={() => updateControl('autoClean', !(controls.autoClean ?? false))} /></SettingRow><button className="manage-button" onClick={clearTemporaryCache}>Clear temporary cache<ChevronRight size={15} /></button></SettingsSection></>
     if (tab === 'safety') return <><PageHeading title="Safety" description="Set safeguards for generated and researched content." /><SettingsSection title="Content"><SettingRow icon={<ShieldCheck size={17} />} title="Enhanced safety" desc="Apply stricter safeguards to sensitive topics"><Toggle label="Enhanced safety" active={controls.safeMode ?? true} onChange={() => updateControl('safeMode', !(controls.safeMode ?? true))} /></SettingRow><SettingRow icon={<CircleHelp size={17} />} title="Safety guidance" desc="Read Mere X help and responsible-use guidance"><button className="soft-button" onClick={onOpenHelp}>Open guide</button></SettingRow></SettingsSection></>
-    if (tab === 'security') return <><PageHeading title="Security and login" description="Protect your account and review active access." /><SettingsSection title="Password"><form className="security-form" onSubmit={updatePassword}><label><span>Current password</span><input type="password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" /></label><label><span>New password</span><input type="password" value={nextPassword} onChange={event => setNextPassword(event.target.value)} autoComplete="new-password" placeholder="At least 8 characters" /></label><button className="soft-button" disabled={accountBusy || !currentPassword || nextPassword.length < 8}>Change password</button></form></SettingsSection><SettingsSection title="Sessions">{sessions.map(session => <div className="session-row" key={session.id}><span className="device-icon"><Square size={15} /></span><span><b>{session.current ? 'This browser' : 'Signed-in browser'}</b><small>Started {new Date(session.createdAt).toLocaleDateString()} · Expires {new Date(session.expiresAt).toLocaleDateString()}</small></span><em>{session.current ? 'THIS DEVICE' : 'ACTIVE'}</em></div>)}{!sessions.length && <span className="settings-inline-note">{user ? 'Loading active sessions…' : 'Sign in to manage sessions.'}</span>}{user && <button className="manage-button" disabled={accountBusy || sessions.filter(session => !session.current).length === 0} onClick={() => void revokeOtherSessions()}>Sign out of all other devices<ChevronRight size={15} /></button>}</SettingsSection><SettingsSection title="Additional protection"><SettingRow icon={<ShieldCheck size={17} />} title="Two-step verification" desc="Requires verified message delivery before it can protect sign-in"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow><SettingRow icon={<Lock size={17} />} title="Passkey" desc="Device-bound passwordless sign-in is prepared for a production domain"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow></SettingsSection></>
+    if (tab === 'security') return <><PageHeading title="Security and login" description="Protect your account and review active access." /><SettingsSection title="Password"><form className="security-form" onSubmit={updatePassword}>{passwordChallengeId ? <><label><span>Email confirmation code</span><input className="verification-code-input" value={passwordCode} onChange={event => setPasswordCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" autoFocus /></label><span className="settings-inline-note">Enter the 6-digit code sent to your account email.</span></> : <><label><span>Current password</span><input type="password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" /></label><label><span>New password</span><input type="password" value={nextPassword} onChange={event => setNextPassword(event.target.value)} autoComplete="new-password" placeholder="At least 8 characters" /></label></>}<button className="soft-button" disabled={accountBusy || (passwordChallengeId ? passwordCode.length !== 6 : !currentPassword || nextPassword.length < 8)}>{passwordChallengeId ? 'Confirm password change' : 'Send confirmation code'}</button>{passwordChallengeId && <button type="button" className="settings-text-button" onClick={() => { setPasswordChallengeId(''); setPasswordCode('') }}>Cancel</button>}</form></SettingsSection><SettingsSection title="Sessions">{sessions.map(session => <div className="session-row" key={session.id}><span className="device-icon"><Square size={15} /></span><span><b>{session.current ? 'This browser' : 'Signed-in browser'}</b><small>Started {new Date(session.createdAt).toLocaleDateString()} · Expires {new Date(session.expiresAt).toLocaleDateString()}</small></span><em>{session.current ? 'THIS DEVICE' : 'ACTIVE'}</em></div>)}{!sessions.length && <span className="settings-inline-note">{user ? 'Loading active sessions…' : 'Sign in to manage sessions.'}</span>}{user && <button className="manage-button" disabled={accountBusy || sessions.filter(session => !session.current).length === 0} onClick={() => void revokeOtherSessions()}>Sign out of all other devices<ChevronRight size={15} /></button>}</SettingsSection><SettingsSection title="Additional protection"><SettingRow icon={<ShieldCheck size={17} />} title="Two-step verification" desc="Requires verified message delivery before it can protect sign-in"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow><SettingRow icon={<Lock size={17} />} title="Passkey" desc="Device-bound passwordless sign-in is prepared for a production domain"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow></SettingsSection></>
     if (tab === 'account') return <><PageHeading title="Account" description="Manage your profile, workspace identity and access." /><SettingsSection title="Profile"><AccountProfileEditor profile={profile} setProfile={setProfile} onToast={onToast} /></SettingsSection><SettingsSection title="Plan"><div className="plan-card"><div><span>PERSONAL</span><h3>Mere {planLabel}</h3><p>Mere Apex 4.0 and workspace tools with rolling 5-hour usage windows.</p></div><button className="soft-button" onClick={() => setTab('billing')}>Manage plan</button></div></SettingsSection><SettingsSection title="Delete account"><form className="delete-account-form" onSubmit={removeAccount}><div><b>Permanently delete this account</b><p>Your synchronized workspace, sessions and stored files will be removed. Shared links may remain without your identity until they expire.</p></div><label><span>Confirm with your password</span><input type="password" value={deletePassword} onChange={event => setDeletePassword(event.target.value)} autoComplete="current-password" /></label><button disabled={accountBusy || !deletePassword}>Delete account</button></form></SettingsSection><button className="logout-button" onClick={onSignOut}><LogOut size={16} />Log out</button></>
     return <><PageHeading title="Keyboard shortcuts" description="Move faster through chats, search and workspace controls." /><SettingsSection title="Navigation"><div className="shortcut-row"><span>New chat</span><kbd>Ctrl</kbd><b>+</b><kbd>N</kbd></div><div className="shortcut-row"><span>Search everything</span><kbd>Ctrl</kbd><b>+</b><kbd>K</kbd></div><div className="shortcut-row"><span>Close menu or modal</span><kbd>Esc</kbd></div></SettingsSection><SettingsSection title="Composer"><div className="shortcut-row"><span>Send message</span><kbd>Enter</kbd></div><div className="shortcut-row"><span>New line</span><kbd>Shift</kbd><b>+</b><kbd>Enter</kbd></div></SettingsSection></>
   })()
@@ -1357,12 +1322,12 @@ function InfoPanel({ title, favorite, onClose, onFavorite, onMove, onArchive, on
   return <aside className="info-panel"><div className="panel-head"><h3>Chat details</h3><IconButton label="Close details" onClick={onClose}><X size={18} /></IconButton></div><div className="panel-section"><p>TITLE</p><div className="editable-title">{title}<Pencil size={14} /></div></div><div className="panel-section"><p>MODEL</p><div className="model-detail"><span className="model-orb" /><span><b>Mere Apex 4.0</b><small>Advanced reasoning and tools</small></span><Check size={15} /></div></div><div className="panel-section"><p>CONVERSATION</p><button onClick={onFavorite}><Star size={16} fill={favorite ? 'currentColor' : 'none'} />{favorite ? 'Remove from favorites' : 'Add to favorites'}</button><button onClick={onMove}><Folder size={16} />Move to project</button><button onClick={onArchive}><Archive size={16} />Archive chat</button><button className="danger" onClick={onDelete}><Trash2 size={16} />Delete chat</button></div><div className="panel-note"><Lock size={14} /><span><b>Private conversation</b><small>Only you can access this chat.</small></span></div></aside>
 }
 
-function PublicHeader({ navigate, current }: { navigate: (route: PublicRoute) => void; current: PublicRoute }) {
+function PublicHeader({ navigate, current, user }: { navigate: (route: PublicRoute) => void; current: PublicRoute; user?: AuthUser | null }) {
   const links: { route: PublicRoute; label: string }[] = [{ route: 'apex', label: 'Mere Apex' }, { route: 'pricing', label: 'Pricing' }, { route: 'security', label: 'Security' }, { route: 'help', label: 'Help' }]
   return <header className="public-header">
     <button className="public-brand" onClick={() => navigate('landing')}><BrandMark /></button>
     <nav aria-label="Public navigation">{links.map(link => <button key={link.route} className={current === link.route ? 'active' : ''} onClick={() => navigate(link.route)}>{link.label}</button>)}</nav>
-    <div><button className="public-signin" onClick={() => navigate('signin')}>Sign in</button><button className="landing-cta" onClick={() => navigate('signup')}>Get started<ArrowRight size={14} /></button></div>
+    <div>{user ? <button className="public-account-return" onClick={() => navigate('app')} aria-label="Return to your Mere X workspace"><span className="avatar">{profileInitials(user.name)}</span><span><b>{user.name}</b><small>Mere {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}</small></span><ArrowRight size={15} /></button> : <><button className="public-signin" onClick={() => navigate('signin')}>Sign in</button><button className="landing-cta" onClick={() => navigate('signup')}>Get started<ArrowRight size={14} /></button></>}</div>
   </header>
 }
 
@@ -1375,9 +1340,9 @@ function PublicFooter({ navigate }: { navigate: (route: PublicRoute) => void }) 
   return <footer className="public-footer"><div className="public-footer-brand"><BrandMark /><p>One model. Every kind of work.</p><span>© 2026 Mere X</span></div>{groups.map(group => <div className="public-footer-group" key={group.title}><b>{group.title}</b>{group.links.map(link => <button key={link.route} onClick={() => navigate(link.route)}>{link.label}</button>)}</div>)}</footer>
 }
 
-function PublicShell({ navigate, current, children, className = '' }: { navigate: (route: PublicRoute) => void; current: PublicRoute; children: ReactNode; className?: string }) {
+function PublicShell({ navigate, current, children, className = '', user }: { navigate: (route: PublicRoute) => void; current: PublicRoute; children: ReactNode; className?: string; user?: AuthUser | null }) {
   useEffect(() => { window.scrollTo(0, 0) }, [current])
-  return <div className={`public-page ${className}`}><PublicHeader navigate={navigate} current={current} /><main className="public-main">{children}</main><PublicFooter navigate={navigate} /></div>
+  return <div className={`public-page ${className}`}><PublicHeader navigate={navigate} current={current} user={user} /><main className="public-main">{children}</main><PublicFooter navigate={navigate} /></div>
 }
 
 type PaymentConfig = { enabled: boolean; clientId?: string; environment: 'sandbox' | 'production'; currency: string; methods: string[] }
@@ -1520,7 +1485,7 @@ function PricingPage({ navigate, user, onUserUpdated }: { navigate: (route: Publ
     if (plan.name === 'Free') { navigate('app'); return }
     setNotice(''); setCheckoutPlan(plan)
   }
-  return <PublicShell navigate={navigate} current="pricing" className="pricing-page">
+  return <PublicShell navigate={navigate} current="pricing" className="pricing-page" user={user}>
     <section className="public-hero pricing-hero"><p className="landing-kicker">PLANS BUILT TO STAY SUSTAINABLE</p><h1>More capability.<br /><em>Less markup.</em></h1><p>Simple plans with clear limits, one powerful model and no surprise usage charges. Upgrade, downgrade or cancel when you need to.</p><div className="billing-toggle"><button className={!annual ? 'active' : ''} onClick={() => setAnnual(false)}>Monthly</button><button className={annual ? 'active' : ''} onClick={() => setAnnual(true)}>Annual <span>Save up to 22%</span></button></div></section>
     {notice && <div className="pricing-action-notice"><Info size={16} />{notice}</div>}
     <section className="pricing-grid">{planTiers.map(plan => { const price = annual ? plan.annual : plan.monthly; const current = user?.plan === plan.name.toLowerCase(); return <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>{plan.featured && <span className="pricing-ribbon">RECOMMENDED</span>}<p>{plan.eyebrow}</p><h2>{plan.name}</h2><div className="plan-price">{price === null ? <strong>Custom</strong> : <><strong>${price}</strong><span>{price === 0 ? 'forever' : plan.name === 'Team' ? '/ seat / month' : '/ month'}</span></>}</div><small>{price && annual ? `$${price * 12}${plan.name === 'Team' ? ' per seat' : ''} billed annually` : price ? 'Billed monthly' : 'No credit card required'}</small><p className="plan-description">{plan.description}</p><button disabled={current} className={plan.featured ? 'primary-button' : 'soft-button'} onClick={() => void choose(plan)}>{current ? 'Current plan' : plan.action}<ArrowRight size={15} /></button><ul>{plan.features.map(feature => <li key={feature}><Check size={15} />{feature}</li>)}</ul></article> })}</section>
@@ -1734,6 +1699,53 @@ function LandingPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
   </div>
 }
 
+function GoogleAuthButton({ mode, onAuthenticated, onNotice }: { mode: 'signin' | 'signup'; onAuthenticated: (user: AuthUser) => void; onNotice: (message: string) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [clientId, setClientId] = useState('')
+  useEffect(() => {
+    const controller = new AbortController()
+    void fetch('/api/auth/config', { signal: controller.signal }).then(async response => {
+      const result = await response.json() as { googleClientId?: string | null }
+      if (response.ok && result.googleClientId) setClientId(result.googleClientId)
+    }).catch(() => undefined)
+    return () => controller.abort()
+  }, [])
+  useEffect(() => {
+    if (!clientId || !containerRef.current) return
+    const submitCredential = async ({ credential }: GoogleCredentialResponse) => {
+      if (!credential) return onNotice('Google did not return a sign-in credential.')
+      onNotice('Verifying your Google account…')
+      try {
+        const response = await fetch('/api/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential }) })
+        const result = await response.json() as { user?: AuthUser; error?: string }
+        if (!response.ok || !result.user) throw new Error(result.error || 'Google sign-in failed.')
+        onAuthenticated(result.user)
+      } catch (error) { onNotice(error instanceof Error ? error.message : 'Google sign-in failed.') }
+    }
+    const render = () => {
+      const googleIdentity = (window as unknown as { google?: GoogleIdentityApi }).google
+      if (!googleIdentity || !containerRef.current) return
+      containerRef.current.replaceChildren()
+      googleIdentity.accounts.id.initialize({ client_id: clientId, callback: (response: GoogleCredentialResponse) => void submitCredential(response), ux_mode: 'popup' })
+      googleIdentity.accounts.id.renderButton(containerRef.current, { type: 'standard', theme: 'filled_black', size: 'large', text: mode === 'signup' ? 'signup_with' : 'signin_with', shape: 'rectangular', logo_alignment: 'left', width: 380 })
+    }
+    const existing = document.querySelector<HTMLScriptElement>('script[data-mere-google-identity]')
+    if ((window as unknown as { google?: GoogleIdentityApi }).google) render()
+    else if (existing) existing.addEventListener('load', render, { once: true })
+    else {
+      const script = document.createElement('script')
+      script.src = 'https://accounts.google.com/gsi/client'
+      script.async = true
+      script.dataset.mereGoogleIdentity = 'true'
+      script.addEventListener('load', render, { once: true })
+      document.head.appendChild(script)
+    }
+    return () => existing?.removeEventListener('load', render)
+  }, [clientId, mode, onAuthenticated, onNotice])
+  if (!clientId) return null
+  return <div className="google-auth-section"><div className="auth-divider"><span>OR</span></div><div className="google-auth-button" ref={containerRef} /></div>
+}
+
 function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signup'; navigate: (route: PublicRoute) => void; onAuthenticated: (user: AuthUser) => void }) {
   const isSignUp = mode === 'signup'
   const [showPassword, setShowPassword] = useState(false)
@@ -1743,15 +1755,25 @@ function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signu
   const [authNotice, setAuthNotice] = useState('')
   const [remember, setRemember] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [challengeId, setChallengeId] = useState('')
+  const [code, setCode] = useState('')
   const passwordValid = !isSignUp || password.length >= 8
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!email || !password || !passwordValid || (isSignUp && !name)) return
+    if (isSignUp && challengeId && code.length !== 6) return
+    if (!challengeId && (!email || !password || !passwordValid || (isSignUp && !name))) return
     setSubmitting(true)
     setAuthNotice('')
     try {
-      const response = await fetch(`/api/auth/${isSignUp ? 'signup' : 'signin'}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, name, remember }) })
-      const result = await response.json() as { user?: AuthUser; error?: string }
+      const body = isSignUp && challengeId ? { challengeId, code } : { email, password, name, remember }
+      const response = await fetch(`/api/auth/${isSignUp ? 'signup' : 'signin'}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const result = await response.json() as { user?: AuthUser; challengeId?: string; message?: string; previewCode?: string; error?: string }
+      if (isSignUp && response.status === 202 && result.challengeId) {
+        setChallengeId(result.challengeId)
+        setCode(result.previewCode || '')
+        setAuthNotice(result.message || 'Verification code sent.')
+        return
+      }
       if (!response.ok || !result.user) throw new Error(result.error || 'Authentication failed.')
       onAuthenticated(result.user)
       navigate('app')
@@ -1763,9 +1785,10 @@ function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signu
     setSubmitting(true)
     try {
       const response = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
-      const result = await response.json() as { message?: string; error?: string; previewResetToken?: string }
-      setAuthNotice(result.message || result.error || 'Reset instructions are ready.')
-      if (result.previewResetToken) window.location.hash = `/reset-password?token=${encodeURIComponent(result.previewResetToken)}`
+      const result = await response.json() as { challengeId?: string; message?: string; error?: string; previewCode?: string }
+      if (!response.ok || !result.challengeId) throw new Error(result.error || 'Reset instructions could not be prepared.')
+      sessionStorage.setItem('mere-x-password-reset', JSON.stringify({ challengeId: result.challengeId, email, previewCode: result.previewCode || '' }))
+      navigate('reset-password')
     } catch { setAuthNotice('Reset instructions could not be prepared.') }
     finally { setSubmitting(false) }
   }
@@ -1780,21 +1803,22 @@ function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signu
       <button className="auth-back" onClick={() => navigate('landing')}><ArrowLeft size={15} />Back to home</button>
       <div className="auth-form-wrap">
         <div className="auth-mobile-logo"><BrandMark /></div>
-        <p className="landing-kicker">{isSignUp ? 'CREATE YOUR ACCOUNT' : 'WELCOME BACK'}</p>
-        <h1>{isSignUp ? 'Begin with Mere X.' : 'Sign in to Mere X.'}</h1>
-        <p>{isSignUp ? 'Your workspace for deeper thinking and better work.' : 'Continue to your conversations, projects and library.'}</p>
+        <p className="landing-kicker">{isSignUp ? challengeId ? 'VERIFY YOUR EMAIL' : 'CREATE YOUR ACCOUNT' : 'WELCOME BACK'}</p>
+        <h1>{isSignUp ? challengeId ? 'Check your inbox.' : 'Begin with Mere X.' : 'Sign in to Mere X.'}</h1>
+        <p>{isSignUp ? challengeId ? `Enter the 6-digit code sent to ${email}.` : 'Your workspace for deeper thinking and better work.' : 'Continue to your conversations, projects and library.'}</p>
         <form onSubmit={event => void submit(event)}>
-          {isSignUp && <label><span>Name</span><input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" autoComplete="name" /></label>}
-          <label><span>Email address</span><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com" autoComplete="email" /></label>
-          <label><span>Password</span><div className="password-input"><input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder={isSignUp ? 'At least 8 characters' : 'Enter your password'} autoComplete={isSignUp ? 'new-password' : 'current-password'} /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Hide' : 'Show'}</button></div></label>
-          {!isSignUp && <div className="auth-options"><label className="check-label"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)} /><span>Remember me</span></label><button type="button" onClick={() => void forgotPassword()}>Forgot password?</button></div>}
-          {isSignUp && <label className="check-label terms-check"><input type="checkbox" required /><span>I agree to the <button type="button" className="auth-legal-link" onClick={() => navigate('terms')}>Terms</button> and <button type="button" className="auth-legal-link" onClick={() => navigate('privacy')}>Privacy Policy</button>.</span></label>}
+          {isSignUp && challengeId ? <label><span>Verification code</span><input className="verification-code-input" value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" inputMode="numeric" autoComplete="one-time-code" autoFocus /></label> : <>
+            {isSignUp && <label><span>Name</span><input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" autoComplete="name" /></label>}
+            <label><span>Email address</span><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com" autoComplete="email" /></label>
+            <label><span>Password</span><div className="password-input"><input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder={isSignUp ? 'At least 8 characters' : 'Enter your password'} autoComplete={isSignUp ? 'new-password' : 'current-password'} /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Hide' : 'Show'}</button></div></label>
+            {!isSignUp && <div className="auth-options"><label className="check-label"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)} /><span>Remember me</span></label><button type="button" onClick={() => void forgotPassword()}>Forgot password?</button></div>}
+            {isSignUp && <label className="check-label terms-check"><input type="checkbox" required /><span>I agree to the <button type="button" className="auth-legal-link" onClick={() => navigate('terms')}>Terms</button> and <button type="button" className="auth-legal-link" onClick={() => navigate('privacy')}>Privacy Policy</button>.</span></label>}
+          </>}
           {authNotice && <div className="auth-notice" role="status"><Mail size={14} />{authNotice}</div>}
-          <button className="auth-submit" type="submit" disabled={submitting || !email || !password || !passwordValid || (isSignUp && !name)}>{submitting ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}<ArrowRight size={15} /></button>
+          <button className="auth-submit" type="submit" disabled={submitting || (challengeId ? code.length !== 6 : !email || !password || !passwordValid || (isSignUp && !name))}>{submitting ? 'Please wait…' : isSignUp ? challengeId ? 'Verify and create account' : 'Send verification code' : 'Sign in'}<ArrowRight size={15} /></button>
         </form>
-        <div className="auth-divider"><span>OR</span></div>
-        <button className="passkey-button" onClick={() => navigate('app')}><Sparkles size={17} />Explore the product preview</button>
-        <p className="auth-switch">{isSignUp ? 'Already have an account?' : 'New to Mere X?'} <button onClick={() => navigate(isSignUp ? 'signin' : 'signup')}>{isSignUp ? 'Sign in' : 'Create an account'}</button></p>
+        {!challengeId && <GoogleAuthButton mode={mode} onAuthenticated={user => { onAuthenticated(user); navigate('app') }} onNotice={setAuthNotice} />}
+        {isSignUp && challengeId ? <p className="auth-switch">Wrong email? <button onClick={() => { setChallengeId(''); setCode(''); setAuthNotice('') }}>Go back</button></p> : <p className="auth-switch">{isSignUp ? 'Already have an account?' : 'New to Mere X?'} <button onClick={() => navigate(isSignUp ? 'signin' : 'signup')}>{isSignUp ? 'Sign in' : 'Create an account'}</button></p>}
       </div>
       <div className="auth-side-foot"><span>Protected by Mere X Security</span><span>English<ChevronDown size={12} /></span></div>
     </section>
@@ -1802,23 +1826,39 @@ function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signu
 }
 
 function ResetPasswordPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
-  const token = new URLSearchParams(window.location.hash.split('?')[1] || '').get('token') || ''
+  const initial = (() => {
+    try { return JSON.parse(sessionStorage.getItem('mere-x-password-reset') || '{}') as { challengeId?: string; email?: string; previewCode?: string } }
+    catch { return {} }
+  })()
+  const [challengeId, setChallengeId] = useState(initial.challengeId || '')
+  const [email, setEmail] = useState(initial.email || '')
+  const [code, setCode] = useState(initial.previewCode || '')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [notice, setNotice] = useState(token ? '' : 'This reset link is incomplete.')
+  const [notice, setNotice] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const submit = async (event: FormEvent) => {
-    event.preventDefault(); if (!token || password.length < 8 || password !== confirmPassword) return
+    event.preventDefault()
     setSubmitting(true); setNotice('')
     try {
-      const response = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, password }) })
-      const result = await response.json() as { error?: string }
-      if (!response.ok) throw new Error(result.error || 'Password could not be reset.')
-      setNotice('Password updated. You can now sign in.'); window.setTimeout(() => navigate('signin'), 900)
+      if (!challengeId) {
+        const response = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
+        const result = await response.json() as { challengeId?: string; message?: string; previewCode?: string; error?: string }
+        if (!response.ok || !result.challengeId) throw new Error(result.error || 'Reset code could not be sent.')
+        setChallengeId(result.challengeId); setCode(result.previewCode || ''); setNotice(result.message || 'Reset code sent.')
+        sessionStorage.setItem('mere-x-password-reset', JSON.stringify({ challengeId: result.challengeId, email, previewCode: result.previewCode || '' }))
+      } else {
+        if (code.length !== 6 || password.length < 8 || password !== confirmPassword) return
+        const response = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ challengeId, code, password }) })
+        const result = await response.json() as { error?: string }
+        if (!response.ok) throw new Error(result.error || 'Password could not be reset.')
+        sessionStorage.removeItem('mere-x-password-reset')
+        setNotice('Password updated. You can now sign in.'); window.setTimeout(() => navigate('signin'), 900)
+      }
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Password could not be reset.') }
     finally { setSubmitting(false) }
   }
-  return <div className="auth-page reset-auth-page"><section className="auth-visual"><button className="auth-logo" onClick={() => navigate('landing')}><BrandMark /></button><div className="auth-quote"><span className="auth-glyph"><Lock size={24} /></span><p className="landing-kicker">ACCOUNT RECOVERY</p><h2>A secure return<br />to your <em>workspace.</em></h2></div><div className="auth-grid" /></section><section className="auth-form-side"><button className="auth-back" onClick={() => navigate('signin')}><ArrowLeft size={15} />Back to sign in</button><div className="auth-form-wrap"><span className="auth-mobile-logo"><BrandMark /></span><p className="landing-kicker">MERE X SECURITY</p><h1>Set a new password.</h1><p>Use at least eight characters and keep it unique to Mere X.</p><form onSubmit={submit}><label><span>New password</span><input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" /></label><label><span>Confirm password</span><input type="password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} autoComplete="new-password" /></label>{notice && <div className="auth-notice"><Info size={14} />{notice}</div>}<button className="auth-submit" disabled={submitting || !token || password.length < 8 || password !== confirmPassword}>{submitting ? 'Updating…' : 'Update password'}<ArrowRight size={15} /></button></form></div></section></div>
+  return <div className="auth-page reset-auth-page"><section className="auth-visual"><button className="auth-logo" onClick={() => navigate('landing')}><BrandMark /></button><div className="auth-quote"><span className="auth-glyph"><Lock size={24} /></span><p className="landing-kicker">ACCOUNT RECOVERY</p><h2>A secure return<br />to your <em>workspace.</em></h2></div><div className="auth-grid" /></section><section className="auth-form-side"><button className="auth-back" onClick={() => navigate('signin')}><ArrowLeft size={15} />Back to sign in</button><div className="auth-form-wrap"><span className="auth-mobile-logo"><BrandMark /></span><p className="landing-kicker">MERE X SECURITY</p><h1>{challengeId ? 'Enter your reset code.' : 'Reset your password.'}</h1><p>{challengeId ? `Use the 6-digit code sent to ${email}, then choose a new password.` : 'Enter your account email and we will send a one-time code.'}</p><form onSubmit={submit}>{challengeId ? <><label><span>Reset code</span><input className="verification-code-input" value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" autoFocus /></label><label><span>New password</span><input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" /></label><label><span>Confirm password</span><input type="password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} autoComplete="new-password" /></label></> : <label><span>Email address</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" placeholder="name@example.com" autoFocus /></label>}{notice && <div className="auth-notice" role="status"><Info size={14} />{notice}</div>}<button className="auth-submit" disabled={submitting || (challengeId ? code.length !== 6 || password.length < 8 || password !== confirmPassword : !email)}>{submitting ? 'Please wait…' : challengeId ? 'Update password' : 'Send reset code'}<ArrowRight size={15} /></button></form>{challengeId && <p className="auth-switch">Need another code? <button onClick={() => { setChallengeId(''); setCode(''); setNotice(''); sessionStorage.removeItem('mere-x-password-reset') }}>Request again</button></p>}</div></section></div>
 }
 
 export default function App() {
@@ -1881,14 +1921,14 @@ export default function App() {
       const result = await response.json() as { version: number; data: WorkspaceSnapshot }
       workspaceVersionRef.current = result.version
       const data = result.data || {}
-      if (Array.isArray(data.projects)) setProjects(data.projects)
-      if (Array.isArray(data.library)) setLibrary(data.library)
-      if (Array.isArray(data.agents)) setAgentRecords(data.agents)
-      if (Array.isArray(data.conversations)) setConversations(data.conversations)
+      setProjects(Array.isArray(data.projects) ? data.projects : [])
+      setLibrary(Array.isArray(data.library) ? data.library : [])
+      setAgentRecords(Array.isArray(data.agents) ? data.agents : defaultAgents)
+      setConversations(Array.isArray(data.conversations) ? data.conversations : [])
       if (data.preferences) setPreferences(current => ({ ...current, ...data.preferences }))
       if (data.settingsControls) setSettingsControls(current => ({ ...current, ...data.settingsControls }))
       if (data.profile) setProfile(data.profile)
-      if (Array.isArray(data.thread)) setMessages(data.thread)
+      setMessages(Array.isArray(data.thread) ? data.thread : [])
       setWorkspaceLoaded(true)
     }).catch(() => setWorkspaceLoaded(true))
     return () => controller.abort()
@@ -1980,6 +2020,15 @@ export default function App() {
 
   const notify = (text: string) => setToast(text)
   const authenticated = (user: AuthUser) => {
+    setProjects([])
+    setLibrary([])
+    setAgentRecords(defaultAgents)
+    setConversations([])
+    setMessages([])
+    setActiveConversationId(null)
+    localStorage.removeItem('mere-x-active-chat')
+    setActiveAgent(null)
+    setActiveProject(null)
     setSessionUser(user)
     setWorkspaceLoaded(false)
     setProfile({ name: user.name, email: user.email })
@@ -1987,6 +2036,16 @@ export default function App() {
   const signOut = () => {
     void fetch('/api/auth/signout', { method: 'POST' }).finally(() => {
       setSessionUser(null)
+      setProjects([])
+      setLibrary([])
+      setAgentRecords(defaultAgents)
+      setConversations([])
+      setMessages([])
+      setActiveConversationId(null)
+      localStorage.removeItem('mere-x-active-chat')
+      setActiveAgent(null)
+      setActiveProject(null)
+      setProfile(defaultUserProfile)
       setWorkspaceLoaded(true)
       navigatePublic('landing')
     })

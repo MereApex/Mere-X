@@ -22,9 +22,15 @@ async function request(path, options = {}) {
   return { response, body }
 }
 
+async function signupVerified({ name, email: accountEmail, password }) {
+  const challenge = (await request('/api/auth/signup', { method: 'POST', body: JSON.stringify({ name, email: accountEmail, password }) })).body
+  assert(challenge.challengeId && challenge.previewCode, 'Development signup verification code was not created')
+  return (await request('/api/auth/signup', { method: 'POST', body: JSON.stringify({ challengeId: challenge.challengeId, code: challenge.previewCode }) })).body
+}
+
 const report = {}
 try {
-  const signup = (await request('/api/auth/signup', { method: 'POST', body: JSON.stringify({ name: 'Platform Smoke', email, password: originalPassword }) })).body
+  const signup = await signupVerified({ name: 'Platform Smoke', email, password: originalPassword })
   assert(signup.user?.email === email, 'Signup did not return the new account')
   report.signup = true
 
@@ -62,7 +68,9 @@ try {
   assert(sessions.sessions?.some(item => item.current), 'Current session was not identified')
   report.sessionManagement = true
 
-  await request('/api/account/password', { method: 'POST', body: JSON.stringify({ currentPassword: originalPassword, password: nextPassword }) })
+  const passwordChange = (await request('/api/account/password', { method: 'POST', body: JSON.stringify({ currentPassword: originalPassword, password: nextPassword }) })).body
+  assert(passwordChange.challengeId && passwordChange.previewCode, 'Development password-change verification code was not created')
+  await request('/api/account/password', { method: 'POST', body: JSON.stringify({ challengeId: passwordChange.challengeId, code: passwordChange.previewCode }) })
   await request('/api/auth/signout', { method: 'POST' })
   const signin = (await request('/api/auth/signin', { method: 'POST', body: JSON.stringify({ email, password: nextPassword, remember: false }) })).body
   assert(signin.user?.email === email, 'Sign-in with the updated password failed')
@@ -75,10 +83,10 @@ try {
 
   const resetEmail = `reset-smoke-${Date.now()}@mere.test`
   cookie = ''
-  await request('/api/auth/signup', { method: 'POST', body: JSON.stringify({ name: 'Reset Smoke', email: resetEmail, password: originalPassword }) })
+  await signupVerified({ name: 'Reset Smoke', email: resetEmail, password: originalPassword })
   const forgot = (await request('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: resetEmail }) })).body
-  assert(forgot.previewResetToken, 'Development reset token was not created')
-  await request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token: forgot.previewResetToken, password: nextPassword }) })
+  assert(forgot.challengeId && forgot.previewCode, 'Development reset verification code was not created')
+  await request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ challengeId: forgot.challengeId, code: forgot.previewCode, password: nextPassword }) })
   cookie = ''
   await request('/api/auth/signin', { method: 'POST', body: JSON.stringify({ email: resetEmail, password: nextPassword }) })
   await request('/api/account', { method: 'DELETE', body: JSON.stringify({ password: nextPassword }) })
