@@ -75,9 +75,9 @@ export function clearSessionCookie(res) {
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; ${cookieOptions(0)}`)
 }
 
-export function resolveIdentity(req, res) {
+export async function resolveIdentity(req, res) {
   const cookies = parseCookies(req.headers.cookie)
-  const user = getSession(cookies[SESSION_COOKIE])
+  const user = await getSession(cookies[SESSION_COOKIE])
   let guestId = cookies[GUEST_COOKIE]
   if (!user && !guestId) {
     guestId = randomBytes(18).toString('base64url')
@@ -98,11 +98,13 @@ function nextWindowReset(timestamp = Date.now()) {
   return timestamp + 5 * 60 * 60 * 1000
 }
 
-export function usageSummary(identity, timestamp = Date.now()) {
+export async function usageSummary(identity, timestamp = Date.now()) {
   const plan = plans[identity?.user?.plan] || plans.guest
-  const rolling = usageSince(identity.subject, timestamp - 5 * 60 * 60 * 1000)
-  const daily = usageSince(identity.subject, timestamp - 24 * 60 * 60 * 1000)
-  const monthly = usageSince(identity.subject, timestamp - 30 * 24 * 60 * 60 * 1000)
+  const [rolling, daily, monthly] = await Promise.all([
+    usageSince(identity.subject, timestamp - 5 * 60 * 60 * 1000),
+    usageSince(identity.subject, timestamp - 24 * 60 * 60 * 1000),
+    usageSince(identity.subject, timestamp - 30 * 24 * 60 * 60 * 1000),
+  ])
   const heavyUsed = unitsForKinds(daily, heavyKinds)
   const mediaUsed = unitsForKinds(monthly, mediaKinds)
   const agenticUsed = unitsForKinds(monthly, agenticKinds)
@@ -117,22 +119,24 @@ export function usageSummary(identity, timestamp = Date.now()) {
   }
 }
 
-export function reserveUsage(req, res, kind, multiplier = 1, metadata = null) {
+export async function reserveUsage(req, res, kind, multiplier = 1, metadata = null) {
   const identity = req.identity
   const plan = plans[identity?.user?.plan] || plans.guest
   const units = (usageWeights[kind] || 1) * Math.max(0.25, Number(multiplier) || 1)
-  const rolling = usageSince(identity.subject, Date.now() - 5 * 60 * 60 * 1000)
-  const daily = usageSince(identity.subject, Date.now() - 24 * 60 * 60 * 1000)
-  const monthly = usageSince(identity.subject, Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const [rolling, daily, monthly] = await Promise.all([
+    usageSince(identity.subject, Date.now() - 5 * 60 * 60 * 1000),
+    usageSince(identity.subject, Date.now() - 24 * 60 * 60 * 1000),
+    usageSince(identity.subject, Date.now() - 30 * 24 * 60 * 60 * 1000),
+  ])
   const heavyUsed = unitsForKinds(daily, heavyKinds)
   const mediaUsed = unitsForKinds(monthly, mediaKinds)
   const agenticUsed = unitsForKinds(monthly, agenticKinds)
   const estimatedCost = (conservativeCostUsd[kind] || 0.01) * Math.max(0.25, Number(multiplier) || 1)
   if (rolling.units + units > plan.windowUnits || monthly.costUsd + estimatedCost > plan.monthlyCostCap || (heavyKinds.has(kind) && heavyUsed + units > plan.heavyDailyUnits) || (mediaKinds.has(kind) && mediaUsed + units > plan.mediaMonthlyUnits) || (agenticKinds.has(kind) && agenticUsed + units > plan.agenticMonthlyUnits)) {
-    res.status(429).json({ error: 'Your current access window is full. It refreshes automatically.', usage: usageSummary(identity) })
+    res.status(429).json({ error: 'Your current access window is full. It refreshes automatically.', usage: await usageSummary(identity) })
     return false
   }
-  recordUsage({ subject: identity.subject, kind, units, costUsd: estimatedCost, metadata })
+  await recordUsage({ subject: identity.subject, kind, units, costUsd: estimatedCost, metadata })
   return true
 }
 
