@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/
+*.tsbuildinfo
+/mere-x-*.png
+/mere-x-*.log
+.env
+.env.local
+.env.*.local
+.DS_Store
