@@ -596,22 +596,7 @@ kbd { display: inline-flex; height: 20px; align-items: center; padding: 0 5px; b
 .profile-photo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0 17px 16px; }
 .profile-photo-actions .settings-inline-note { flex: 1 1 240px; padding: 0; }
 .profile-provider-note { display: flex; align-items: center; gap: 7px; padding: 0 17px 16px; }
-/* Card entry lives on the Mere X page. The inputs themselves are PayPal iframes,
-   so they are styled through their container to match every other field. */
 .card-payment-region { display: flex; flex-direction: column; gap: 14px; }
-.card-payment-region.card-payment-unavailable .card-payment-form { display: none; }
-.card-payment-form { display: flex; flex-direction: column; gap: 13px; }
-.card-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
-.card-field > span { color: #969693; font-size: 11px; letter-spacing: .4px; }
-.card-field > input, .card-field > select { height: 44px; padding: 0 12px; border: 1px solid #303030; border-radius: 10px; outline: 0; color: #ddd; background: #151515; font-size: 14px; }
-.card-field > input:focus, .card-field > select:focus { border-color: #60605d; }
-.card-field > input::placeholder { color: #5f5f5c; }
-.card-field-frame { height: 44px; padding: 0 4px; border: 1px solid #303030; border-radius: 10px; background: #151515; transition: border-color .15s ease; }
-.card-field-frame:focus-within { border-color: #60605d; }
-.card-field-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
-.card-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
-.card-payment-note { padding: 0; }
-.card-payment-form .payment-primary-action { margin-top: 3px; }
 
 /* Guest checkout: PayPal's own card form, opened without asking anyone to sign
    in to PayPal. The web component brings its own chrome, so only spacing and the

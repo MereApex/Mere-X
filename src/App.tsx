@@ -74,13 +74,9 @@ import {
 import { Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { LiveServerMessage, Session } from '@google/genai'
 import {
-  PayPalCardCvvField,
-  PayPalCardExpiryField,
-  PayPalCardFieldsProvider,
-  PayPalCardNumberField,
   PayPalGuestPaymentButton,
   PayPalProvider,
-  usePayPalCardFieldsOneTimePaymentSession,
+  usePayPal,
   usePayPalOneTimePaymentSession,
   usePayPalSubscriptionPaymentSession,
 } from '@paypal/react-paypal-js/sdk-v6'
@@ -1556,81 +1552,23 @@ function CheckoutSurface({ state, error, renews, onStart, disabled }: { state: '
   </div>
 }
 
-// Card details are entered here, on Mere X, in PayPal's hosted fields. The
-// inputs are iframes owned by PayPal, so the numbers never touch this site or
-// its servers, but the person never leaves the page either.
-function CardPaymentForm({ plan, annual, quantity, currency, total, onPaid, onFailed, disabled }: {
-  plan: PlanTier
-  annual: boolean
-  quantity: number
-  currency: string
-  total: number
-  onPaid: (user: AuthUser, subscription: BillingSubscription) => void
+function GuestCardCheckout({ onCreateOrder, onApproved, onCancelled, onFailed }: {
+  onCreateOrder: () => Promise<{ orderId: string }>
+  onApproved: (orderId?: string) => Promise<void>
+  onCancelled: () => void
   onFailed: (message: string) => void
-  disabled: boolean
 }) {
-  const { submit } = usePayPalCardFieldsOneTimePaymentSession()
-  const [busy, setBusy] = useState(false)
-  const [name, setName] = useState('')
-  const [postalCode, setPostalCode] = useState('')
-  const [country, setCountry] = useState('US')
-  const attemptId = useRef(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`)
-
-  const pay = async (event: FormEvent) => {
-    event.preventDefault()
-    if (busy || disabled) return
-    setBusy(true)
-    try {
-      const created = await fetch('/api/billing/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: plan.name.toLowerCase(), annual, quantity, method: 'card', requestId: attemptId.current }),
-      })
-      const order = await created.json() as { orderId?: string; error?: string }
-      if (!created.ok || !order.orderId) throw new Error(order.error || 'The payment could not be started.')
-
-      // PayPal validates the card, runs any 3-D Secure step, and only then is
-      // the money captured on our side.
-      await submit(order.orderId, { billingAddress: { postalCode: postalCode.trim() || undefined, countryCode: country } })
-
-      const captured = await fetch(`/api/billing/orders/${encodeURIComponent(order.orderId)}/capture`, { method: 'POST' })
-      const result = await captured.json() as { user?: AuthUser; subscription?: BillingSubscription; error?: string }
-      if (!captured.ok || !result.user || !result.subscription) throw new Error(result.error || 'The payment could not be confirmed.')
-      onPaid(result.user, result.subscription)
-    } catch (error) {
-      onFailed(error instanceof Error ? error.message : 'The card payment could not be completed.')
-    } finally { setBusy(false) }
-  }
-
-  return <form className="card-payment-form" onSubmit={pay}>
-    <label className="card-field"><span>Name on card</span>
-      <input value={name} onChange={event => setName(event.target.value)} autoComplete="cc-name" placeholder="As printed on the card" />
-    </label>
-    <label className="card-field"><span>Card number</span>
-      <PayPalCardNumberField placeholder="1234 5678 9012 3456" containerClassName="card-field-frame" />
-    </label>
-    <div className="card-field-row">
-      <label className="card-field"><span>Expiry</span>
-        <PayPalCardExpiryField placeholder="MM / YY" containerClassName="card-field-frame" />
-      </label>
-      <label className="card-field"><span>Security code</span>
-        <PayPalCardCvvField placeholder="CVC" containerClassName="card-field-frame" />
-      </label>
-    </div>
-    <div className="card-field-row">
-      <label className="card-field"><span>Postal code</span>
-        <input value={postalCode} onChange={event => setPostalCode(event.target.value)} autoComplete="postal-code" placeholder="Postal code" />
-      </label>
-      <label className="card-field"><span>Country</span>
-        <select value={country} onChange={event => setCountry(event.target.value)} aria-label="Card country">
-          {['US', 'GB', 'GE', 'DE', 'FR', 'ES', 'IT', 'NL', 'PL', 'CA', 'AU', 'AE', 'TR', 'UA'].map(code => <option key={code} value={code}>{code}</option>)}
-        </select>
-      </label>
-    </div>
-    <button className="payment-primary-action" disabled={busy || disabled}>
-      <Lock size={16} />{busy ? 'Processing payment…' : `Pay $${total.toFixed(2)} ${currency}`}<ArrowRight size={16} />
-    </button>
-  </form>
+  const { sdkInstance, error } = usePayPal()
+  useEffect(() => {
+    if (error) onFailed('The card form could not be loaded. Try again or pay with your PayPal account.')
+  }, [error, onFailed])
+  if (!sdkInstance) return <div className="payment-progress"><RotateCcw className="spin" size={16} />Preparing the secure card form…</div>
+  return <PayPalGuestPaymentButton
+    createOrder={onCreateOrder}
+    onApprove={async data => { await onApproved((data as { orderId?: string }).orderId) }}
+    onCancel={onCancelled}
+    onError={() => onFailed('The card payment could not be started. Try again or pay with your PayPal account.')}
+  />
 }
 
 // A membership bought as a paid term. Card details are collected here on Mere X;
@@ -1646,23 +1584,7 @@ function EmbeddedTermCheckout({ plan, annual, quantity, currency, total, onSucce
   const [error, setError] = useState('')
   const [paid, setPaid] = useState(false)
   const [walletBusy, setWalletBusy] = useState(false)
-  const [cardAvailable, setCardAvailable] = useState<boolean | null>(null)
-  const cardRegionRef = useRef<HTMLDivElement>(null)
   const walletAttempt = useRef(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`)
-
-  // Card fields need advanced card processing on the merchant account. Rather
-  // than guess, watch whether PayPal actually renders its inputs and fall back
-  // to the wallet if it does not.
-  useEffect(() => {
-    const node = cardRegionRef.current
-    if (!node) return
-    const check = () => { if (node.querySelector('iframe')) { setCardAvailable(true); return true } return false }
-    if (check()) return
-    const observer = new MutationObserver(() => { if (check()) observer.disconnect() })
-    observer.observe(node, { childList: true, subtree: true })
-    const timer = window.setTimeout(() => { if (!node.querySelector('iframe')) setCardAvailable(false) }, 6000)
-    return () => { observer.disconnect(); window.clearTimeout(timer) }
-  }, [])
 
   const startOrder = async (method: 'card' | 'paypal') => {
     setError('')
@@ -1716,33 +1638,18 @@ function EmbeddedTermCheckout({ plan, annual, quantity, currency, total, onSucce
   if (paid) return <div className="payment-success"><span><Check size={28} /></span><h3>Membership activated</h3><p>Your payment is confirmed and Mere {plan.name} is now active.</p></div>
 
   return <div className="embedded-payment-method">
-    <div ref={cardRegionRef} className={`card-payment-region ${cardAvailable === false ? 'card-payment-unavailable' : ''}`}>
-      <div className="payment-method-head"><div><b>Pay by card</b><span>Your card details stay on this page</span></div><ShieldCheck size={20} /></div>
+    <div className="card-payment-region">
+      <div className="payment-method-head"><div><b>Pay by card</b><span>No PayPal account needed</span></div><ShieldCheck size={20} /></div>
       <div className="accepted-cards" aria-label="Accepted cards"><span>VISA</span><span>Mastercard</span><span>AMEX</span><span>Discover</span></div>
-      <PayPalCardFieldsProvider amount={{ value: total.toFixed(2), currencyCode: currency }}>
-        <CardPaymentForm
-          plan={plan}
-          annual={annual}
-          quantity={quantity}
-          currency={currency}
-          total={total}
-          disabled={walletBusy || cardAvailable === false}
-          onPaid={(user, subscription) => { setPaid(true); onSuccess(user, subscription) }}
+      <div className="guest-card-checkout">
+        {/* Guest checkout opens PayPal's card form in place. No account, no sign-in. */}
+        <GuestCardCheckout
+          onCreateOrder={createCardOrder}
+          onApproved={completeCardOrder}
+          onCancelled={() => setError('Checkout was cancelled. Nothing was charged.')}
           onFailed={setError}
         />
-      </PayPalCardFieldsProvider>
-      {cardAvailable === null && <div className="payment-progress"><RotateCcw className="spin" size={16} />Preparing the secure card form…</div>}
-      {cardAvailable === false && <div className="guest-card-checkout">
-        {/* Guest checkout opens PayPal's card form directly. No PayPal account,
-            no sign-in: just the card. */}
-        <PayPalGuestPaymentButton
-          createOrder={createCardOrder}
-          onApprove={async data => { await completeCardOrder((data as { orderId?: string }).orderId) }}
-          onCancel={() => setError('Checkout was cancelled. Nothing was charged.')}
-          onError={() => setError('The card payment could not be started. Try again or use PayPal below.')}
-        />
-        <p className="settings-inline-note card-payment-note">Enter your card on the secure form above. No PayPal account is needed.</p>
-      </div>}
+      </div>
     </div>
 
     <div className="payment-or"><span>or</span></div>
@@ -1755,7 +1662,7 @@ function EmbeddedTermCheckout({ plan, annual, quantity, currency, total, onSucce
       onClick={() => { setError(''); setWalletBusy(true); void wallet.handleClick().catch(() => setWalletBusy(false)) }}
     >
       <span className="payment-wallet-mark">PayPal</span>
-      {walletBusy ? 'Opening PayPal…' : 'Pay with PayPal'}
+      {walletBusy ? 'Opening…' : 'Pay with your account'}
       <ArrowRight size={16} />
     </button>
 
