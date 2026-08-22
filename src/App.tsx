@@ -36,6 +36,7 @@ import {
   Library,
   Link2,
   LifeBuoy,
+  Maximize2,
   Lock,
   LogOut,
   Mail,
@@ -106,7 +107,7 @@ type ConversationRecord = { id: string; title: string; messages: Message[]; upda
 type SearchRecord = { id: string; title: string; kind: 'Conversation' | 'Project' | 'Library' | 'Agent' }
 type SubmitOptions = { reasoning: boolean; research: boolean; imageMode: boolean; outputFormat?: ExportFormat | null; imageAspectRatio?: string; imageSize?: string }
 type ProjectRecord = { id: string; name: string; description: string; chatCount: number; fileCount: number; updated: string; knowledgeStore?: string }
-type LibraryRecord = { id: string; title: string; type: 'Document' | 'Code' | 'Image' | 'Canvas'; date: string; preview?: string; content?: string }
+type LibraryRecord = { id: string; title: string; type: 'Document' | 'Code' | 'Image' | 'Canvas' | 'Video'; date: string; preview?: string; content?: string }
 type AgentRecord = { id: string; name: string; desc: string; instructions: string; tag: string; builtIn?: boolean }
 type Preferences = { memory: boolean; training: boolean; about: string; responseStyle: string; language: string; reasoning: string; voice: string }
 type SettingsControls = { notifications: boolean; email: boolean; autoClean: boolean; safeMode: boolean; voiceInput: boolean; chatHistory: boolean }
@@ -351,6 +352,37 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
   )
 }
 
+// Anything Mere X creates can be opened here at full size: images and video
+// alike, without leaving the workspace or downloading first.
+function MediaViewer({ media, onClose }: { media: { url: string; title: string; kind: 'image' | 'video'; download?: string } | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!media) return
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [media, onClose])
+  if (!media) return null
+  const name = media.download || `${safeMediaName(media.title)}.${media.kind === 'video' ? 'mp4' : 'png'}`
+  return <div className="media-viewer" role="dialog" aria-modal="true" aria-label={media.title} onMouseDown={event => { if (event.currentTarget === event.target) onClose() }}>
+    <div className="media-viewer-bar">
+      <b>{media.title}</b>
+      <div>
+        <a className="soft-button" href={media.url} download={name}><Download size={15} />Download</a>
+        <IconButton label="Close" onClick={onClose}><X size={19} /></IconButton>
+      </div>
+    </div>
+    <div className="media-viewer-stage" onMouseDown={event => { if (event.currentTarget === event.target) onClose() }}>
+      {media.kind === 'video'
+        ? <video src={media.url} controls autoPlay playsInline preload="metadata" />
+        : <img src={media.url} alt={media.title} />}
+    </div>
+  </div>
+}
+
+function safeMediaName(value = 'mere-x') {
+  return String(value).replace(/[<>:"/\\|?*\u0000-\u001F]/g, '').trim().slice(0, 60) || 'mere-x'
+}
+
 function IconButton({ label, children, onClick, className = '' }: { label: string; children: ReactNode; onClick?: () => void; className?: string }) {
   return <button type="button" className={`icon-button ${className}`} aria-label={label} title={label} onClick={onClick}>{children}</button>
 }
@@ -583,7 +615,7 @@ function EmptyChat({ value, setValue, onSubmit, attachments, setAttachments, ima
   </div>
 }
 
-function ChatMessage({ message, onToast, onRegenerate }: { message: Message; onToast: (s: string) => void; onRegenerate?: () => void }) {
+function ChatMessage({ message, onToast, onRegenerate, onOpenMedia }: { message: Message; onToast: (s: string) => void; onRegenerate?: () => void; onOpenMedia?: (media: { url: string; title: string; kind: 'image' | 'video' }) => void }) {
   const [feedback, setFeedback] = useState<'up' | 'down' | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState<ExportFormat | null>(null)
@@ -628,7 +660,13 @@ function ChatMessage({ message, onToast, onRegenerate }: { message: Message; onT
         <div className="code-card"><div className="code-head"><span><Code2 size={14} />product-principles.md</span><button onClick={() => { void navigator.clipboard.writeText('focus: outcome\ninterface: calm\ncapability: deep\ntrust: visible'); onToast('Copied to clipboard') }}><Copy size={14} />Copy</button></div><pre><code>{`focus: outcome\ninterface: calm\ncapability: deep\ntrust: visible`}</code></pre></div>
         <p>This gives Mere X a premium foundation that can grow into research, creation, collaboration, and advanced workflows without changing its core identity.</p>
       </> : <div className={`markdown-response ${message.error ? 'error-response' : ''}`}><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
-      {!!message.images?.length && <div className="generated-images">{message.images.map((src, index) => <figure key={index}><img src={src} alt={`Generated result ${index + 1}`} /><a href={src} download={`mere-x-${Date.now()}-${index + 1}.png`}><Download size={14} />Download</a></figure>)}</div>}
+      {!!message.images?.length && <div className="generated-images">{message.images.map((src, index) => <figure key={index}>
+        <button type="button" className="media-open" onClick={() => onOpenMedia?.({ url: src, title: message.content.replace(/[#*_`]/g, '').slice(0, 60) || 'Generated image', kind: 'image' })} aria-label="Open the full size image">
+          <img src={src} alt={`Generated result ${index + 1}`} />
+          <span className="media-open-hint"><Maximize2 size={15} />Open</span>
+        </button>
+        <a href={src} download={`mere-x-${Date.now()}-${index + 1}.png`}><Download size={14} />Download</a>
+      </figure>)}</div>}
       {!!availableFiles.length && <div className="generated-files">{availableFiles.map(file => <a href={generatedFileUrl(file)} download={file.name} key={`${file.name}-${file.format}`}><span><FileText size={19} /></span><div><b>{file.name}</b><small>{file.format.toUpperCase()} · {fileSizeLabel(file.size)}</small></div><Download size={16} /></a>)}</div>}
       {!!message.sources?.length && <div className="live-sources"><div><Globe2 size={14} /><b>{message.sources.length} sources</b></div>{message.sources.map((source, index) => <a href={source.uri} target="_blank" rel="noreferrer" key={source.uri}><span>{String(index + 1).padStart(2, '0')}</span><b>{source.title}</b><ExternalLink size={13} /></a>)}</div>}
       <div className="message-actions">
@@ -643,7 +681,7 @@ function ChatMessage({ message, onToast, onRegenerate }: { message: Message; onT
   </div>
 }
 
-function ChatPage({ messages, setMessages, onToast, onLiveVoice, agent, project, preferences, voiceEnabled, onArtifact }: {
+function ChatPage({ messages, setMessages, onToast, onLiveVoice, agent, project, preferences, voiceEnabled, onArtifact, onOpenMedia }: {
   messages: Message[]
   setMessages: Dispatch<SetStateAction<Message[]>>
   onToast: (s: string) => void
@@ -653,6 +691,7 @@ function ChatPage({ messages, setMessages, onToast, onLiveVoice, agent, project,
   preferences: Preferences
   voiceEnabled: boolean
   onArtifact: (artifact: LibraryRecord) => void
+  onOpenMedia: (media: { url: string; title: string; kind: 'image' | 'video' }) => void
 }) {
   const [value, setValue] = useState('')
   const [thinking, setThinking] = useState(false)
@@ -768,7 +807,7 @@ function ChatPage({ messages, setMessages, onToast, onLiveVoice, agent, project,
   return <div className="chat-thread">
     <main className="messages" ref={messagesRef} aria-live="polite">
       {(agent || project) && <div className="context-banner">{agent ? <Bot size={15} /> : <Folder size={15} />}<span><b>{agent?.name || project?.name}</b><small>{agent ? 'Specialist instructions active' : project?.knowledgeStore ? 'Project knowledge and instructions active' : 'Project instructions active'}</small></span><Check size={14} /></div>}
-      {messages.map((message, index) => <ChatMessage key={message.id} message={message} onToast={onToast} onRegenerate={message.role === 'assistant' ? () => regenerate(index) : undefined} />)}
+      {messages.map((message, index) => <ChatMessage key={message.id} message={message} onToast={onToast} onOpenMedia={onOpenMedia} onRegenerate={message.role === 'assistant' ? () => regenerate(index) : undefined} />)}
       {thinking && <div className="thinking"><div className="assistant-icon"><BrandGlyph /></div><span>Thinking</span><i /><i /><i /></div>}
     </main>
     <div className="thread-composer"><Composer value={value} setValue={setValue} onSubmit={submit} onStop={() => { abortRef.current?.abort(); setThinking(false) }} attachments={attachments} setAttachments={setAttachments} imageMode={imageMode} setImageMode={setImageMode} onToast={onToast} onLiveVoice={onLiveVoice} reasoningPreference={preferences.reasoning} voiceEnabled={voiceEnabled} disabled={thinking} /><p>Mere X can make mistakes. Verify important information.</p></div>
@@ -844,7 +883,7 @@ function ProjectsPage({ projects, setProjects, onToast, onOpen, onRemoved }: {
   </div>
 }
 
-function LibraryPage({ items, setItems, onToast, onContinue, onRemoved }: { items: LibraryRecord[]; setItems: Dispatch<SetStateAction<LibraryRecord[]>>; onToast: (s: string) => void; onContinue: (item: LibraryRecord) => void; onRemoved: (id: string) => void }) {
+function LibraryPage({ items, setItems, onToast, onContinue, onRemoved, onOpenMedia }: { items: LibraryRecord[]; setItems: Dispatch<SetStateAction<LibraryRecord[]>>; onToast: (s: string) => void; onContinue: (item: LibraryRecord) => void; onRemoved: (id: string) => void; onOpenMedia: (media: { url: string; title: string; kind: 'image' | 'video' }) => void }) {
   const [filter, setFilter] = useState('All')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<LibraryRecord | null>(null)
@@ -852,7 +891,15 @@ function LibraryPage({ items, setItems, onToast, onContinue, onRemoved }: { item
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const shown = items.filter(item => (filter === 'All' || item.type === filter) && item.title.toLowerCase().includes(query.toLowerCase()))
-  const iconFor = (type: LibraryRecord['type']) => type === 'Code' ? FileCode2 : type === 'Image' ? Image : type === 'Canvas' ? LayoutGrid : FileText
+  const iconFor = (type: LibraryRecord['type']) => type === 'Code' ? FileCode2 : type === 'Image' ? Image : type === 'Video' ? Video : type === 'Canvas' ? LayoutGrid : FileText
+  // A saved image or clip opens in the viewer; anything else opens as a document.
+  const openItem = (item: LibraryRecord) => {
+    if (item.preview && (item.type === 'Image' || item.type === 'Video')) {
+      onOpenMedia({ url: item.preview, title: item.title, kind: item.type === 'Video' ? 'video' : 'image' })
+      return
+    }
+    setSelected(item)
+  }
   const exportLibrary = () => {
     const exportData = items.map(({ preview: _preview, ...item }) => item)
     const url = URL.createObjectURL(new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' }))
@@ -866,12 +913,12 @@ function LibraryPage({ items, setItems, onToast, onContinue, onRemoved }: { item
   }
   return <div className="page-shell">
     <PageHeading eyebrow="YOUR OUTPUTS" title="Library" description="Everything you create with Mere X, organized and ready to continue." action={<div className="heading-actions"><button className="soft-button" onClick={exportLibrary}><Download size={16} />Export</button><button className="primary-button" onClick={() => setCreating(true)}><Plus size={16} />New document</button></div>} />
-    <div className="library-toolbar"><div className="segmented">{['All', 'Document', 'Code', 'Image', 'Canvas'].map(item => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><div className="inline-search"><Search size={16} /><input aria-label="Search library" placeholder="Search library" value={query} onChange={event => setQuery(event.target.value)} /></div></div>
+    <div className="library-toolbar"><div className="segmented">{['All', 'Document', 'Code', 'Image', 'Video', 'Canvas'].map(item => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><div className="inline-search"><Search size={16} /><input aria-label="Search library" placeholder="Search library" value={query} onChange={event => setQuery(event.target.value)} /></div></div>
     <div className="library-grid">
       {shown.map(item => { const Icon = iconFor(item.type); return <article className="library-card" key={item.id}>
         <div className={`library-preview preview-${item.type.toLowerCase()}`}>
-          {item.preview ? <img className="artifact-preview-image" src={item.preview} alt="" /> : item.type === 'Code' ? <><span className="code-line wide" /><span className="code-line" /><span className="code-line mid" /><span className="code-line tiny" /></> : item.type === 'Image' ? <div className="abstract-art"><i /><i /><i /></div> : <><span className="doc-kicker" /><span className="doc-title" /><span className="doc-line" /><span className="doc-line short" /><span className="doc-line" /><span className="doc-line mid" /></>}
-          <button onClick={() => setSelected(item)} aria-label={`Open ${item.title}`}><ExternalLink size={16} /></button>
+          {item.preview && item.type === 'Video' ? <video className="artifact-preview-image" src={item.preview} muted playsInline preload="metadata" /> : item.preview ? <img className="artifact-preview-image" src={item.preview} alt="" /> : item.type === 'Code' ? <><span className="code-line wide" /><span className="code-line" /><span className="code-line mid" /><span className="code-line tiny" /></> : item.type === 'Image' ? <div className="abstract-art"><i /><i /><i /></div> : <><span className="doc-kicker" /><span className="doc-title" /><span className="doc-line" /><span className="doc-line short" /><span className="doc-line" /><span className="doc-line mid" /></>}
+          <button onClick={() => openItem(item)} aria-label={`Open ${item.title}`}>{item.type === 'Video' ? <Maximize2 size={16} /> : <ExternalLink size={16} />}</button>
         </div>
         <div className="library-info"><span className="library-type"><Icon size={15} />{item.type}</span><h3>{item.title}</h3><p>{item.date}</p></div><IconButton label={`Delete ${item.title}`} onClick={() => { if (!window.confirm(`Delete ${item.title} from your Library? This cannot be undone.`)) return; onRemoved(item.id); setItems(current => current.filter(record => record.id !== item.id)); onToast('Library item deleted') }}><Trash2 size={15} /></IconButton>
         {item.date.toLowerCase().includes('just now') && <span className="new-tag">NEW</span>}
@@ -1005,7 +1052,7 @@ const workflowCapability: Record<WorkflowKind, string> = {
   video: 'video',
 }
 
-function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast }: { authenticated: boolean; plan: string; onSignIn: () => void; onUpgrade: () => void; onToast: (text: string) => void }) {
+function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast, onArtifact, onOpenMedia }: { authenticated: boolean; plan: string; onSignIn: () => void; onUpgrade: () => void; onToast: (text: string) => void; onArtifact: (artifact: LibraryRecord) => void; onOpenMedia: (media: { url: string; title: string; kind: 'image' | 'video' }) => void }) {
   const [kind, setKind] = useState<WorkflowKind>('deep-research')
   const [capabilities, setCapabilities] = useState<Record<string, PlanCapability> | null>(null)
   const [prompt, setPrompt] = useState('')
@@ -1040,12 +1087,28 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast }: { 
     const timer = window.setInterval(() => {
       void fetch(`/api/jobs/${encodeURIComponent(job.id)}`).then(async response => {
         const result = await response.json() as { job?: ManagedJob; error?: string }
-        if (result.job) { setJob(result.job); setRecentJobs(current => [result.job!, ...current.filter(item => item.id !== result.job!.id)]) }
+        if (result.job) {
+          setJob(result.job)
+          setRecentJobs(current => [result.job!, ...current.filter(item => item.id !== result.job!.id)])
+          // Keep the finished clip in the Library so it can be watched again
+          // later instead of living only on this screen.
+          const file = result.job.result?.file
+          if (result.job.status === 'completed' && file?.url) {
+            onArtifact({
+              id: `video-${result.job.id}`,
+              title: String(result.job.payload?.prompt || 'Generated video').replace(/[#*_`]/g, '').slice(0, 64) || 'Generated video',
+              type: 'Video',
+              date: 'Just now',
+              preview: file.url,
+              content: String(result.job.payload?.prompt || ''),
+            })
+          }
+        }
         if (!response.ok && result.error) onToast(result.error)
       }).catch(() => undefined)
     }, 3500)
     return () => window.clearInterval(timer)
-  }, [job?.id, activeStatus, onToast])
+  }, [job?.id, activeStatus, onToast, onArtifact])
 
   const run = async (event: FormEvent) => {
     event.preventDefault()
@@ -1086,7 +1149,7 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast }: { 
       </form>
       <section className={`workflow-result ${job ? 'has-job' : ''}`}>
         {!job && <div className="workflow-result-empty"><BrandGlyph /><b>The finished work appears here.</b><p>You can leave this page while a task runs and return to its status from Workflows.</p></div>}
-        {job && <><header><div><span>RUN / {job.id.slice(0, 8).toUpperCase()}</span><b>{statusLabel}</b></div><em>{job.status.toUpperCase()}</em></header>{activeStatus && <div className="workflow-progress"><span /><span /><span /><p>Planning, executing and checking the result…</p></div>}{job.error && <div className="workflow-error"><CircleHelp size={18} /><span><b>Workflow stopped</b><p>{job.error}</p></span></div>}{job.result?.text && <div className="workflow-output"><ReactMarkdown remarkPlugins={[remarkGfm]}>{job.result.text}</ReactMarkdown></div>}{job.result?.sources?.length ? <div className="workflow-sources"><b>Sources</b>{job.result.sources.map((source, index) => <a key={`${source.uri}-${index}`} href={source.uri} target="_blank" rel="noreferrer"><span>{index + 1}</span>{source.title}<ExternalLink size={13} /></a>)}</div> : null}{job.result?.file && <div className="workflow-video"><video controls preload="metadata" src={job.result.file.url} /><a className="primary-button" href={job.result.file.url} download={job.result.file.name}><Download size={15} />Download video</a></div>}{job.status === 'completed' && !job.result?.text && !job.result?.file && <div className="workflow-complete"><CheckCircle2 size={20} /><span><b>Workflow completed</b><p>The task finished successfully.</p></span></div>}</>}
+        {job && <><header><div><span>RUN / {job.id.slice(0, 8).toUpperCase()}</span><b>{statusLabel}</b></div><em>{job.status.toUpperCase()}</em></header>{activeStatus && <div className="workflow-progress"><span /><span /><span /><p>Planning, executing and checking the result…</p></div>}{job.error && <div className="workflow-error"><CircleHelp size={18} /><span><b>Workflow stopped</b><p>{job.error}</p></span></div>}{job.result?.text && <div className="workflow-output"><ReactMarkdown remarkPlugins={[remarkGfm]}>{job.result.text}</ReactMarkdown></div>}{job.result?.sources?.length ? <div className="workflow-sources"><b>Sources</b>{job.result.sources.map((source, index) => <a key={`${source.uri}-${index}`} href={source.uri} target="_blank" rel="noreferrer"><span>{index + 1}</span>{source.title}<ExternalLink size={13} /></a>)}</div> : null}{job.result?.file && <div className="workflow-video"><video controls preload="metadata" src={job.result.file.url} /><div className="workflow-video-actions"><button type="button" className="soft-button" onClick={() => onOpenMedia({ url: job.result!.file!.url, title: String(job.payload?.prompt || 'Generated video').slice(0, 60), kind: 'video' })}><Maximize2 size={15} />Open full size</button><a className="primary-button" href={job.result.file.url} download={job.result.file.name}><Download size={15} />Download video</a></div></div>}{job.status === 'completed' && !job.result?.text && !job.result?.file && <div className="workflow-complete"><CheckCircle2 size={20} /><span><b>Workflow completed</b><p>The task finished successfully.</p></span></div>}</>}
       </section>
     </div>
     {!!recentJobs.length && <section className="workflow-history"><div className="content-title"><h3>Recent runs</h3><span className="content-meta">ACCOUNT WORKSPACE</span></div><div>{recentJobs.map(item => { const definition = workflows.find(workflow => workflow.id === item.type) || workflows[2]; const Icon = definition.icon; return <button key={item.id} className={job?.id === item.id ? 'active' : ''} onClick={() => { setKind((['deep-research', 'computer-workspace', 'managed-agent', 'video'].includes(item.type) ? item.type : 'managed-agent') as WorkflowKind); setPrompt(item.payload?.prompt || ''); setJob(item) }}><span><Icon size={16} /></span><div><b>{definition.title}</b><p>{item.payload?.prompt || 'Workflow run'}</p></div><em className={item.status}>{item.status}</em><ChevronRight size={15} /></button> })}</div></section>}
@@ -2262,6 +2325,7 @@ export default function App() {
   const [infoOpen, setInfoOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [liveVoiceOpen, setLiveVoiceOpen] = useState(false)
+  const [viewerMedia, setViewerMedia] = useState<{ url: string; title: string; kind: 'image' | 'video'; download?: string } | null>(null)
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
   const [toast, setToast] = useState('')
   const [projects, setProjects] = useState<ProjectRecord[]>(defaultProjects)
@@ -2633,9 +2697,9 @@ export default function App() {
     setMessages([{ id: Date.now(), role: 'assistant', content: `**${agent.name} is ready.**\n\n${agent.desc} What should we work on?` }])
     navigate('chat')
   }
-  const addArtifact = (artifact: LibraryRecord) => {
-    setLibrary(current => [artifact, ...current.filter(item => item.id !== artifact.id)])
-  }
+  const addArtifact = useCallback((artifact: LibraryRecord) => {
+    setLibrary(current => current.some(item => item.id === artifact.id) ? current : [artifact, ...current])
+  }, [])
   const continueArtifact = (artifact: LibraryRecord) => {
     setActiveAgent(null); setActiveProject(null); setActiveConversationId(null)
     setMessages([{ id: Date.now(), role: 'assistant', content: `**${artifact.title} loaded from Library.**\n\n${artifact.content || 'The saved visual is ready for a new direction.'}`, images: artifact.preview ? [artifact.preview] : undefined }])
@@ -2707,11 +2771,11 @@ export default function App() {
     <div className="main-area">
       <Topbar page={page} setMobileOpen={setMobileOpen} onShare={() => setShareOpen(true)} onInfo={() => setInfoOpen(!infoOpen)} onNotify={notify} />
       <div className="page-area">
-        {page === 'chat' && <ChatPage messages={messages} setMessages={setMessages} onToast={notify} onLiveVoice={() => setLiveVoiceOpen(true)} agent={activeAgent} project={activeProject} preferences={preferences} voiceEnabled={settingsControls.voiceInput ?? true} onArtifact={addArtifact} />}
+        {page === 'chat' && <ChatPage messages={messages} setMessages={setMessages} onToast={notify} onLiveVoice={() => setLiveVoiceOpen(true)} agent={activeAgent} project={activeProject} preferences={preferences} voiceEnabled={settingsControls.voiceInput ?? true} onArtifact={addArtifact} onOpenMedia={setViewerMedia} />}
         {page === 'projects' && <ProjectsPage projects={projects} setProjects={setProjects} onToast={notify} onOpen={openProject} onRemoved={id => removedRef.current.add(id)} />}
-        {page === 'library' && <LibraryPage items={library} setItems={setLibrary} onToast={notify} onContinue={continueArtifact} onRemoved={id => removedRef.current.add(id)} />}
+        {page === 'library' && <LibraryPage items={library} setItems={setLibrary} onToast={notify} onContinue={continueArtifact} onRemoved={id => removedRef.current.add(id)} onOpenMedia={setViewerMedia} />}
         {page === 'agents' && <AgentsPage records={agentRecords} setRecords={setAgentRecords} onToast={notify} onOpen={openAgent} />}
-        {page === 'workflows' && <WorkflowsPage authenticated={Boolean(sessionUser)} plan={sessionUser?.plan || 'guest'} onSignIn={() => navigatePublic('signin')} onUpgrade={() => navigatePublic('pricing')} onToast={notify} />}
+        {page === 'workflows' && <WorkflowsPage authenticated={Boolean(sessionUser)} plan={sessionUser?.plan || 'guest'} onSignIn={() => navigatePublic('signin')} onUpgrade={() => navigatePublic('pricing')} onToast={notify} onArtifact={addArtifact} onOpenMedia={setViewerMedia} />}
         {page === 'settings' && <SettingsPage onToast={notify} compact={collapsed} setCompact={setCollapsed} preferences={preferences} setPreferences={setPreferences} controls={settingsControls} setControls={setSettingsControls} profile={profile} user={sessionUser} identities={identities} onUserUpdated={setSessionUser} setProfile={setProfile} onDeleteChats={deleteAllChats} onSignOut={() => signOut()} onOpenPricing={() => navigatePublic('pricing')} onOpenHelp={() => navigatePublic('help')} />}
       </div>
     </div>
@@ -2720,6 +2784,7 @@ export default function App() {
     {searchOpen && <SearchModal items={searchRecords} onClose={() => setSearchOpen(false)} onSelect={selectSearchResult} />}
     {shareOpen && <ShareModal messages={messages} onClose={() => setShareOpen(false)} onToast={notify} />}
     {liveVoiceOpen && <LiveVoiceOverlay authenticated={Boolean(sessionUser)} onClose={() => setLiveVoiceOpen(false)} onSignIn={() => navigatePublic('signin')} />}
+    <MediaViewer media={viewerMedia} onClose={() => setViewerMedia(null)} />
     {toast && <Toast text={toast} onDone={() => setToast('')} />}
   </div>
 }

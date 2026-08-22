@@ -263,7 +263,10 @@ function clientDisconnectSignal(req, res) {
 function publicError(error) {
   const status = Number(error?.status || error?.code || 500)
   const detail = String(error?.message || error || '').toLowerCase()
-  if (status === 429) return { status: 429, message: 'Usage limit reached. Please try again shortly.' }
+  // Mere X describes its own plan allowances in its own words. A limit coming
+  // from the service behind it is a different thing, and saying "usage limit"
+  // made people think they had used up their plan.
+  if (status === 429) return { status: 429, message: 'Mere X is at capacity right now. Nothing was used from your plan; please try again shortly.' }
   if (status === 401 || status === 403) return { status: 503, message: 'Mere X is not configured correctly.' }
   if (status === 400) return { status: 400, message: 'This request could not be processed. Check the file or prompt and try again.' }
   if (status === 404 || detail.includes('not found') || detail.includes('not supported')) return { status: 503, message: 'The selected capability is temporarily unavailable. Mere X tried its backup routes; please try again shortly.' }
