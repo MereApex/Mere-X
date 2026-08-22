@@ -53,11 +53,49 @@ export function paypalConfigured() {
   return Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET)
 }
 
+// PayPal REST credentials have a characteristic shape. Checking it locally turns
+// the most common deployment mistake - a client ID or secret pasted in
+// truncated - into a precise message instead of a generic 401 at checkout.
+export function paypalCredentialProblems() {
+  const clientId = String(process.env.PAYPAL_CLIENT_ID || '')
+  const secret = String(process.env.PAYPAL_CLIENT_SECRET || '')
+  const problems = []
+  if (!clientId) problems.push('PAYPAL_CLIENT_ID is not set.')
+  else if (/\s/.test(clientId)) problems.push('PAYPAL_CLIENT_ID contains whitespace.')
+  else if (clientId.length < 70) problems.push(`PAYPAL_CLIENT_ID looks incomplete (${clientId.length} characters; a REST client ID is around 80). Copy the whole value from the PayPal dashboard.`)
+  if (!secret) problems.push('PAYPAL_CLIENT_SECRET is not set.')
+  else if (/\s/.test(secret)) problems.push('PAYPAL_CLIENT_SECRET contains whitespace.')
+  else if (secret.length < 55) problems.push(`PAYPAL_CLIENT_SECRET looks incomplete (${secret.length} characters; a REST secret is around 64). Copy the whole value from the PayPal dashboard.`)
+  if (paypalEnvironment() === 'live' && !process.env.PAYPAL_WEBHOOK_ID) problems.push('PAYPAL_WEBHOOK_ID is required in live mode. Run "npm run paypal:setup" after PUBLIC_APP_URL is reachable.')
+  return problems
+}
+
+// Asks PayPal for a token so the operator learns whether the credentials are
+// actually accepted, and by which environment.
+export async function paypalDiagnostics() {
+  const environment = paypalEnvironment()
+  const result = { configured: paypalConfigured(), environment, currency: paypalCurrency(), problems: paypalCredentialProblems(), reachable: false }
+  if (!result.configured) return result
+  try {
+    await accessToken()
+    result.reachable = true
+  } catch (error) {
+    result.reachable = false
+    result.status = Number(error?.statusCode) || undefined
+    result.reason = Number(error?.statusCode) === 401
+      ? `PayPal rejected these credentials in ${environment} mode.`
+      : String(error?.message || error).slice(0, 200)
+    if (Number(error?.statusCode) === 401 && !result.problems.length) {
+      result.problems.push(`The credentials are well-formed but PayPal rejected them in ${environment} mode. Confirm they belong to a ${environment === 'live' ? 'Live' : 'Sandbox'} REST app and that PAYPAL_ENV matches.`)
+    }
+  }
+  return result
+}
+
 function assertTransactionReady() {
   if (!paypalConfigured()) throw Object.assign(new Error('Payments are not configured.'), { statusCode: 503 })
-  if (paypalEnvironment() === 'live' && !process.env.PAYPAL_WEBHOOK_ID) {
-    throw Object.assign(new Error('Live payment notifications are not configured.'), { statusCode: 503 })
-  }
+  const problems = paypalCredentialProblems()
+  if (problems.length) throw Object.assign(new Error('Payments are not configured correctly.'), { statusCode: 503, credentialFailure: true, operatorHint: problems.join(' ') })
 }
 
 export function publicPayPalConfig() {
@@ -94,9 +132,21 @@ function getClient() {
 
 async function accessToken() {
   const state = getClient()
-  accessTokenState = accessTokenState
-    ? await state.client.clientCredentialsAuthManager.updateToken(accessTokenState)
-    : await state.client.clientCredentialsAuthManager.fetchToken()
+  try {
+    accessTokenState = accessTokenState
+      ? await state.client.clientCredentialsAuthManager.updateToken(accessTokenState)
+      : await state.client.clientCredentialsAuthManager.fetchToken()
+  } catch (error) {
+    // A cached token that PayPal no longer accepts must not stick around and
+    // fail every later call.
+    accessTokenState = null
+    const status = Number(error?.statusCode || error?.statusCode || error?.status || 0)
+    const message = String(error?.message || '')
+    if (status === 401 || /invalid_client|authentication failed/i.test(message)) {
+      throw Object.assign(new Error('PayPal rejected the configured credentials.'), { statusCode: 401, credentialFailure: true })
+    }
+    throw error
+  }
   return accessTokenState.accessToken
 }
 
@@ -176,7 +226,17 @@ export function paymentError(error) {
   const debugId = error?.debugId || error?.result?.debugId || error?.headers?.['paypal-debug-id']
   if (issue === 'INSTRUMENT_DECLINED') return { status: 422, message: 'This payment method was declined. Choose another card or payment method.', debugId }
   if (issue === 'PAYMENT_DENIED') return { status: 422, message: 'The payment could not be approved. Choose another payment method.', debugId }
-  if (Number(error?.statusCode) === 401) return { status: 503, message: 'Payment credentials could not be verified.', debugId }
+  if (Number(error?.statusCode) === 401 || error?.credentialFailure) {
+    const problems = paypalCredentialProblems()
+    return {
+      status: 503,
+      message: 'Secure checkout is not available yet: Mere X could not authenticate with the payment provider.',
+      debugId,
+      // Surfaced to the server log and to signed-in operators, never to a
+      // shopper mid-checkout.
+      operatorHint: problems.length ? problems.join(' ') : `PayPal rejected the configured credentials in ${paypalEnvironment()} mode.`,
+    }
+  }
   if (Number(error?.statusCode) === 503) return { status: 503, message: 'Payments are temporarily unavailable while secure checkout is being configured.', debugId }
   return { status: Number(error?.statusCode) >= 400 && Number(error?.statusCode) < 500 ? Number(error.statusCode) : 502, message: 'Secure checkout could not complete this request.', debugId }
 }

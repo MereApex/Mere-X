@@ -40,10 +40,12 @@ try {
   await command('Runtime.enable')
   await command('Page.enable')
   await command('Network.enable')
+  await evaluate(`fetch('/api/auth/signout', { method: 'POST' }).then(() => { location.hash='/app'; location.reload(); return true })`)
   for (let attempt = 0; attempt < 50; attempt += 1) {
     if (await evaluate(`Boolean(document.querySelector('.auth-form-wrap'))`)) break
     await sleep(100)
   }
+  const protectedRouteRedirected = await evaluate(`location.hash === '#/signin'`)
   for (let attempt = 0; attempt < 50; attempt += 1) {
     if (await evaluate(`Boolean(document.querySelector('.google-auth-section iframe'))`)) break
     await sleep(100)
@@ -52,7 +54,8 @@ try {
   const capture = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
   await writeFile('mere-x-auth-google.png', Buffer.from(capture.data, 'base64'))
   const googleButtonVisible = Boolean(state.button && state.button.width > 0 && state.button.height > 0)
-  const failures = [!state.configEnabled ? 'Google client ID was not returned by the API' : null, !state.sectionVisible ? 'Google sign-in section was not rendered' : null, !googleButtonVisible ? 'Official Google button was not visible' : null, runtimeErrors.length ? 'Runtime errors were reported' : null].filter(Boolean)
+  const googleButtonEnglish = /(?:sign in|sign up|continue) with google/i.test(state.button?.text || '')
+  const failures = [!protectedRouteRedirected ? 'Unauthenticated app route did not redirect to sign in' : null, !state.configEnabled ? 'Google client ID was not returned by the API' : null, !state.sectionVisible ? 'Google sign-in section was not rendered' : null, !googleButtonVisible ? 'Official Google button was not visible' : null, !googleButtonEnglish ? `Google button was not rendered in English: ${state.button?.text || 'missing'}` : null, runtimeErrors.length ? 'Runtime errors were reported' : null].filter(Boolean)
   console.log(JSON.stringify({ ok: failures.length === 0, failures, state, runtimeErrors, consoleErrors }, null, 2))
   if (failures.length) process.exitCode = 1
 } finally {

@@ -4,6 +4,15 @@ function headers(apiKey) {
   return { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }
 }
 
+// A stalled upstream call must not hold a request open indefinitely, and a
+// visitor who navigates away must not keep paid work running. Both are handled
+// by combining the caller's signal with a hard ceiling.
+function requestSignal(signal, timeoutMs) {
+  const timeout = AbortSignal.timeout(timeoutMs)
+  if (!signal) return timeout
+  return typeof AbortSignal.any === 'function' ? AbortSignal.any([signal, timeout]) : signal
+}
+
 function publicApiError(status, body) {
   const error = new Error(body?.error?.message || body?.message || `Interaction failed with status ${status}.`)
   error.status = status
@@ -17,7 +26,7 @@ export function interactionInput(messages = []) {
   return `Continue this conversation faithfully.\n\n${history}\n\nUser: ${String(recent.at(-1)?.content || '')}`
 }
 
-export async function streamInteraction({ apiKey, model, input, previousInteractionId, systemInstruction, tools = [], thinkingLevel = 'medium', signal, onEvent }) {
+export async function streamInteraction({ apiKey, model, input, previousInteractionId, systemInstruction, tools = [], thinkingLevel = 'medium', signal, timeoutMs = 5 * 60 * 1000, onEvent }) {
   const payload = {
     model,
     input,
@@ -28,7 +37,7 @@ export async function streamInteraction({ apiKey, model, input, previousInteract
     ...(previousInteractionId ? { previous_interaction_id: previousInteractionId } : {}),
     ...(tools.length ? { tools } : {}),
   }
-  const response = await fetch(`${endpoint}?alt=sse`, { method: 'POST', headers: headers(apiKey), body: JSON.stringify(payload), signal })
+  const response = await fetch(`${endpoint}?alt=sse`, { method: 'POST', headers: headers(apiKey), body: JSON.stringify(payload), signal: requestSignal(signal, timeoutMs) })
   if (!response.ok || !response.body) {
     const body = await response.json().catch(() => ({}))
     throw publicApiError(response.status, body)
@@ -70,7 +79,7 @@ export function collectInteraction(result) {
   return { id: result?.id, status: result?.status, text, sources: [...sources.values()], files, usage: result?.usage }
 }
 
-export async function createInteraction({ apiKey, model, agent, input, previousInteractionId, systemInstruction, tools, thinkingLevel = 'medium', environment, background = false, agentConfig, signal }) {
+export async function createInteraction({ apiKey, model, agent, input, previousInteractionId, systemInstruction, tools, thinkingLevel = 'medium', environment, background = false, agentConfig, signal, timeoutMs = 90 * 1000 }) {
   const payload = {
     ...(agent ? { agent } : { model }),
     input,
@@ -83,14 +92,14 @@ export async function createInteraction({ apiKey, model, agent, input, previousI
     ...(environment ? { environment } : {}),
     ...(agentConfig ? { agent_config: agentConfig } : {}),
   }
-  const response = await fetch(endpoint, { method: 'POST', headers: headers(apiKey), body: JSON.stringify(payload), signal })
+  const response = await fetch(endpoint, { method: 'POST', headers: headers(apiKey), body: JSON.stringify(payload), signal: requestSignal(signal, timeoutMs) })
   const body = await response.json().catch(() => ({}))
   if (!response.ok) throw publicApiError(response.status, body)
   return body
 }
 
-export async function getInteraction({ apiKey, id, signal }) {
-  const response = await fetch(`${endpoint}/${encodeURIComponent(id)}`, { headers: headers(apiKey), signal })
+export async function getInteraction({ apiKey, id, signal, timeoutMs = 30 * 1000 }) {
+  const response = await fetch(`${endpoint}/${encodeURIComponent(id)}`, { headers: headers(apiKey), signal: requestSignal(signal, timeoutMs) })
   const body = await response.json().catch(() => ({}))
   if (!response.ok) throw publicApiError(response.status, body)
   return body

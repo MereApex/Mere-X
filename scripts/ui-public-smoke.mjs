@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises'
+import { ensureBrowserAccount } from './browser-auth.mjs'
 
 const debugPort = process.env.MERE_CDP_PORT || '9333'
 const baseUrl = process.env.MERE_URL || 'http://127.0.0.1:5173/#/pricing'
@@ -7,6 +8,7 @@ const target = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURICo
 const socket = new WebSocket(target.webSocketDebuggerUrl)
 const pending = new Map()
 const runtimeErrors = []
+const seedWorkspace = patch => `(async()=>{for(let attempt=0;attempt<6;attempt+=1){const current=await fetch('/api/workspace').then(response=>response.json());const response=await fetch('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:current.version,userId:current.userId,data:{...(current.data||{}),...(${patch})}})});if(response.ok)return true;const failure=await response.json().catch(()=>({}));if(failure.code!=='version-conflict')return false;await new Promise(resolve=>setTimeout(resolve,350))}return false})()`
 let commandId = 0
 
 await new Promise((resolve, reject) => {
@@ -81,6 +83,8 @@ try {
   await command('Network.enable')
   await command('Network.deleteCookies', { name: 'mere_guest', url: 'http://127.0.0.1:5173' })
   await command('Page.reload')
+  await waitFor(`Boolean(document.querySelector('body'))`)
+  await ensureBrowserAccount(evaluate, 'Public Routes Smoke')
   await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
   await waitFor(`Boolean(document.querySelector('.pricing-grid'))`)
 
@@ -118,13 +122,16 @@ try {
   await navigate('/security', '.security-grid')
   await screenshot('mere-x-security-qa.png')
 
-  await navigate('/app', '.page-area')
   const seedMessages = Array.from({ length: 16 }, (_, index) => ({
     id: 20_000 + index,
     role: index % 2 ? 'assistant' : 'user',
     content: `${index % 2 ? 'Mere Apex response' : 'User prompt'} ${index + 1}. ${'This is a scroll verification line. '.repeat(5)}`,
   }))
-  await evaluate(`localStorage.setItem('mere-x-thread', ${JSON.stringify(JSON.stringify(seedMessages))}); location.reload()`)
+  const seeded = await evaluate(seedWorkspace(`{thread:${JSON.stringify(seedMessages)},conversations:[],activeConversationId:'scroll-smoke'}`))
+  if (!seeded) throw new Error('Could not seed the account workspace for scroll validation')
+  await evaluate(`location.hash='/app'`)
+  await command('Page.reload')
+  await waitFor(`Boolean(document.querySelector('.page-area'))`)
   await waitFor(`document.querySelectorAll('.message').length >= 16`)
   await sleep(250)
   const initialScroll = await evaluate(`(() => { const node = document.querySelector('.page-area'); return { top: node.scrollTop, max: node.scrollHeight - node.clientHeight, atBottom: node.scrollTop + node.clientHeight >= node.scrollHeight - 3 } })()`)

@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises'
+import { ensureBrowserAccount } from './browser-auth.mjs'
 
 const debugPort = process.env.MERE_CDP_PORT || '9333'
 const baseUrl = process.env.MERE_URL || 'http://127.0.0.1:5173/#/projects'
@@ -79,7 +80,12 @@ try {
   await command('Network.enable')
   await command('Network.deleteCookies', { name: 'mere_guest', url: 'http://127.0.0.1:5173' })
   await command('Page.reload')
+  await waitFor(`Boolean(document.querySelector('body'))`)
+  await ensureBrowserAccount(evaluate, 'UI Platform Smoke')
+  await command('Page.navigate', { url: `${new URL(baseUrl).origin}${new URL(baseUrl).pathname}?qa=${Date.now()}#/projects` })
   await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
+  await waitFor(`Boolean(document.querySelector('.app'))`)
+  await evaluate(`location.hash='/projects'`)
   await waitFor(`Boolean(document.querySelector('.page-shell'))`)
 
   await click('.page-heading .primary-button')
@@ -136,16 +142,16 @@ try {
 
   const result = await evaluate(`({
     route: location.hash,
-    projectSaved: JSON.parse(localStorage.getItem('mere-x-projects') || '[]').some(item => item.name === 'QA Project'),
-    librarySaved: JSON.parse(localStorage.getItem('mere-x-library') || '[]').some(item => item.title === 'QA Document'),
-    agentSaved: JSON.parse(localStorage.getItem('mere-x-agents') || '[]').some(item => item.name === 'QA Specialist'),
+    browserWorkspaceKeys: Object.keys(localStorage).filter(key => key.startsWith('mere-x-')),
     context: document.querySelector('.context-banner b')?.textContent,
     response: [...document.querySelectorAll('.markdown-response')].at(-1)?.textContent.trim()
   })`)
+  if (result.browserWorkspaceKeys.length) throw new Error(`Workspace data leaked into localStorage: ${result.browserWorkspaceKeys.join(', ')}`)
   if (runtimeErrors.length) throw new Error(`Browser runtime errors: ${runtimeErrors.join(' | ')}`)
   console.log(JSON.stringify({ ok: true, ...result, geometry }, null, 2))
 } catch (error) {
-  console.error(JSON.stringify({ ok: false, error: error.message }, null, 2))
+  const diagnostic = await evaluate(`(async()=>{const session=await fetch('/api/auth/session').then(response=>response.json()).catch(error=>({error:String(error)}));return {hash:location.hash,bodyClass:document.body.className,root:document.querySelector('#root')?.innerHTML.slice(0,800)||'',gate:document.querySelector('.workspace-gate')?.textContent||'',auth:Boolean(document.querySelector('.auth-form-wrap')),page:Boolean(document.querySelector('.page-shell')),session}})()`).catch(() => null)
+  console.error(JSON.stringify({ ok: false, error: error.message, diagnostic, runtimeErrors }, null, 2))
   process.exitCode = 1
 } finally {
   socket.close()

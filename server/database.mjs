@@ -234,7 +234,69 @@ const migrations = [
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     ],
   },
+  {
+    version: 5,
+    name: 'profile_photo_and_password_state',
+    statements: [
+      // avatar_url is the URL the interface renders: a federated provider photo,
+      // or /api/account/avatar for a photo the account owner uploaded.
+      'ALTER TABLE users ADD COLUMN avatar_url VARCHAR(512) NULL AFTER name',
+      'ALTER TABLE users ADD COLUMN avatar_updated_at BIGINT UNSIGNED NULL AFTER avatar_url',
+      // Accounts created through a federated provider have no password the person
+      // knows, so password-only confirmations must not lock them out of their account.
+      'ALTER TABLE users ADD COLUMN password_set TINYINT(1) NOT NULL DEFAULT 1 AFTER password_hash',
+      `CREATE TABLE IF NOT EXISTS user_avatars (
+        user_id CHAR(36) CHARACTER SET ascii PRIMARY KEY,
+        mime_type VARCHAR(64) CHARACTER SET ascii NOT NULL,
+        image_data MEDIUMBLOB NOT NULL,
+        size INT UNSIGNED NOT NULL,
+        updated_at BIGINT UNSIGNED NOT NULL,
+        CONSTRAINT user_avatars_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      'ALTER TABLE auth_identities ADD COLUMN updated_at BIGINT UNSIGNED NULL',
+      // Keeping the provider photo here lets the account fall back to it when an
+      // uploaded photo is removed, without re-authenticating with the provider.
+      'ALTER TABLE auth_identities ADD COLUMN provider_avatar_url VARCHAR(512) NULL',
+      'UPDATE auth_identities SET updated_at=created_at WHERE updated_at IS NULL',
+      // Accounts that were *created* by Google (rather than linked to an existing
+      // password account) hold an unusable random password. The creation audit
+      // record is the only reliable marker, so use it to flag them.
+      `UPDATE users SET password_set=0 WHERE id IN (
+        SELECT user_id FROM audit_events
+        WHERE action='account.created' AND user_id IS NOT NULL AND metadata LIKE '%"method":"google"%'
+      )`,
+    ],
+  },
+  {
+    version: 6,
+    name: 'federated_profile_photo_fallback',
+    statements: [
+      'ALTER TABLE auth_identities ADD COLUMN provider_avatar_url VARCHAR(512) NULL',
+    ],
+  },
+  {
+    version: 7,
+    name: 'verified_email_change',
+    statements: [
+      // An email challenge can now belong to a specific account, which is what
+      // lets a change of address be confirmed at the new address.
+      'ALTER TABLE email_challenges ADD COLUMN user_id CHAR(36) CHARACTER SET ascii NULL',
+      'ALTER TABLE email_challenges ADD INDEX email_challenges_user (user_id, purpose)',
+    ],
+  },
 ]
+
+// MySQL commits DDL implicitly, so a migration that fails halfway leaves the
+// statements before it in place. Re-running must therefore treat "this change is
+// already here" as success instead of blocking every later migration.
+const alreadyAppliedCodes = new Set([
+  'ER_DUP_FIELDNAME',
+  'ER_DUP_KEYNAME',
+  'ER_TABLE_EXISTS_ERROR',
+  'ER_CANT_DROP_FIELD_OR_KEY',
+  'ER_DUP_ENTRY',
+  'ER_FK_DUP_NAME',
+])
 
 function connectionOptions() {
   const value = process.env.DATABASE_URL || process.env.MYSQL_URL
@@ -317,7 +379,13 @@ async function runMigrations() {
       if (applied.has(migration.version)) continue
       await connection.beginTransaction()
       try {
-        for (const statement of migration.statements) await connection.execute(statement)
+        for (const statement of migration.statements) {
+          try { await connection.execute(statement) }
+          catch (error) {
+            if (!alreadyAppliedCodes.has(error?.code)) throw error
+            console.warn('[database-migration]', { version: migration.version, skipped: error.code })
+          }
+        }
         await connection.execute('INSERT INTO schema_migrations (version,name,applied_at) VALUES (?,?,?)', [migration.version, migration.name, Date.now()])
         await connection.commit()
       } catch (error) {

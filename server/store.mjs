@@ -26,8 +26,22 @@ export function verifyPassword(password, stored) {
 }
 
 function publicUser(row) {
-  return row ? { id: row.id, email: row.email, name: row.name, plan: row.plan, createdAt: Number(row.created_at) } : null
+  if (!row) return null
+  const avatar = row.avatar_url ? String(row.avatar_url) : null
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    plan: row.plan,
+    // Local uploads are served by the account API, so append the stored revision
+    // to keep a replaced photo from being read out of the browser image cache.
+    avatar: avatar && avatar.startsWith('/api/') && row.avatar_updated_at ? `${avatar}?v=${Number(row.avatar_updated_at)}` : avatar,
+    hasPassword: row.password_set === undefined ? true : Boolean(Number(row.password_set)),
+    createdAt: Number(row.created_at),
+  }
 }
+
+export const UPLOADED_AVATAR_URL = '/api/account/avatar'
 
 function challengeHash(id, code) {
   const configured = String(process.env.AUTH_CODE_SECRET || '')
@@ -48,9 +62,9 @@ function verificationCode() {
 
 export async function createUser({ email, password, name }) {
   const timestamp = now()
-  const user = { id: randomUUID(), email: normalizeEmail(email), name: String(name).trim(), plan: 'free', createdAt: timestamp }
+  const user = { id: randomUUID(), email: normalizeEmail(email), name: String(name).trim(), plan: 'free', avatar: null, hasPassword: true, createdAt: timestamp }
   await withTransaction(async connection => {
-    await connection.execute('INSERT INTO users (id,email,password_hash,name,plan,email_verified_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)', [user.id, user.email, hashPassword(password), user.name, user.plan, timestamp, timestamp, timestamp])
+    await connection.execute('INSERT INTO users (id,email,password_hash,password_set,name,plan,email_verified_at,created_at,updated_at) VALUES (?,?,?,1,?,?,?,?,?)', [user.id, user.email, hashPassword(password), user.name, user.plan, timestamp, timestamp, timestamp])
     await connection.execute('INSERT INTO workspaces (user_id,version,data,updated_at) VALUES (?,?,?,?)', [user.id, 1, '{}', timestamp])
     await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), user.id, 'account.created', null, timestamp])
   })
@@ -77,7 +91,7 @@ export async function updateUser(id, updates = {}) {
     const plan = updates.plan || current.plan
     const passwordHash = updates.password ? hashPassword(updates.password) : current.password_hash
     const timestamp = now()
-    await connection.execute('UPDATE users SET email=?,name=?,plan=?,password_hash=?,updated_at=? WHERE id=?', [email, name, plan, passwordHash, timestamp, id])
+    await connection.execute('UPDATE users SET email=?,name=?,plan=?,password_hash=?,password_set=?,updated_at=? WHERE id=?', [email, name, plan, passwordHash, updates.password ? 1 : Number(current.password_set ?? 1), timestamp, id])
     if (email !== current.email || name !== current.name || plan !== current.plan || passwordHash !== current.password_hash) {
       await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), id, 'account.updated', JSON.stringify({ emailChanged: email !== current.email, nameChanged: name !== current.name, planChanged: plan !== current.plan, passwordChanged: passwordHash !== current.password_hash }), timestamp])
     }
@@ -121,7 +135,7 @@ export async function changePassword(userId, currentPassword, nextPassword) {
     const [rows] = await connection.execute('SELECT password_hash FROM users WHERE id=? FOR UPDATE', [userId])
     if (!rows[0] || !verifyPassword(currentPassword, rows[0].password_hash)) return false
     const timestamp = now()
-    await connection.execute('UPDATE users SET password_hash=?,updated_at=? WHERE id=?', [hashPassword(nextPassword), timestamp, userId])
+    await connection.execute('UPDATE users SET password_hash=?,password_set=1,updated_at=? WHERE id=?', [hashPassword(nextPassword), timestamp, userId])
     await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), userId, 'account.password_changed', null, timestamp])
     return true
   })
@@ -169,8 +183,8 @@ export async function consumeSignupChallenge({ id, code }) {
     const [existing] = await connection.execute('SELECT id FROM users WHERE email=? LIMIT 1', [challenge.email])
     if (existing[0]) throw Object.assign(new Error('An account with this email already exists.'), { code: 'ER_DUP_ENTRY' })
     const timestamp = now()
-    const user = { id: randomUUID(), email: challenge.email, name: challenge.name, plan: 'free', created_at: timestamp }
-    await connection.execute('INSERT INTO users (id,email,password_hash,name,plan,email_verified_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)', [user.id, user.email, challenge.password_hash, user.name, user.plan, timestamp, timestamp, timestamp])
+    const user = { id: randomUUID(), email: challenge.email, name: challenge.name, plan: 'free', avatar_url: null, password_set: 1, created_at: timestamp }
+    await connection.execute('INSERT INTO users (id,email,password_hash,password_set,name,plan,email_verified_at,created_at,updated_at) VALUES (?,?,?,1,?,?,?,?,?)', [user.id, user.email, challenge.password_hash, user.name, user.plan, timestamp, timestamp, timestamp])
     await connection.execute('INSERT INTO workspaces (user_id,version,data,updated_at) VALUES (?,?,?,?)', [user.id, 1, '{}', timestamp])
     await connection.execute('UPDATE email_challenges SET consumed_at=? WHERE id=?', [timestamp, challenge.id])
     await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), user.id, 'account.created', JSON.stringify({ method: 'email_code' }), timestamp])
@@ -205,7 +219,7 @@ export async function applyPasswordResetCode({ id, code, password }) {
     const user = users[0]
     if (!user) return false
     const timestamp = now()
-    await connection.execute('UPDATE users SET password_hash=?,updated_at=? WHERE id=?', [hashPassword(password), timestamp, user.id])
+    await connection.execute('UPDATE users SET password_hash=?,password_set=1,updated_at=? WHERE id=?', [hashPassword(password), timestamp, user.id])
     await connection.execute('UPDATE email_challenges SET consumed_at=? WHERE id=?', [timestamp, challenge.id])
     await connection.execute('DELETE FROM sessions WHERE user_id=?', [user.id])
     await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), user.id, 'account.password_reset', JSON.stringify({ method: 'email_code' }), timestamp])
@@ -215,9 +229,13 @@ export async function applyPasswordResetCode({ id, code, password }) {
 
 export async function createPasswordChangeChallenge({ userId, currentPassword, password, ttlMs = 10 * 60 * 1000 }) {
   return withTransaction(async connection => {
-    const [users] = await connection.execute('SELECT id,email,password_hash FROM users WHERE id=? FOR UPDATE', [userId])
+    const [users] = await connection.execute('SELECT id,email,password_hash,password_set FROM users WHERE id=? FOR UPDATE', [userId])
     const user = users[0]
-    if (!user || !verifyPassword(currentPassword, user.password_hash)) return null
+    if (!user) return null
+    // Accounts created through Google hold an unusable random password, so the
+    // first password is confirmed by the emailed code alone.
+    const hasPassword = Boolean(Number(user.password_set ?? 1))
+    if (hasPassword && !verifyPassword(currentPassword, user.password_hash)) return null
     const id = randomUUID()
     const code = verificationCode()
     const timestamp = now()
@@ -242,20 +260,90 @@ export async function applyPasswordChangeCode({ id, code, userId }) {
       return false
     }
     const timestamp = now()
-    await connection.execute('UPDATE users SET password_hash=?,updated_at=? WHERE id=?', [challenge.password_hash, timestamp, user.id])
+    await connection.execute('UPDATE users SET password_hash=?,password_set=1,updated_at=? WHERE id=?', [challenge.password_hash, timestamp, user.id])
     await connection.execute('UPDATE email_challenges SET consumed_at=? WHERE id=?', [timestamp, challenge.id])
     await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), user.id, 'account.password_changed', JSON.stringify({ method: 'email_code' }), timestamp])
     return true
   })
 }
 
-export async function signInWithGoogleIdentity({ subject, email, name, authoritativeEmail }) {
+// A photo the account owner uploaded always wins over the provider photo, so a
+// later federated sign-in must never overwrite it.
+const providerPhotoAllowed = (row) => !row?.avatar_url || !String(row.avatar_url).startsWith('/api/')
+
+function safeProviderPhoto(picture) {
+  const value = String(picture || '').trim()
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:') return null
+    return url.toString().slice(0, 512)
+  } catch { return null }
+}
+
+export async function createEmailChangeChallenge({ userId, email, ttlMs = 10 * 60 * 1000 }) {
+  const nextEmail = normalizeEmail(email)
+  return withTransaction(async connection => {
+    const [users] = await connection.execute('SELECT id,email FROM users WHERE id=? FOR UPDATE', [userId])
+    const user = users[0]
+    if (!user) return { error: 'not-found' }
+    if (normalizeEmail(user.email) === nextEmail) return { error: 'unchanged' }
+    const [taken] = await connection.execute('SELECT id FROM users WHERE email=? LIMIT 1', [nextEmail])
+    if (taken[0]) return { error: 'taken' }
+    const id = randomUUID()
+    const code = verificationCode()
+    const timestamp = now()
+    await connection.execute("DELETE FROM email_challenges WHERE user_id=? AND purpose='email_change' AND consumed_at IS NULL", [userId])
+    await connection.execute(`INSERT INTO email_challenges (id,email,purpose,code_hash,name,password_hash,user_id,attempts,expires_at,created_at)
+      VALUES (?,?,'email_change',?,NULL,NULL,?,0,?,?)`, [id, nextEmail, challengeHash(id, code), userId, timestamp + ttlMs, timestamp])
+    await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), userId, 'account.email_change_requested', JSON.stringify({ to: nextEmail }), timestamp])
+    return { id, code, email: nextEmail, expiresAt: timestamp + ttlMs }
+  })
+}
+
+export async function applyEmailChangeCode({ id, code, userId }) {
+  return withTransaction(async connection => {
+    const [rows] = await connection.execute("SELECT * FROM email_challenges WHERE id=? AND purpose='email_change' FOR UPDATE", [String(id)])
+    const challenge = rows[0]
+    if (!challenge || challenge.user_id !== userId || challenge.consumed_at !== null || Number(challenge.expires_at) <= now() || Number(challenge.attempts) >= 5) return { error: 'invalid' }
+    if (!validChallengeCode(challenge, code)) {
+      await connection.execute('UPDATE email_challenges SET attempts=attempts+1 WHERE id=?', [challenge.id])
+      return { error: 'invalid' }
+    }
+    const [taken] = await connection.execute('SELECT id FROM users WHERE email=? AND id<>? LIMIT 1', [challenge.email, userId])
+    if (taken[0]) return { error: 'taken' }
+    const timestamp = now()
+    await connection.execute('UPDATE users SET email=?,email_verified_at=?,updated_at=? WHERE id=?', [challenge.email, timestamp, timestamp, userId])
+    await connection.execute('UPDATE email_challenges SET consumed_at=? WHERE id=?', [timestamp, challenge.id])
+    await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), userId, 'account.email_changed', JSON.stringify({ to: challenge.email }), timestamp])
+    const [users] = await connection.execute('SELECT * FROM users WHERE id=? LIMIT 1', [userId])
+    return { user: publicUser(users[0]) }
+  })
+}
+
+export async function signInWithGoogleIdentity({ subject, email, name, picture, authoritativeEmail }) {
   const provider = 'google'
   const normalizedEmail = normalizeEmail(email)
+  const photo = safeProviderPhoto(picture)
+  const providerName = String(name || '').trim().slice(0, 100)
   return withTransaction(async connection => {
     const [identityRows] = await connection.execute(`SELECT users.* FROM auth_identities
       JOIN users ON users.id=auth_identities.user_id WHERE auth_identities.provider=? AND auth_identities.provider_subject=? LIMIT 1 FOR UPDATE`, [provider, String(subject)])
-    if (identityRows[0]) return { user: publicUser(identityRows[0]), created: false }
+    const linked = identityRows[0]
+    if (linked) {
+      // The Google subject is the stable identity. Refresh the address and photo
+      // it reports so a renamed or re-photographed Google account stays accurate,
+      // and never silently move the session onto a different Mere X account.
+      const timestamp = now()
+      const nextPhoto = providerPhotoAllowed(linked) ? photo : (linked.avatar_url || null)
+      await connection.execute('UPDATE auth_identities SET provider_email=?,provider_avatar_url=?,updated_at=? WHERE provider=? AND provider_subject=?', [normalizedEmail, photo, timestamp, provider, String(subject)])
+      if (nextPhoto !== (linked.avatar_url || null)) {
+        await connection.execute('UPDATE users SET avatar_url=?,avatar_updated_at=?,updated_at=? WHERE id=?', [nextPhoto, timestamp, timestamp, linked.id])
+        linked.avatar_url = nextPhoto
+        linked.avatar_updated_at = timestamp
+      }
+      return { user: publicUser(linked), created: false }
+    }
     const [emailRows] = await connection.execute('SELECT * FROM users WHERE email=? LIMIT 1 FOR UPDATE', [normalizedEmail])
     let userRow = emailRows[0]
     if (userRow && !authoritativeEmail) return { conflict: true }
@@ -263,14 +351,62 @@ export async function signInWithGoogleIdentity({ subject, email, name, authorita
     let created = false
     if (!userRow) {
       created = true
-      userRow = { id: randomUUID(), email: normalizedEmail, name: String(name || normalizedEmail.split('@')[0]).trim().slice(0, 100), plan: 'free', created_at: timestamp }
-      await connection.execute('INSERT INTO users (id,email,password_hash,name,plan,email_verified_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)', [userRow.id, userRow.email, hashPassword(randomBytes(32).toString('base64url')), userRow.name, userRow.plan, timestamp, timestamp, timestamp])
+      userRow = {
+        id: randomUUID(),
+        email: normalizedEmail,
+        name: providerName || normalizedEmail.split('@')[0].slice(0, 100),
+        plan: 'free',
+        avatar_url: photo,
+        avatar_updated_at: photo ? timestamp : null,
+        password_set: 0,
+        created_at: timestamp,
+      }
+      await connection.execute('INSERT INTO users (id,email,password_hash,password_set,name,avatar_url,avatar_updated_at,plan,email_verified_at,created_at,updated_at) VALUES (?,?,?,0,?,?,?,?,?,?,?)', [userRow.id, userRow.email, hashPassword(randomBytes(32).toString('base64url')), userRow.name, userRow.avatar_url, userRow.avatar_updated_at, userRow.plan, timestamp, timestamp, timestamp])
       await connection.execute('INSERT INTO workspaces (user_id,version,data,updated_at) VALUES (?,?,?,?)', [userRow.id, 1, '{}', timestamp])
+    } else if (photo && providerPhotoAllowed(userRow)) {
+      await connection.execute('UPDATE users SET avatar_url=?,avatar_updated_at=?,updated_at=? WHERE id=?', [photo, timestamp, timestamp, userRow.id])
+      userRow.avatar_url = photo
+      userRow.avatar_updated_at = timestamp
     }
-    await connection.execute('INSERT INTO auth_identities (provider,provider_subject,user_id,provider_email,created_at) VALUES (?,?,?,?,?)', [provider, String(subject), userRow.id, normalizedEmail, timestamp])
+    await connection.execute('INSERT INTO auth_identities (provider,provider_subject,user_id,provider_email,provider_avatar_url,created_at,updated_at) VALUES (?,?,?,?,?,?,?)', [provider, String(subject), userRow.id, normalizedEmail, photo, timestamp, timestamp])
     await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), userRow.id, created ? 'account.created' : 'account.identity_linked', JSON.stringify({ method: 'google' }), timestamp])
     return { user: publicUser(userRow), created }
   })
+}
+
+export async function listAuthIdentities(userId) {
+  const [rows] = await execute('SELECT provider,provider_email,created_at FROM auth_identities WHERE user_id=? ORDER BY created_at', [userId])
+  return rows.map(row => ({ provider: row.provider, email: row.provider_email, createdAt: Number(row.created_at) }))
+}
+
+export async function setUserAvatar(userId, { mimeType, buffer }) {
+  const timestamp = now()
+  return withTransaction(async connection => {
+    await connection.execute(`INSERT INTO user_avatars (user_id,mime_type,image_data,size,updated_at) VALUES (?,?,?,?,?)
+      ON DUPLICATE KEY UPDATE mime_type=VALUES(mime_type),image_data=VALUES(image_data),size=VALUES(size),updated_at=VALUES(updated_at)`, [userId, mimeType, buffer, buffer.length, timestamp])
+    await connection.execute('UPDATE users SET avatar_url=?,avatar_updated_at=?,updated_at=? WHERE id=?', [UPLOADED_AVATAR_URL, timestamp, timestamp, userId])
+    const [rows] = await connection.execute('SELECT * FROM users WHERE id=? LIMIT 1', [userId])
+    return publicUser(rows[0])
+  })
+}
+
+export async function clearUserAvatar(userId) {
+  const timestamp = now()
+  return withTransaction(async connection => {
+    await connection.execute('DELETE FROM user_avatars WHERE user_id=?', [userId])
+    // Fall back to the linked provider photo when one is still available.
+    const [identities] = await connection.execute('SELECT provider_avatar_url FROM auth_identities WHERE user_id=? AND provider_avatar_url IS NOT NULL ORDER BY updated_at DESC LIMIT 1', [userId])
+    const fallback = identities[0]?.provider_avatar_url || null
+    await connection.execute('UPDATE users SET avatar_url=?,avatar_updated_at=?,updated_at=? WHERE id=?', [fallback, timestamp, timestamp, userId])
+    const [rows] = await connection.execute('SELECT * FROM users WHERE id=? LIMIT 1', [userId])
+    return publicUser(rows[0])
+  })
+}
+
+export async function getUserAvatar(userId) {
+  const [rows] = await execute('SELECT mime_type,image_data,size,updated_at FROM user_avatars WHERE user_id=? LIMIT 1', [userId])
+  const row = rows[0]
+  return row ? { mimeType: row.mime_type, buffer: Buffer.from(row.image_data), size: Number(row.size), updatedAt: Number(row.updated_at) } : null
 }
 
 export async function createPasswordReset(userId, ttlMs = 30 * 60 * 1000) {
@@ -286,7 +422,7 @@ export async function applyPasswordReset(token, password) {
     const row = rows[0]
     if (!row) return false
     const timestamp = now()
-    await connection.execute('UPDATE users SET password_hash=?,updated_at=? WHERE id=?', [hashPassword(password), timestamp, row.user_id])
+    await connection.execute('UPDATE users SET password_hash=?,password_set=1,updated_at=? WHERE id=?', [hashPassword(password), timestamp, row.user_id])
     await connection.execute('UPDATE password_resets SET used_at=? WHERE token_hash=?', [timestamp, hash])
     await connection.execute('DELETE FROM sessions WHERE user_id=?', [row.user_id])
     await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), row.user_id, 'account.password_reset', null, timestamp])
@@ -312,6 +448,48 @@ export async function saveWorkspace(userId, data, expectedVersion) {
       ON DUPLICATE KEY UPDATE version=VALUES(version),data=VALUES(data),updated_at=VALUES(updated_at)`, [userId, version, JSON.stringify(data || {}), timestamp])
     return { conflict: false, workspace: { version, data: data || {}, updatedAt: timestamp } }
   })
+}
+
+export async function getAccountStorage(userId) {
+  const [[workspaceRow], [fileRow], [jobRow], [knowledgeRow]] = await Promise.all([
+    execute('SELECT COALESCE(OCTET_LENGTH(data),0) AS bytes FROM workspaces WHERE user_id=?', [userId]),
+    execute('SELECT COUNT(*) AS files,COALESCE(SUM(size),0) AS bytes FROM stored_files WHERE owner_id=?', [userId]),
+    execute('SELECT COUNT(*) AS jobs,COALESCE(SUM(OCTET_LENGTH(payload)+OCTET_LENGTH(result)+OCTET_LENGTH(error)),0) AS bytes FROM jobs WHERE owner_id=?', [userId]),
+    execute('SELECT COUNT(*) AS stores FROM knowledge_stores WHERE owner_id=?', [userId]),
+  ])
+  const workspaceBytes = Number(workspaceRow?.[0]?.bytes || 0)
+  const fileBytes = Number(fileRow?.[0]?.bytes || 0)
+  const jobBytes = Number(jobRow?.[0]?.bytes || 0)
+  return {
+    workspaceBytes,
+    fileBytes,
+    jobBytes,
+    totalBytes: workspaceBytes + fileBytes + jobBytes,
+    files: Number(fileRow?.[0]?.files || 0),
+    jobs: Number(jobRow?.[0]?.jobs || 0),
+    knowledgeStores: Number(knowledgeRow?.[0]?.stores || 0),
+  }
+}
+
+export async function exportAccountData(userId) {
+  const [userRows, workspace, fileRows, jobRows, knowledgeRows, billingRows] = await Promise.all([
+    execute('SELECT id,email,name,plan,created_at,updated_at FROM users WHERE id=? LIMIT 1', [userId]),
+    getWorkspace(userId),
+    execute('SELECT id,name,mime_type,size,checksum,created_at FROM stored_files WHERE owner_id=? ORDER BY created_at DESC', [userId]),
+    execute('SELECT id,type,status,payload,result,error,created_at,updated_at FROM jobs WHERE owner_id=? ORDER BY updated_at DESC', [userId]),
+    execute('SELECT project_id,display_name,created_at,updated_at FROM knowledge_stores WHERE owner_id=? ORDER BY updated_at DESC', [userId]),
+    execute('SELECT plan_key,billing_cycle,quantity,status,access_expires_at,cancel_at_period_end,created_at,updated_at FROM billing_subscriptions WHERE user_id=? ORDER BY updated_at DESC', [userId]),
+  ])
+  const user = userRows[0]?.[0]
+  return {
+    exportedAt: now(),
+    account: user ? { id: user.id, email: user.email, name: user.name, plan: user.plan, createdAt: Number(user.created_at), updatedAt: Number(user.updated_at) } : null,
+    workspace,
+    files: fileRows[0].map(row => ({ id: row.id, name: row.name, mimeType: row.mime_type, size: Number(row.size), checksum: row.checksum, createdAt: Number(row.created_at) })),
+    jobs: jobRows[0].map(row => ({ id: row.id, type: row.type, status: row.status, payload: jsonParse(row.payload, {}), result: jsonParse(row.result, null), error: row.error, createdAt: Number(row.created_at), updatedAt: Number(row.updated_at) })),
+    knowledge: knowledgeRows[0].map(row => ({ projectId: row.project_id, displayName: row.display_name, createdAt: Number(row.created_at), updatedAt: Number(row.updated_at) })),
+    billing: billingRows[0].map(row => ({ plan: row.plan_key, billingCycle: row.billing_cycle, quantity: Number(row.quantity), status: row.status, accessExpiresAt: row.access_expires_at === null ? null : Number(row.access_expires_at), cancelAtPeriodEnd: Boolean(row.cancel_at_period_end), createdAt: Number(row.created_at), updatedAt: Number(row.updated_at) })),
+  }
 }
 
 export async function createShare({ ownerId = null, title, messages, ttlMs = 90 * 24 * 60 * 60 * 1000 }) {
@@ -345,10 +523,18 @@ export async function storeFile({ ownerId = null, guestId = null, name, mimeType
   return { id, name, mimeType, size: buffer.length, checksum, createdAt: timestamp }
 }
 
+function ownsRecord(row, ownerId, guestId) {
+  if (!row) return false
+  if (row.owner_id) return Boolean(ownerId) && row.owner_id === ownerId
+  // An unowned record belongs to a browser, and only to a real guest identifier:
+  // two missing identifiers must never compare as a match.
+  return Boolean(guestId) && row.guest_id === guestId
+}
+
 export async function getStoredFile(id, { ownerId = null, guestId = null } = {}) {
   const [rows] = await execute('SELECT * FROM stored_files WHERE id=? LIMIT 1', [id])
   const row = rows[0]
-  if (!row || (row.owner_id && row.owner_id !== ownerId) || (!row.owner_id && row.guest_id !== guestId)) return null
+  if (!ownsRecord(row, ownerId, guestId)) return null
   return { id: row.id, name: row.name, mimeType: row.mime_type, size: Number(row.size), checksum: row.checksum, buffer: Buffer.from(row.file_data) }
 }
 
@@ -379,12 +565,13 @@ export async function updateJob(id, updates = {}) {
 export async function getJob(id, { ownerId = null, guestId = null } = {}) {
   const [rows] = await execute('SELECT * FROM jobs WHERE id=? LIMIT 1', [id])
   const row = rows[0]
-  if (!row || (row.owner_id && row.owner_id !== ownerId) || (!row.owner_id && row.guest_id !== guestId)) return null
+  if (!ownsRecord(row, ownerId, guestId)) return null
   return publicJob(row)
 }
 
 export async function listJobs({ ownerId = null, guestId = null } = {}, limit = 20) {
   const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20))
+  if (!ownerId && !guestId) return []
   const [rows] = ownerId
     ? await execute(`SELECT * FROM jobs WHERE owner_id=? ORDER BY updated_at DESC LIMIT ${safeLimit}`, [ownerId])
     : await execute(`SELECT * FROM jobs WHERE owner_id IS NULL AND guest_id=? ORDER BY updated_at DESC LIMIT ${safeLimit}`, [guestId])

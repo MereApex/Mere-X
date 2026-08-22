@@ -71,15 +71,21 @@ try {
   if (!opened) throw new Error('The Plus checkout trigger was not found.')
   await waitFor(`Boolean(document.querySelector('.payment-modal'))`)
   await sleep(750)
-  const desktop = await evaluate(`(() => { const overlay=document.querySelector('.payment-modal-overlay'); const modal=document.querySelector('.payment-modal'); const rect=modal.getBoundingClientRect(); return {width:Math.round(rect.width),height:Math.round(rect.height),horizontalOverflow:modal.scrollWidth>modal.clientWidth+2,viewportOverflow:rect.right>innerWidth||rect.bottom>innerHeight,total:document.querySelector('.payment-total strong')?.textContent,methods:[...document.querySelectorAll('.accepted-cards span')].map(node=>node.textContent)} })()`)
+  const desktop = await evaluate(`(() => { const modal=document.querySelector('.payment-modal'); const rect=modal.getBoundingClientRect(); return {width:Math.round(rect.width),height:Math.round(rect.height),horizontalOverflow:modal.scrollWidth>modal.clientWidth+2,viewportOverflow:rect.right>innerWidth||rect.bottom>innerHeight,total:document.querySelector('.payment-total strong')?.textContent,methods:[...document.querySelectorAll('.accepted-cards span')].map(node=>node.textContent),unavailable:document.querySelector('.payment-unavailable')?.innerText||'',consent:Boolean(document.querySelector('.payment-consent'))} })()`)
+  // Checkout is only wired up once real PayPal credentials are configured. Either
+  // the payment methods render, or the modal states plainly that checkout is not
+  // available and offers no consent copy - both are correct, a blank pane is not.
+  const checkoutOffered = desktop.methods.length >= 4
+  const unavailableExplained = Boolean(desktop.unavailable) && !desktop.consent
+  const paymentsConfigured = await evaluate(`(async()=>{const r=await fetch('/api/billing/config');const c=await r.json();return Boolean(c.enabled&&c.clientId)})()`)
   await screenshot('mere-x-payment-checkout-desktop.png')
   await command('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true })
   await sleep(180)
   const mobile = await evaluate(`(() => { const modal=document.querySelector('.payment-modal'); const rect=modal.getBoundingClientRect(); return {width:Math.round(rect.width),height:Math.round(rect.height),horizontalOverflow:modal.scrollWidth>modal.clientWidth+2,viewportOverflow:rect.right>innerWidth+2} })()`)
   await screenshot('mere-x-payment-checkout-mobile.png')
   await evaluate(`fetch('/api/account',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:${JSON.stringify(password)}})})`)
-  const failures = [desktop.horizontalOverflow || desktop.viewportOverflow ? 'Desktop checkout overflows' : null, mobile.horizontalOverflow || mobile.viewportOverflow ? 'Mobile checkout overflows' : null, desktop.total !== '$180.00' ? 'Annual total is incorrect' : null, desktop.methods.length < 4 ? 'Payment method labels are incomplete' : null, !accountContext.header.includes('Payment UI') ? 'Signed-in pricing header is missing' : null, accountContext.conversations || accountContext.projects || accountContext.library ? 'Stale demo workspace data leaked into the new account' : null, runtimeErrors.length ? 'Runtime errors were reported' : null].filter(Boolean)
-  console.log(JSON.stringify({ ok: failures.length === 0, failures, accountContext, desktop, mobile, runtimeErrors }, null, 2))
+  const failures = [desktop.horizontalOverflow || desktop.viewportOverflow ? 'Desktop checkout overflows' : null, mobile.horizontalOverflow || mobile.viewportOverflow ? 'Mobile checkout overflows' : null, desktop.total !== '$180.00' ? 'Annual total is incorrect' : null, !checkoutOffered && !unavailableExplained ? 'Checkout shows neither payment methods nor a reason it is unavailable' : null, paymentsConfigured && !checkoutOffered ? 'Payment method labels are incomplete' : null, !accountContext.header.includes('Payment UI') ? 'Signed-in pricing header is missing' : null, accountContext.conversations || accountContext.projects || accountContext.library ? 'Stale demo workspace data leaked into the new account' : null, runtimeErrors.length ? 'Runtime errors were reported' : null].filter(Boolean)
+  console.log(JSON.stringify({ ok: failures.length === 0, failures, paymentsConfigured, checkout: checkoutOffered ? 'available' : 'unavailable-explained', accountContext, desktop, mobile, runtimeErrors }, null, 2))
   if (failures.length) process.exitCode = 1
 } finally {
   await evaluate(`fetch('/api/account',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:${JSON.stringify(password)}})})`).catch(() => undefined)

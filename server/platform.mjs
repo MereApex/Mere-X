@@ -47,6 +47,42 @@ function unitsForKinds(summary, kinds) {
   return summary.byKind.filter(item => kinds.has(item.kind)).reduce((sum, item) => sum + Number(item.units || 0), 0)
 }
 
+const capabilityLabels = {
+  chat: 'Chat',
+  research: 'Research',
+  image: 'Image creation',
+  export: 'Document export',
+  file: 'File analysis',
+  deepResearch: 'Deep Research',
+  agent: 'Autonomous Agent',
+  computer: 'Computer Workspace',
+  video: 'Video Studio',
+  voice: 'Live voice',
+}
+
+// Whether a plan could ever afford one request of this kind, on a completely
+// unused account. A plan whose caps are smaller than a single request does not
+// include the capability at all, and saying "try again later" about it would be
+// false: waiting never helps.
+export function planIncludes(planId, kind, multiplier = 1) {
+  const plan = plans[planId] || plans.guest
+  const units = (usageWeights[kind] || 1) * Math.max(0.25, Number(multiplier) || 1)
+  const cost = (conservativeCostUsd[kind] || 0.01) * Math.max(0.25, Number(multiplier) || 1)
+  if (units > plan.windowUnits) return false
+  if (cost > plan.monthlyCostCap) return false
+  if (heavyKinds.has(kind) && units > plan.heavyDailyUnits) return false
+  if (mediaKinds.has(kind) && units > plan.mediaMonthlyUnits) return false
+  if (agenticKinds.has(kind) && units > plan.agenticMonthlyUnits) return false
+  return true
+}
+
+export function planCapabilities(planId) {
+  return Object.fromEntries(Object.keys(usageWeights).map(kind => [kind, {
+    label: capabilityLabels[kind] || kind,
+    included: planIncludes(planId, kind),
+  }]))
+}
+
 export function parseCookies(header = '') {
   return String(header).split(';').reduce((cookies, part) => {
     const index = part.indexOf('=')
@@ -67,25 +103,43 @@ function cookieOptions(maxAgeSeconds) {
   ].filter(Boolean).join('; ')
 }
 
+// Several cookies are written on the same response (a new session plus the guest
+// cookie it replaces), so every write must append rather than overwrite the header.
+function appendCookie(res, cookie) {
+  const existing = res.getHeader('Set-Cookie')
+  if (!existing) return res.setHeader('Set-Cookie', cookie)
+  res.setHeader('Set-Cookie', Array.isArray(existing) ? [...existing, cookie] : [existing, cookie])
+}
+
 export function setSessionCookie(res, token, expiresAt) {
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; ${cookieOptions((expiresAt - Date.now()) / 1000)}`)
+  appendCookie(res, `${SESSION_COOKIE}=${encodeURIComponent(token)}; ${cookieOptions((expiresAt - Date.now()) / 1000)}`)
+  // The signed-in account owns its data from here on. Dropping the guest
+  // identifier stops browser-scoped work from being shared between the accounts
+  // that sign in on this device.
+  appendCookie(res, `${GUEST_COOKIE}=; ${cookieOptions(0)}`)
 }
 
 export function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; ${cookieOptions(0)}`)
+  appendCookie(res, `${SESSION_COOKIE}=; ${cookieOptions(0)}`)
+  // Signing out starts a fresh browser identity so the next visitor on this
+  // device never inherits the previous one's guest scope.
+  appendCookie(res, `${GUEST_COOKIE}=${randomBytes(18).toString('base64url')}; ${cookieOptions(31536000)}`)
 }
 
 export async function resolveIdentity(req, res) {
   const cookies = parseCookies(req.headers.cookie)
   const user = await getSession(cookies[SESSION_COOKIE])
-  let guestId = cookies[GUEST_COOKIE]
+  let guestId = user ? null : cookies[GUEST_COOKIE]
   if (!user && !guestId) {
     guestId = randomBytes(18).toString('base64url')
-    const existing = res.getHeader('Set-Cookie')
-    const guestCookie = `${GUEST_COOKIE}=${guestId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`
-    res.setHeader('Set-Cookie', existing ? [existing, guestCookie] : guestCookie)
+    appendCookie(res, `${GUEST_COOKIE}=${guestId}; ${cookieOptions(31536000)}`)
   }
-  req.identity = { user, guestId, subject: user ? `user:${user.id}` : `guest:${guestId || req.ip || 'anonymous'}`, sessionToken: cookies[SESSION_COOKIE] }
+  req.identity = {
+    user,
+    guestId,
+    subject: user ? `user:${user.id}` : `guest:${guestId || req.ip || 'anonymous'}`,
+    sessionToken: user ? cookies[SESSION_COOKIE] : undefined,
+  }
   return req.identity
 }
 
@@ -112,6 +166,7 @@ export async function usageSummary(identity, timestamp = Date.now()) {
   return {
     plan: plan.id,
     label: plan.label,
+    capabilities: planCapabilities(plan.id),
     state: ratio < 0.55 ? 'available' : ratio < 0.82 ? 'active' : ratio < 1 ? 'limited' : 'paused',
     window: { state: ratio < 0.82 ? 'standard' : ratio < 1 ? 'nearing-limit' : 'paused', resetAt: nextWindowReset(timestamp) },
     tools: { state: ratio < 0.75 ? 'available' : ratio < 1 ? 'limited' : 'paused' },
@@ -121,19 +176,60 @@ export async function usageSummary(identity, timestamp = Date.now()) {
 
 export async function reserveUsage(req, res, kind, multiplier = 1, metadata = null) {
   const identity = req.identity
-  const plan = plans[identity?.user?.plan] || plans.guest
+  const planId = identity?.user?.plan && plans[identity.user.plan] ? identity.user.plan : 'guest'
+  const plan = plans[planId]
+  const label = capabilityLabels[kind] || 'This capability'
   const units = (usageWeights[kind] || 1) * Math.max(0.25, Number(multiplier) || 1)
+  const estimatedCost = (conservativeCostUsd[kind] || 0.01) * Math.max(0.25, Number(multiplier) || 1)
+
+  // A request the plan could never satisfy is a plan question, not a timing one.
+  if (!planIncludes(planId, kind, multiplier)) {
+    res.status(403).json({
+      error: `${label} is not included in Mere ${plan.label}. Upgrade to run it.`,
+      code: 'plan-upgrade-required',
+      capability: kind,
+      plan: plan.id,
+      usage: await usageSummary(identity),
+    })
+    return false
+  }
+
+  const timestamp = Date.now()
   const [rolling, daily, monthly] = await Promise.all([
-    usageSince(identity.subject, Date.now() - 5 * 60 * 60 * 1000),
-    usageSince(identity.subject, Date.now() - 24 * 60 * 60 * 1000),
-    usageSince(identity.subject, Date.now() - 30 * 24 * 60 * 60 * 1000),
+    usageSince(identity.subject, timestamp - 5 * 60 * 60 * 1000),
+    usageSince(identity.subject, timestamp - 24 * 60 * 60 * 1000),
+    usageSince(identity.subject, timestamp - 30 * 24 * 60 * 60 * 1000),
   ])
   const heavyUsed = unitsForKinds(daily, heavyKinds)
   const mediaUsed = unitsForKinds(monthly, mediaKinds)
   const agenticUsed = unitsForKinds(monthly, agenticKinds)
-  const estimatedCost = (conservativeCostUsd[kind] || 0.01) * Math.max(0.25, Number(multiplier) || 1)
-  if (rolling.units + units > plan.windowUnits || monthly.costUsd + estimatedCost > plan.monthlyCostCap || (heavyKinds.has(kind) && heavyUsed + units > plan.heavyDailyUnits) || (mediaKinds.has(kind) && mediaUsed + units > plan.mediaMonthlyUnits) || (agenticKinds.has(kind) && agenticUsed + units > plan.agenticMonthlyUnits)) {
-    res.status(429).json({ error: 'Your current access window is full. It refreshes automatically.', usage: await usageSummary(identity) })
+
+  // Name the allowance that is actually full, and when it actually refreshes,
+  // so the message is never "try again shortly" about a 30-day window.
+  const exceeded =
+    rolling.units + units > plan.windowUnits
+      ? { scope: 'window', resetAt: timestamp + 5 * 60 * 60 * 1000, message: `Your rolling 5-hour allowance is full. ${label} is available again after it refreshes.` }
+      : heavyKinds.has(kind) && heavyUsed + units > plan.heavyDailyUnits
+        ? { scope: 'daily', resetAt: timestamp + 24 * 60 * 60 * 1000, message: `Your daily allowance for advanced work is full. ${label} is available again within 24 hours.` }
+        : mediaKinds.has(kind) && mediaUsed + units > plan.mediaMonthlyUnits
+          ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Your monthly allowance for images and video is used up on Mere ${plan.label}.` }
+          : agenticKinds.has(kind) && agenticUsed + units > plan.agenticMonthlyUnits
+            ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Your monthly allowance for agent and research workflows is used up on Mere ${plan.label}.` }
+            : monthly.costUsd + estimatedCost > plan.monthlyCostCap
+              ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Your monthly allowance on Mere ${plan.label} is used up. It refreshes as earlier usage ages out of the 30-day window.` }
+              : null
+
+  if (exceeded) {
+    res.status(429).json({
+      error: exceeded.message,
+      code: 'allowance-exhausted',
+      scope: exceeded.scope,
+      capability: kind,
+      plan: plan.id,
+      resetAt: exceeded.resetAt,
+      upgradable: plan.id !== 'enterprise',
+      usage: await usageSummary(identity),
+    })
     return false
   }
   await recordUsage({ subject: identity.subject, kind, units, costUsd: estimatedCost, metadata })

@@ -71,7 +71,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { Dispatch, FormEvent, ReactNode, SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
+import { Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { LiveServerMessage, Session } from '@google/genai'
 import { PayPalProvider, usePayPalSubscriptionPaymentSession } from '@paypal/react-paypal-js/sdk-v6'
 import ReactMarkdown from 'react-markdown'
@@ -104,9 +104,11 @@ type LibraryRecord = { id: string; title: string; type: 'Document' | 'Code' | 'I
 type AgentRecord = { id: string; name: string; desc: string; instructions: string; tag: string; builtIn?: boolean }
 type Preferences = { memory: boolean; training: boolean; about: string; responseStyle: string; language: string; reasoning: string; voice: string }
 type SettingsControls = { notifications: boolean; email: boolean; autoClean: boolean; safeMode: boolean; voiceInput: boolean; chatHistory: boolean }
-type UserProfile = { name: string; email: string }
-type AuthUser = UserProfile & { id: string; plan: string }
-type UsageSummary = { plan: string; label: string; state: 'available' | 'active' | 'limited' | 'paused'; window: { state: string; resetAt: number }; tools: { state: string } }
+type UserProfile = { name: string; email: string; avatar?: string | null }
+type AuthUser = UserProfile & { id: string; plan: string; avatar: string | null; hasPassword: boolean }
+type AuthIdentity = { provider: string; email: string; createdAt: number }
+type PlanCapability = { label: string; included: boolean }
+type UsageSummary = { plan: string; label: string; capabilities?: Record<string, PlanCapability>; state: 'available' | 'active' | 'limited' | 'paused'; window: { state: string; resetAt: number }; tools: { state: string } }
 type AccountSession = { id: string; current: boolean; createdAt: number; expiresAt: number }
 type BillingSubscription = { id: string; subscriptionId: string; plan: string; billingCycle: 'monthly' | 'annual'; quantity: number; status: string; accessExpiresAt: number | null; cancelAtPeriodEnd: boolean; createdAt: number; updatedAt: number }
 type BillingTransaction = { id: string; type: string; status: string; amount: number | null; currency: string | null; createdAt: number }
@@ -129,10 +131,28 @@ type WorkspaceSnapshot = {
   settingsControls?: SettingsControls
   profile?: UserProfile
   thread?: Message[]
+  activeConversationId?: string | null
 }
+type AccountStorage = { workspaceBytes: number; fileBytes: number; jobBytes: number; totalBytes: number; files: number; jobs: number; knowledgeStores: number }
 
 type GoogleCredentialResponse = { credential?: string }
-type GoogleIdentityApi = { accounts: { id: { initialize: (options: { client_id: string; callback: (response: GoogleCredentialResponse) => void; ux_mode?: 'popup' | 'redirect' }) => void; renderButton: (element: HTMLElement, options: { type?: 'standard'; theme?: 'outline' | 'filled_black'; size?: 'large'; text?: 'signin_with' | 'signup_with' | 'continue_with'; shape?: 'rectangular'; logo_alignment?: 'left'; width?: number }) => void } } }
+type GoogleIdentityApi = {
+  accounts: {
+    id: {
+      initialize: (options: { client_id: string; callback: (response: GoogleCredentialResponse) => void; ux_mode?: 'popup' | 'redirect'; auto_select?: boolean; cancel_on_tap_outside?: boolean; itp_support?: boolean; use_fedcm_for_prompt?: boolean }) => void
+      renderButton: (element: HTMLElement, options: { type?: 'standard'; theme?: 'outline' | 'filled_black'; size?: 'large'; text?: 'signin_with' | 'signup_with' | 'continue_with'; shape?: 'rectangular'; logo_alignment?: 'left'; width?: number; locale?: string }) => void
+      disableAutoSelect: () => void
+    }
+  }
+}
+
+// Google remembers the account a browser last approved. Clearing that choice
+// before and after every session is what makes the next sign-in ask which
+// account to use instead of silently reusing the previous one.
+function forgetGoogleAccountChoice() {
+  try { (window as unknown as { google?: GoogleIdentityApi }).google?.accounts.id.disableAutoSelect() }
+  catch { /* The Identity Services script may not be loaded on this route. */ }
+}
 
 const defaultPreferences: Preferences = { memory: true, training: false, about: '', responseStyle: '', language: 'English', reasoning: 'Adaptive', voice: 'Nova' }
 const defaultSettingsControls: SettingsControls = { notifications: true, email: false, autoClean: false, safeMode: true, voiceInput: true, chatHistory: true }
@@ -142,17 +162,19 @@ function profileInitials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase()).join('') || 'MX'
 }
 
-function usePersistentState<T>(key: string, initialValue: T): [T, Dispatch<SetStateAction<T>>] {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const stored = localStorage.getItem(key)
-      return stored ? JSON.parse(stored) as T : initialValue
-    } catch { return initialValue }
-  })
-  useEffect(() => {
-    try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* Keep the live state when storage is unavailable. */ }
-  }, [key, value])
-  return [value, setValue]
+// One avatar everywhere: the account photo when there is one, and a stable
+// monogram derived from the name when there is not.
+function Avatar({ profile, className = '', size }: { profile: { name: string; avatar?: string | null }; className?: string; size?: number }) {
+  const [failed, setFailed] = useState(false)
+  const source = profile.avatar || ''
+  useEffect(() => setFailed(false), [source])
+  const style = size ? { width: size, height: size } : undefined
+  if (source && !failed) {
+    return <span className={`avatar avatar-photo ${className}`.trim()} style={style}>
+      <img src={source} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+    </span>
+  }
+  return <span className={`avatar ${className}`.trim()} style={style} aria-hidden="true">{profileInitials(profile.name)}</span>
 }
 
 const defaultConversations: ConversationRecord[] = []
@@ -336,10 +358,10 @@ function Toast({ text, onDone }: { text: string; onDone: () => void }) {
   return <div className="toast"><CheckCircle2 size={16} />{text}</div>
 }
 
-function Sidebar({ page, setPage, collapsed, setCollapsed, onSearch, onNewChat, onOpenChat, onOpenSettings, onOpenPublic, onSignOut, conversations, activeConversationId, profile, plan, mobileOpen, setMobileOpen }: {
+function Sidebar({ page, setPage, collapsed, setCollapsed, onSearch, onNewChat, onOpenChat, onOpenSettings, onOpenPublic, onSignOut, onSwitchAccount, conversations, activeConversationId, profile, plan, mobileOpen, setMobileOpen }: {
   page: Page; setPage: (page: Page) => void; collapsed: boolean; setCollapsed: (v: boolean) => void;
   onSearch: () => void; onNewChat: () => void; onOpenChat: (conversation: ConversationRecord) => void; conversations: ConversationRecord[]; activeConversationId: string | null;
-  onOpenSettings: (tab: SettingsTab) => void; onOpenPublic: (route: PublicRoute) => void; onSignOut: () => void; mobileOpen: boolean; setMobileOpen: (v: boolean) => void
+  onOpenSettings: (tab: SettingsTab) => void; onOpenPublic: (route: PublicRoute) => void; onSignOut: () => void; onSwitchAccount: () => void; mobileOpen: boolean; setMobileOpen: (v: boolean) => void
   profile: UserProfile; plan: string
 }) {
   const [profileOpen, setProfileOpen] = useState(false)
@@ -385,7 +407,7 @@ function Sidebar({ page, setPage, collapsed, setCollapsed, onSearch, onNewChat, 
           {profileOpen && <button className="profile-menu-scrim" aria-label="Close account menu" onClick={closeProfile} />}
           {profileOpen && <div className="profile-menu" role="menu" aria-label="Account menu">
             <div className="profile-menu-cap"><span>MERE X / ACCOUNT</span><BrandGlyph /></div>
-            <button className="profile-menu-head" role="menuitem" onClick={() => openSettings('account')}><span className="avatar menu-avatar">{profileInitials(profile.name)}</span><span><b>{profile.name}</b><small>{profile.email}</small></span><span className="profile-open-icon"><ArrowRight size={15} /></span></button>
+            <button className="profile-menu-head" role="menuitem" onClick={() => openSettings('account')}><Avatar profile={profile} className="menu-avatar" /><span><b>{profile.name}</b><small>{profile.email}</small></span><span className="profile-open-icon"><ArrowRight size={15} /></span></button>
             <button className="profile-plan-card" role="menuitem" onClick={() => openSettings('billing')}><span className="profile-plan-icon"><CreditCard size={18} /></span><span><small>CURRENT PLAN</small><b>Mere {plan.charAt(0).toUpperCase() + plan.slice(1)}</b><em>Rolling 5-hour access</em></span><ChevronRight size={16} /></button>
             <div className="profile-shortcuts">
               <button role="menuitem" onClick={() => openSettings('personalization')}><SlidersHorizontal size={17} /><span><b>Personalize</b><small>Memory & style</small></span></button>
@@ -396,10 +418,13 @@ function Sidebar({ page, setPage, collapsed, setCollapsed, onSearch, onNewChat, 
               <button role="menuitem" onClick={() => openPublic('release-notes')}><FileText size={16} /><span>Updates</span></button>
               <button role="menuitem" onClick={() => openPublic('download')}><Download size={16} /><span>Apps</span></button>
             </div>
+            <div className="profile-resources" aria-label="Account">
+              <button role="menuitem" onClick={() => { closeProfile(); onSwitchAccount() }}><Users size={16} /><span>Switch account</span></button>
+            </div>
             <div className="profile-menu-foot"><div><button onClick={() => openPublic('terms')}>Terms</button><span /> <button onClick={() => openPublic('privacy')}>Privacy</button><span /> <button onClick={() => openSettings('keyboard')}>Shortcuts</button></div><button className="profile-logout" role="menuitem" onClick={() => { closeProfile(); onSignOut() }}><LogOut size={16} /><span>Log out</span></button></div>
           </div>}
           <button className={`account-row ${profileOpen ? 'active' : ''}`} onClick={() => setProfileOpen(!profileOpen)} title="Open account menu" aria-expanded={profileOpen}>
-            <span className="avatar">{profileInitials(profile.name)}</span>
+            <Avatar profile={profile} />
             {!collapsed && <span className="account-copy"><b>{profile.name}</b><small>Personal workspace</small></span>}
             {!collapsed && <ChevronRight size={16} className={profileOpen ? 'account-chevron open' : 'account-chevron'} />}
           </button>
@@ -659,8 +684,12 @@ function ChatPage({ messages, setMessages, onToast, onLiveVoice, agent, project,
     try {
       if (requestedImage) {
         const response = await fetch('/api/image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: content, attachments: payloadAttachments, aspectRatio: imageAspectRatio, imageSize }), signal: controller.signal })
-        const result = await response.json() as { text?: string; images?: string[]; error?: string }
-        if (!response.ok) throw new Error(result.error || 'Image generation failed')
+        const result = await response.json() as { text?: string; images?: string[]; error?: string; resetAt?: number }
+        if (!response.ok) {
+          const when = result.resetAt ? new Date(result.resetAt) : null
+          const sameDay = when && when.toDateString() === new Date().toDateString()
+          throw new Error(when ? `${result.error} Available again ${sameDay ? `at ${when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `on ${when.toLocaleDateString()}`}.` : (result.error || 'Image generation failed'))
+        }
         setMessages([...next, { id: responseId, role: 'assistant', content: result.text || (payloadAttachments.length ? 'Here is your edited image.' : 'Here is your generated image.'), images: result.images }])
         if (result.images?.[0]) onArtifact({ id: `artifact-${Date.now()}`, title: content.replace(/^Create an image:\s*/i, '').slice(0, 64) || 'Generated image', type: 'Image', date: 'Just now', preview: result.images[0], content })
         setThinking(false)
@@ -938,8 +967,18 @@ function LiveVoiceOverlay({ authenticated, onClose, onSignIn }: { authenticated:
   return <div className="voice-overlay"><div className="voice-shell" role="dialog" aria-modal="true" aria-label="Live voice"><header><BrandMark /><IconButton label="Close live voice" onClick={() => { stop(); onClose() }}><X size={20} /></IconButton></header><main><div className={`voice-orb ${state}`}><span /><i /><i /><i /></div><p className="eyebrow">MERE APEX 4.0 / LIVE</p><h2>{state === 'connecting' ? 'Connecting…' : state === 'listening' ? 'I’m listening.' : state === 'speaking' ? 'Mere Apex is speaking.' : state === 'error' ? 'Connection paused.' : 'Talk naturally.'}</h2><p className="voice-description">A low-latency conversation that can hear interruptions and respond with voice.</p>{(inputText || outputText) && <div className="voice-transcript">{inputText && <p><span>YOU</span>{inputText}</p>}{outputText && <p><span>MERE APEX</span>{outputText}</p>}</div>}{error && <div className="voice-error"><CircleHelp size={16} />{error}</div>}</main><footer>{state === 'idle' || state === 'error' ? <button className="voice-start" onClick={() => void start()}><Mic size={18} />{authenticated ? 'Start conversation' : 'Sign in to start'}</button> : <button className="voice-end" onClick={stop}><Square size={14} />End conversation</button>}<span><Lock size={12} />Temporary protected session</span></footer></div></div>
 }
 
+// Which usage capability each workflow spends, so the interface gates on the
+// same rule the server enforces instead of a second, drifting copy of it.
+const workflowCapability: Record<WorkflowKind, string> = {
+  'deep-research': 'deepResearch',
+  'computer-workspace': 'computer',
+  'managed-agent': 'agent',
+  video: 'video',
+}
+
 function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast }: { authenticated: boolean; plan: string; onSignIn: () => void; onUpgrade: () => void; onToast: (text: string) => void }) {
   const [kind, setKind] = useState<WorkflowKind>('deep-research')
+  const [capabilities, setCapabilities] = useState<Record<string, PlanCapability> | null>(null)
   const [prompt, setPrompt] = useState('')
   const [aspectRatio, setAspectRatio] = useState('16:9')
   const [resolution, setResolution] = useState('720p')
@@ -954,14 +993,18 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast }: { 
   ]
   const active = workflows.find(item => item.id === kind) || workflows[0]
   const activeStatus = job && !['completed', 'failed', 'cancelled'].includes(job.status)
-  const needsExpandedPlan = kind !== 'deep-research' && ['guest', 'free'].includes(plan)
+  // Until the plan's capabilities are known, fall back to the tiers that have
+  // never included the heavy workflows.
+  const included = capabilities?.[workflowCapability[kind]]?.included
+  const needsExpandedPlan = included === undefined ? kind !== 'deep-research' && ['guest', 'free'].includes(plan) : !included
 
   useEffect(() => {
     if (!authenticated) return
     const controller = new AbortController()
     void fetch('/api/jobs?limit=12', { signal: controller.signal }).then(async response => { if (response.ok) setRecentJobs((await response.json() as { jobs: ManagedJob[] }).jobs || []) }).catch(() => undefined)
+    void fetch('/api/usage', { signal: controller.signal }).then(async response => { if (response.ok) setCapabilities((await response.json() as UsageSummary).capabilities || null) }).catch(() => undefined)
     return () => controller.abort()
-  }, [authenticated])
+  }, [authenticated, plan])
 
   useEffect(() => {
     if (!job?.id || !activeStatus) return
@@ -984,7 +1027,18 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast }: { 
     const endpoint = kind === 'deep-research' ? '/api/research/deep' : kind === 'computer-workspace' ? '/api/tools/computer' : kind === 'managed-agent' ? '/api/agents/run' : '/api/video'
     try {
       const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: prompt.trim(), aspectRatio, resolution }) })
-      const result = await response.json() as { job?: ManagedJob; error?: string }
+      const result = await response.json() as { job?: ManagedJob; error?: string; code?: string; usage?: UsageSummary; resetAt?: number }
+      if (result.usage?.capabilities) setCapabilities(result.usage.capabilities)
+      if (response.status === 403 && result.code === 'plan-upgrade-required') {
+        onToast(result.error || 'This workflow needs a larger plan.')
+        onUpgrade()
+        return
+      }
+      if (response.status === 429 && result.resetAt) {
+        const when = new Date(result.resetAt)
+        const sameDay = when.toDateString() === new Date().toDateString()
+        throw new Error(`${result.error} Available again ${sameDay ? `at ${when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `on ${when.toLocaleDateString()}`}.`)
+      }
       if (!response.ok || !result.job) throw new Error(result.error || 'The workflow could not be started.')
       setJob(result.job); setRecentJobs(current => [result.job!, ...current.filter(item => item.id !== result.job!.id)]); onToast(`${active.title} started`)
     } catch (error) { onToast(error instanceof Error ? error.message : 'The workflow could not be started') }
@@ -1038,60 +1092,138 @@ function AgentsPage({ records, setRecords, onToast, onOpen }: {
   </div>
 }
 
-function LegacySettingsPage({ onToast, compact, setCompact, preferences, setPreferences, onDeleteChats, onSignOut }: { onToast: (s: string) => void; compact: boolean; setCompact: (value: boolean) => void; preferences: Preferences; setPreferences: Dispatch<SetStateAction<Preferences>>; onDeleteChats: () => void; onSignOut: () => void }) {
-  const [tab, setTab] = useState<SettingsTab>('general')
-  const updatePreference = (key: keyof Preferences, value: string | boolean) => setPreferences(current => ({ ...current, [key]: value }))
-  const exportData = () => {
-    const data = Object.fromEntries(Object.keys(localStorage).filter(key => key.startsWith('mere-x-')).map(key => [key, localStorage.getItem(key)]))
-    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'mere-x-data.json'; anchor.click(); URL.revokeObjectURL(url); onToast('Workspace data exported')
-  }
-  const tabs: { id: SettingsTab; icon: typeof Settings; label: string }[] = [
-    { id: 'general', icon: SlidersHorizontal, label: 'General' }, { id: 'personalization', icon: Sparkles, label: 'Personalization' },
-    { id: 'data', icon: Archive, label: 'Data controls' }, { id: 'security', icon: ShieldCheck, label: 'Security' }, { id: 'account', icon: User, label: 'Account' },
-  ]
-  return <div className="settings-shell">
-    <aside className="settings-nav"><p>SETTINGS</p>{tabs.map(({ id, icon: Icon, label }) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={16} />{label}<ChevronRight size={14} /></button>)}</aside>
-    <div className="settings-content">
-      {tab === 'general' && <><PageHeading title="General" description="Set how Mere X looks and behaves for you." />
-        <SettingsSection title="Appearance">
-          <SettingRow icon={<Moon size={17} />} title="Theme" desc="Choose your preferred interface appearance"><select aria-label="Theme"><option>System — Dark</option><option>Dark</option><option>Light</option></select></SettingRow>
-          <SettingRow icon={<Languages size={17} />} title="Language" desc="The preferred language for Mere X responses"><select aria-label="Language" value={preferences.language} onChange={event => updatePreference('language', event.target.value)}><option>English</option><option>ქართული</option></select></SettingRow>
-          <SettingRow icon={<PanelLeftClose size={17} />} title="Compact sidebar" desc="Show more content with a narrower navigation"><Toggle label="Compact sidebar" active={compact} onChange={() => setCompact(!compact)} /></SettingRow>
-        </SettingsSection>
-        <SettingsSection title="Responses">
-          <SettingRow icon={<Sparkles size={17} />} title="Default reasoning" desc="Let Mere Apex 4.0 think through complex requests"><select aria-label="Default reasoning" value={preferences.reasoning} onChange={event => updatePreference('reasoning', event.target.value)}><option>Adaptive</option><option>Always on</option><option>Off</option></select></SettingRow>
-          <SettingRow icon={<Volume2 size={17} />} title="Voice" desc="Voice used when reading responses aloud"><select aria-label="Voice" value={preferences.voice} onChange={event => updatePreference('voice', event.target.value)}><option>Nova</option><option>Atlas</option></select></SettingRow>
-        </SettingsSection></>}
-      {tab === 'personalization' && <><PageHeading title="Personalization" description="Help Mere X understand how you work and what you prefer." />
-        <SettingsSection title="Memory"><SettingRow icon={<BookOpen size={17} />} title="Reference saved memories" desc="Use details you explicitly ask Mere X to remember"><Toggle label="Reference saved memories" active={preferences.memory} onChange={() => updatePreference('memory', !preferences.memory)} /></SettingRow><button className="manage-button" onClick={() => onToast('Memory controls opened')}>Manage memories<ChevronRight size={15} /></button></SettingsSection>
-        <SettingsSection title="Custom instructions"><label className="instruction-label">What should Mere X know about you?</label><textarea className="instruction-box" value={preferences.about} onChange={event => updatePreference('about', event.target.value)} placeholder="Your role, preferences, goals or anything else that helps..." /><label className="instruction-label">How should Mere X respond?</label><textarea className="instruction-box" value={preferences.responseStyle} onChange={event => updatePreference('responseStyle', event.target.value)} placeholder="Tone, structure, level of detail..." /><button className="primary-button" onClick={() => onToast('Preferences saved and active')}>Save preferences</button></SettingsSection></>}
-      {tab === 'data' && <><PageHeading title="Data controls" description="Choose how your conversations and information are handled." />
-        <SettingsSection title="Privacy"><SettingRow icon={<ShieldCheck size={17} />} title="Improve Mere X for everyone" desc="Allow de-identified conversations to help improve the platform"><Toggle label="Improve Mere X" active={preferences.training} onChange={() => updatePreference('training', !preferences.training)} /></SettingRow><SettingRow icon={<Clock3 size={17} />} title="Chat history" desc="Save new chats in your history"><Toggle label="Chat history" active={true} onChange={() => onToast('Chat history is active')} /></SettingRow></SettingsSection>
-        <SettingsSection title="Your data"><button className="danger-row" onClick={exportData}><span><Download size={17} /><span><b>Export data</b><small>Download a copy of your information</small></span></span><ChevronRight size={15} /></button><button className="danger-row" onClick={onDeleteChats}><span><Trash2 size={17} /><span><b>Delete all chats</b><small>Permanently remove your conversation history</small></span></span><ChevronRight size={15} /></button></SettingsSection></>}
-      {tab === 'security' && <><PageHeading title="Security" description="Protect your account and review active access." /><SettingsSection title="Sign-in"><SettingRow icon={<ShieldCheck size={17} />} title="Two-step verification" desc="Add an extra layer of security to your account"><button className="soft-button" onClick={() => onToast('Security setup opened')}>Set up</button></SettingRow><SettingRow icon={<Lock size={17} />} title="Passkey" desc="Sign in securely without a password"><button className="soft-button" onClick={() => onToast('Passkey setup opened')}>Add passkey</button></SettingRow></SettingsSection><SettingsSection title="Sessions"><div className="session-row"><span className="device-icon"><Square size={15} /></span><span><b>Windows · Tbilisi, Georgia</b><small>Current session · Active now</small></span><em>THIS DEVICE</em></div><button className="manage-button">Sign out of all other devices</button></SettingsSection></>}
-      {tab === 'account' && <><PageHeading title="Account" description="Manage your profile, workspace and plan." /><SettingsSection title="Profile"><div className="profile-row"><span className="avatar large">NK</span><div><b>Nika K.</b><small>nika@example.com</small></div><button className="soft-button" onClick={() => onToast('Profile editor opened')}>Edit profile</button></div></SettingsSection><SettingsSection title="Plan"><div className="plan-card"><div><span>PERSONAL</span><h3>Mere X Preview</h3><p>Early access to Mere Apex 4.0 and all core tools.</p></div><Check size={19} /></div></SettingsSection><button className="logout-button" onClick={onSignOut}><LogOut size={16} />Sign out</button></>}
-    </div>
-  </div>
-}
-
 function SettingsSection({ title, children }: { title: string; children: ReactNode }) { return <section className="settings-section"><h3>{title}</h3><div className="settings-card">{children}</div></section> }
 function SettingRow({ icon, title, desc, children }: { icon: ReactNode; title: string; desc: string; children: ReactNode }) { return <div className="setting-row"><span className="setting-icon">{icon}</span><span className="setting-copy"><b>{title}</b><small>{desc}</small></span><div>{children}</div></div> }
 
-function AccountProfileEditor({ profile, setProfile, onToast }: { profile: UserProfile; setProfile: Dispatch<SetStateAction<UserProfile>>; onToast: (text: string) => void }) {
+function AccountProfileEditor({ profile, setProfile, user, onUserUpdated, onToast }: {
+  profile: UserProfile
+  setProfile: Dispatch<SetStateAction<UserProfile>>
+  user?: AuthUser | null
+  onUserUpdated?: (user: AuthUser) => void
+  onToast: (text: string) => void
+}) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(profile.name)
   const [email, setEmail] = useState(profile.email)
-  const save = (event: FormEvent) => {
-    event.preventDefault()
-    if (!name.trim() || !email.trim()) return
-    setProfile({ name: name.trim(), email: email.trim() })
-    setEditing(false)
-    onToast('Profile updated')
+  const [saving, setSaving] = useState(false)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [emailChallengeId, setEmailChallengeId] = useState('')
+  const [emailCode, setEmailCode] = useState('')
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  const applyUser = (updated: AuthUser) => {
+    setProfile({ name: updated.name, email: updated.email, avatar: updated.avatar })
+    onUserUpdated?.(updated)
   }
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!name.trim() || !email.trim() || saving) return
+    setSaving(true)
+    try {
+      if (name.trim() !== profile.name) {
+        const response = await fetch('/api/account', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim() }) })
+        const result = await response.json() as { user?: AuthUser; error?: string }
+        if (!response.ok || !result.user) throw new Error(result.error || 'Profile could not be updated.')
+        applyUser(result.user)
+      }
+      // Moving the account to a new address is what a password reset follows, so
+      // the new address has to prove it is reachable before the account moves.
+      if (email.trim().toLowerCase() !== profile.email.toLowerCase()) {
+        const response = await fetch('/api/account/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim() }) })
+        const result = await response.json() as { challengeId?: string; previewCode?: string; message?: string; error?: string }
+        if (!response.ok || !result.challengeId) throw new Error(result.error || 'The email address could not be changed.')
+        setEmailChallengeId(result.challengeId)
+        setEmailCode(result.previewCode || '')
+        onToast(result.message || 'We sent a confirmation code to the new address.')
+        return
+      }
+      setEditing(false)
+      onToast('Profile updated')
+    } catch (error) { onToast(error instanceof Error ? error.message : 'Profile could not be updated') }
+    finally { setSaving(false) }
+  }
+
+  const confirmEmail = async (event: FormEvent) => {
+    event.preventDefault()
+    if (emailCode.length !== 6 || saving) return
+    setSaving(true)
+    try {
+      const response = await fetch('/api/account/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ challengeId: emailChallengeId, code: emailCode }) })
+      const result = await response.json() as { user?: AuthUser; error?: string }
+      if (!response.ok || !result.user) throw new Error(result.error || 'The verification code is incorrect or expired.')
+      applyUser(result.user)
+      setEmailChallengeId('')
+      setEmailCode('')
+      setEditing(false)
+      onToast('Email address updated')
+    } catch (error) { onToast(error instanceof Error ? error.message : 'The email address could not be confirmed') }
+    finally { setSaving(false) }
+  }
+
+  const choosePhoto = async (file: File | undefined) => {
+    if (!file || photoBusy) return
+    if (file.size > 6 * 1024 * 1024) { onToast('Profile photos can be up to 6 MB'); return }
+    setPhotoBusy(true)
+    try {
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '')
+        reader.onerror = () => reject(new Error('The image could not be read.'))
+        reader.readAsDataURL(file)
+      })
+      const response = await fetch('/api/account/avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mimeType: file.type, data }) })
+      const result = await response.json() as { user?: AuthUser; error?: string }
+      if (!response.ok || !result.user) throw new Error(result.error || 'The profile photo could not be saved.')
+      applyUser(result.user)
+      onToast('Profile photo updated')
+    } catch (error) { onToast(error instanceof Error ? error.message : 'The profile photo could not be saved') }
+    finally {
+      setPhotoBusy(false)
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
+  }
+
+  const removePhoto = async () => {
+    if (photoBusy) return
+    setPhotoBusy(true)
+    try {
+      const response = await fetch('/api/account/avatar', { method: 'DELETE' })
+      const result = await response.json() as { user?: AuthUser; error?: string }
+      if (!response.ok || !result.user) throw new Error(result.error || 'The profile photo could not be removed.')
+      applyUser(result.user)
+      onToast(result.user.avatar ? 'Using your Google profile photo' : 'Profile photo removed')
+    } catch (error) { onToast(error instanceof Error ? error.message : 'The profile photo could not be removed') }
+    finally { setPhotoBusy(false) }
+  }
+
   return <>
-    <div className="profile-row"><span className="avatar large">{profileInitials(profile.name)}</span><div><b>{profile.name}</b><small>{profile.email}</small></div><button className="soft-button" onClick={() => { setName(profile.name); setEmail(profile.email); setEditing(!editing) }}>{editing ? 'Cancel' : 'Edit profile'}</button></div>
-    {editing && <form className="profile-edit-form" onSubmit={save}><label><span>Name</span><input value={name} onChange={event => setName(event.target.value)} autoComplete="name" /></label><label><span>Email</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" /></label><button className="primary-button" disabled={!name.trim() || !email.trim()}>Save profile</button></form>}
+    <div className="profile-row">
+      <button type="button" className="avatar-edit" onClick={() => photoInputRef.current?.click()} disabled={photoBusy} aria-label="Change profile photo">
+        <Avatar profile={profile} className="large" />
+        <span className="avatar-edit-overlay"><Image size={15} /></span>
+      </button>
+      <div><b>{profile.name}</b><small>{profile.email}</small></div>
+      <button className="soft-button" onClick={() => { setName(profile.name); setEmail(profile.email); setEmailChallengeId(''); setEmailCode(''); setEditing(!editing) }}>{editing ? 'Cancel' : 'Edit profile'}</button>
+    </div>
+    <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={event => void choosePhoto(event.target.files?.[0])} />
+    <div className="profile-photo-actions">
+      <button className="soft-button" disabled={photoBusy} onClick={() => photoInputRef.current?.click()}>{photoBusy ? 'Working…' : profile.avatar ? 'Change photo' : 'Upload a photo'}</button>
+      {profile.avatar && <button className="settings-text-button" disabled={photoBusy} onClick={() => void removePhoto()}>Remove photo</button>}
+      <span className="settings-inline-note">PNG, JPEG, WebP or GIF, up to 6 MB. Your photo is private to this account.</span>
+    </div>
+    {user && !user.hasPassword && <div className="settings-inline-note profile-provider-note"><ShieldCheck size={13} />This account signs in with Google. Add a password in Security and login if you also want to sign in with one.</div>}
+    {editing && (emailChallengeId
+      ? <form className="profile-edit-form" onSubmit={confirmEmail}>
+          <label><span>Code sent to {email}</span><input className="verification-code-input" value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" autoFocus /></label>
+          <span className="settings-inline-note">Your account moves to this address once the code is confirmed.</span>
+          <button className="primary-button" disabled={saving || emailCode.length !== 6}>{saving ? 'Confirming…' : 'Confirm email'}</button>
+        </form>
+      : <form className="profile-edit-form" onSubmit={save}>
+          <label><span>Name</span><input value={name} onChange={event => setName(event.target.value)} autoComplete="name" /></label>
+          <label><span>Email</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" /></label>
+          <button className="primary-button" disabled={saving || !name.trim() || !email.trim()}>{saving ? 'Saving…' : 'Save profile'}</button>
+        </form>)}
   </>
 }
 
@@ -1105,6 +1237,8 @@ type SettingsPageProps = {
   setControls: Dispatch<SetStateAction<SettingsControls>>
   profile: UserProfile
   user?: AuthUser | null
+  identities?: AuthIdentity[]
+  onUserUpdated?: (user: AuthUser) => void
   setProfile: Dispatch<SetStateAction<UserProfile>>
   onDeleteChats: () => void
   onSignOut: () => void
@@ -1159,16 +1293,21 @@ function BillingManagement({ user, onOpenPricing, onToast }: { user?: AuthUser |
   </>
 }
 
-function SettingsPage({ onToast, compact, setCompact, preferences, setPreferences, controls, setControls, profile, user, setProfile, onDeleteChats, onSignOut, onOpenPricing, onOpenHelp, initialTab = 'general', onClose, modal = false }: SettingsPageProps) {
+function SettingsPage({ onToast, compact, setCompact, preferences, setPreferences, controls, setControls, profile, user, identities = [], onUserUpdated, setProfile, onDeleteChats, onSignOut, onOpenPricing, onOpenHelp, initialTab = 'general', onClose, modal = false }: SettingsPageProps) {
   const [tab, setTab] = useState<SettingsTab>(initialTab)
   const [query, setQuery] = useState('')
   const [usage, setUsage] = useState<UsageSummary | null>(null)
+  const [storage, setStorage] = useState<AccountStorage | null>(null)
   const [sessions, setSessions] = useState<AccountSession[]>([])
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
   const [passwordChallengeId, setPasswordChallengeId] = useState('')
   const [passwordCode, setPasswordCode] = useState('')
   const [deletePassword, setDeletePassword] = useState('')
+  const [deleteEmail, setDeleteEmail] = useState('')
+  // A Google-created account has no password its owner knows, so it confirms
+  // sensitive actions differently.
+  const passwordAccount = user ? user.hasPassword : true
   const [accountBusy, setAccountBusy] = useState(false)
   useEffect(() => setTab(initialTab), [initialTab])
   useEffect(() => {
@@ -1177,12 +1316,18 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
     return () => controller.abort()
   }, [user?.id, tab])
   useEffect(() => {
+    if (!user || !['cloud', 'storage'].includes(tab)) return
+    const controller = new AbortController()
+    void fetch('/api/account/storage', { signal: controller.signal }).then(async response => { if (response.ok) setStorage(await response.json() as AccountStorage) }).catch(() => undefined)
+    return () => controller.abort()
+  }, [user?.id, tab])
+  useEffect(() => {
     if (!user || tab !== 'security') return
     void fetch('/api/account/sessions').then(async response => { if (response.ok) setSessions((await response.json() as { sessions: AccountSession[] }).sessions || []) }).catch(() => undefined)
   }, [user?.id, tab])
   const updatePreference = (key: keyof Preferences, value: string | boolean) => setPreferences(current => ({ ...current, [key]: value }))
   const updateControl = (key: keyof SettingsControls, value: boolean) => setControls(current => ({ ...defaultSettingsControls, ...current, [key]: value }))
-  const storageBytes = Object.keys(localStorage).filter(key => key.startsWith('mere-x-')).reduce((total, key) => total + key.length + (localStorage.getItem(key)?.length || 0), 0) * 2
+  const storageBytes = storage?.totalBytes || 0
   const storageLabel = storageBytes < 1024 ? `${storageBytes} B used` : storageBytes < 1024 * 1024 ? `${(storageBytes / 1024).toFixed(1)} KB used` : `${(storageBytes / 1024 / 1024).toFixed(1)} MB used`
   const playVoicePreview = () => {
     if (!('speechSynthesis' in window)) { onToast('Voice playback is not supported by this browser'); return }
@@ -1192,28 +1337,36 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
     window.speechSynthesis.speak(utterance)
     onToast('Playing voice preview')
   }
-  const clearTemporaryCache = () => {
-    const keys = Object.keys(localStorage).filter(key => key.startsWith('mere-x-temp-'))
-    keys.forEach(key => localStorage.removeItem(key))
-    onToast(keys.length ? 'Temporary cache cleared' : 'No temporary cache to clear')
+  const refreshStorage = async () => {
+    try {
+      const response = await fetch('/api/account/storage')
+      if (!response.ok) throw new Error()
+      setStorage(await response.json() as AccountStorage)
+      onToast('Account storage refreshed')
+    } catch { onToast('Account storage could not be refreshed') }
   }
-  const exportData = () => {
-    const data = Object.fromEntries(Object.keys(localStorage).filter(key => key.startsWith('mere-x-')).map(key => [key, localStorage.getItem(key)]))
-    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'mere-x-data.json'; anchor.click(); URL.revokeObjectURL(url); onToast('Workspace data exported')
+  const exportData = async () => {
+    try {
+      const response = await fetch('/api/account/export')
+      if (!response.ok) throw new Error()
+      const url = URL.createObjectURL(await response.blob())
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'mere-x-account-data.json'; anchor.click(); URL.revokeObjectURL(url); onToast('Account data exported from Mere X storage')
+    } catch { onToast('Account data could not be exported') }
   }
   const updatePassword = async (event: FormEvent) => {
-    event.preventDefault(); if (passwordChallengeId ? passwordCode.length !== 6 : !currentPassword || nextPassword.length < 8) return
+    event.preventDefault(); if (passwordChallengeId ? passwordCode.length !== 6 : (passwordAccount && !currentPassword) || nextPassword.length < 8) return
     setAccountBusy(true)
     try {
-      const body = passwordChallengeId ? { challengeId: passwordChallengeId, code: passwordCode } : { currentPassword, password: nextPassword }
+      const body = passwordChallengeId ? { challengeId: passwordChallengeId, code: passwordCode } : { currentPassword: passwordAccount ? currentPassword : '', password: nextPassword }
       const response = await fetch('/api/account/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const result = await response.json() as { challengeId?: string; previewCode?: string; message?: string; error?: string }
       if (!response.ok) throw new Error(result.error || 'Password could not be changed.')
       if (response.status === 202 && result.challengeId) {
         setPasswordChallengeId(result.challengeId); setPasswordCode(result.previewCode || ''); onToast(result.message || 'Confirmation code sent'); return
       }
-      setCurrentPassword(''); setNextPassword(''); setPasswordChallengeId(''); setPasswordCode(''); onToast('Password changed and other sessions signed out')
+      setCurrentPassword(''); setNextPassword(''); setPasswordChallengeId(''); setPasswordCode('')
+      if (user) onUserUpdated?.({ ...user, hasPassword: true })
+      onToast(passwordAccount ? 'Password changed and other sessions signed out' : 'Password created and other sessions signed out')
     } catch (error) { onToast(error instanceof Error ? error.message : 'Password could not be changed') }
     finally { setAccountBusy(false) }
   }
@@ -1228,10 +1381,11 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
     finally { setAccountBusy(false) }
   }
   const removeAccount = async (event: FormEvent) => {
-    event.preventDefault(); if (!deletePassword || !window.confirm('Permanently delete your Mere X account, workspace and stored files? This cannot be undone.')) return
+    event.preventDefault()
+    if (!(passwordAccount ? deletePassword : deleteEmail.trim()) || !window.confirm('Permanently delete your Mere X account, workspace and stored files? This cannot be undone.')) return
     setAccountBusy(true)
     try {
-      const response = await fetch('/api/account', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: deletePassword }) })
+      const response = await fetch('/api/account', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(passwordAccount ? { password: deletePassword } : { confirmEmail: deleteEmail.trim() }) })
       const result = await response.json() as { error?: string }
       if (!response.ok) throw new Error(result.error || 'Account could not be deleted.')
       onSignOut()
@@ -1257,11 +1411,11 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
     if (tab === 'voice') return <><PageHeading title="Voice" description="Configure listening, spoken responses and accessibility." /><SettingsSection title="Voice experience"><SettingRow icon={<Mic size={17} />} title="Voice input" desc="Dictate prompts from the composer"><Toggle label="Voice input" active={controls.voiceInput ?? true} onChange={() => updateControl('voiceInput', !(controls.voiceInput ?? true))} /></SettingRow><SettingRow icon={<Volume2 size={17} />} title="Response voice" desc="Voice used when reading answers aloud"><select aria-label="Voice" value={preferences.voice} onChange={event => updatePreference('voice', event.target.value)}><option>Nova</option><option>Atlas</option></select></SettingRow><SettingRow icon={<Headphones size={17} />} title="Test voice" desc="Play a short preview with your current selection"><button className="soft-button" onClick={playVoicePreview}>Play preview</button></SettingRow></SettingsSection></>
     if (tab === 'billing') return <><PageHeading title="Plan & billing" description="Manage your plan, usage, renewal and payment history." /><div className="billing-hero"><div><span>CURRENT PLAN</span><h2>Mere {planLabel}</h2><p>Mere Apex 4.0 access with adaptive usage that refreshes throughout the day.</p></div><button className="primary-button" onClick={onOpenPricing}>Compare plans<Sparkles size={15} /></button></div><SettingsSection title="Current usage window"><SettingRow icon={<Clock3 size={17} />} title="Rolling 5-hour window" desc={`Next rolling refresh is visible at ${resetLabel}`}><span className="usage-value">{windowLabel}</span></SettingRow><SettingRow icon={<Globe2 size={17} />} title="Advanced tools" desc="Research, image, agent, computer and video work use the protected tool allowance"><span className="usage-value">{toolsLabel}</span></SettingRow><SettingRow icon={<FileText size={17} />} title="File workflows" desc="Analyze files and create downloadable Office or PDF documents"><span className="usage-value">Included</span></SettingRow></SettingsSection><BillingManagement user={user} onOpenPricing={onOpenPricing} onToast={onToast} /></>
     if (tab === 'data') return <><PageHeading title="Data controls" description="Control conversation history, exports and product improvement." /><SettingsSection title="Privacy"><SettingRow icon={<ShieldCheck size={17} />} title="Improve Mere X for everyone" desc="Allow de-identified conversations to improve the platform"><Toggle label="Improve Mere X" active={preferences.training} onChange={() => updatePreference('training', !preferences.training)} /></SettingRow><SettingRow icon={<Clock3 size={17} />} title="Chat history" desc="Save new conversations in your history"><Toggle label="Chat history" active={controls.chatHistory ?? true} onChange={() => updateControl('chatHistory', !(controls.chatHistory ?? true))} /></SettingRow></SettingsSection><SettingsSection title="Your data"><button className="danger-row" onClick={exportData}><span><Download size={17} /><span><b>Export workspace data</b><small>Download your conversations and preferences</small></span></span><ChevronRight size={15} /></button><button className="danger-row" onClick={() => { if (window.confirm('Delete every saved conversation? This cannot be undone.')) onDeleteChats() }}><span><Trash2 size={17} /><span><b>Delete all chats</b><small>Permanently clear conversation history</small></span></span><ChevronRight size={15} /></button></SettingsSection></>
-    if (tab === 'cloud') return <><PageHeading title="Cloud sync" description="Keep your Mere X workspace consistent across devices." /><SettingsSection title="Synchronization"><SettingRow icon={<Globe2 size={17} />} title="This device" desc="Local workspace continuity is active"><span className="connected-state"><Check size={13} />Active</span></SettingRow><SettingRow icon={<RotateCcw size={17} />} title="Account workspace sync" desc={user ? 'Projects, chats, agents and preferences sync through your account' : 'Sign in to synchronize your workspace across devices'}><span className={user ? 'connected-state' : 'feature-status'}>{user ? <><Check size={13} />Active</> : 'SIGN IN REQUIRED'}</span></SettingRow></SettingsSection></>
-    if (tab === 'storage') return <><PageHeading title="Storage" description="Review local workspace usage and cleanup controls." /><div className="storage-meter"><div><span>THIS DEVICE</span><b>{storageLabel}</b></div><i><span style={{ width: `${Math.min(100, Math.max(2, storageBytes / 50000))}%` }} /></i><p>Lightweight local data keeps Mere X responsive. Signed-in workspaces are also synchronized to your account.</p></div><SettingsSection title="Management"><SettingRow icon={<Archive size={17} />} title="Automatic cleanup" desc="Remove temporary previews after 30 days"><Toggle label="Automatic cleanup" active={controls.autoClean ?? false} onChange={() => updateControl('autoClean', !(controls.autoClean ?? false))} /></SettingRow><button className="manage-button" onClick={clearTemporaryCache}>Clear temporary cache<ChevronRight size={15} /></button></SettingsSection></>
+    if (tab === 'cloud') return <><PageHeading title="Cloud sync" description="Keep your private Mere X workspace consistent across devices." /><SettingsSection title="Synchronization"><SettingRow icon={<Database size={17} />} title="Account database" desc="Projects, chats, agents and preferences are stored under your unique account ID"><span className="connected-state"><Check size={13} />Active</span></SettingRow><SettingRow icon={<RotateCcw size={17} />} title="Cross-device sync" desc="Opening Mere X on another signed-in device loads the same account workspace"><span className="connected-state"><Check size={13} />Active</span></SettingRow></SettingsSection></>
+    if (tab === 'storage') return <><PageHeading title="Storage" description="Review the durable storage assigned to this account." /><div className="storage-meter"><div><span>ACCOUNT STORAGE</span><b>{storage ? storageLabel : 'Loading…'}</b></div><i><span style={{ width: `${Math.min(100, Math.max(2, storageBytes / 50000))}%` }} /></i><p>No chats, projects, agents or preferences are stored in browser local storage. Workspace data and files are isolated by your account ID in the Mere X database.</p></div><SettingsSection title="Account usage"><SettingRow icon={<FileText size={17} />} title="Stored files" desc="Files available only to this signed-in account"><span className="usage-value">{storage?.files ?? '—'}</span></SettingRow><SettingRow icon={<Zap size={17} />} title="Saved workflow runs" desc="Agent, research, computer and video runs tied to this account"><span className="usage-value">{storage?.jobs ?? '—'}</span></SettingRow><SettingRow icon={<Database size={17} />} title="Project knowledge stores" desc="Private knowledge indexes mapped to this account"><span className="usage-value">{storage?.knowledgeStores ?? '—'}</span></SettingRow><button className="manage-button" onClick={() => void refreshStorage()}>Refresh storage<ChevronRight size={15} /></button></SettingsSection></>
     if (tab === 'safety') return <><PageHeading title="Safety" description="Set safeguards for generated and researched content." /><SettingsSection title="Content"><SettingRow icon={<ShieldCheck size={17} />} title="Enhanced safety" desc="Apply stricter safeguards to sensitive topics"><Toggle label="Enhanced safety" active={controls.safeMode ?? true} onChange={() => updateControl('safeMode', !(controls.safeMode ?? true))} /></SettingRow><SettingRow icon={<CircleHelp size={17} />} title="Safety guidance" desc="Read Mere X help and responsible-use guidance"><button className="soft-button" onClick={onOpenHelp}>Open guide</button></SettingRow></SettingsSection></>
-    if (tab === 'security') return <><PageHeading title="Security and login" description="Protect your account and review active access." /><SettingsSection title="Password"><form className="security-form" onSubmit={updatePassword}>{passwordChallengeId ? <><label><span>Email confirmation code</span><input className="verification-code-input" value={passwordCode} onChange={event => setPasswordCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" autoFocus /></label><span className="settings-inline-note">Enter the 6-digit code sent to your account email.</span></> : <><label><span>Current password</span><input type="password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" /></label><label><span>New password</span><input type="password" value={nextPassword} onChange={event => setNextPassword(event.target.value)} autoComplete="new-password" placeholder="At least 8 characters" /></label></>}<button className="soft-button" disabled={accountBusy || (passwordChallengeId ? passwordCode.length !== 6 : !currentPassword || nextPassword.length < 8)}>{passwordChallengeId ? 'Confirm password change' : 'Send confirmation code'}</button>{passwordChallengeId && <button type="button" className="settings-text-button" onClick={() => { setPasswordChallengeId(''); setPasswordCode('') }}>Cancel</button>}</form></SettingsSection><SettingsSection title="Sessions">{sessions.map(session => <div className="session-row" key={session.id}><span className="device-icon"><Square size={15} /></span><span><b>{session.current ? 'This browser' : 'Signed-in browser'}</b><small>Started {new Date(session.createdAt).toLocaleDateString()} · Expires {new Date(session.expiresAt).toLocaleDateString()}</small></span><em>{session.current ? 'THIS DEVICE' : 'ACTIVE'}</em></div>)}{!sessions.length && <span className="settings-inline-note">{user ? 'Loading active sessions…' : 'Sign in to manage sessions.'}</span>}{user && <button className="manage-button" disabled={accountBusy || sessions.filter(session => !session.current).length === 0} onClick={() => void revokeOtherSessions()}>Sign out of all other devices<ChevronRight size={15} /></button>}</SettingsSection><SettingsSection title="Additional protection"><SettingRow icon={<ShieldCheck size={17} />} title="Two-step verification" desc="Requires verified message delivery before it can protect sign-in"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow><SettingRow icon={<Lock size={17} />} title="Passkey" desc="Device-bound passwordless sign-in is prepared for a production domain"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow></SettingsSection></>
-    if (tab === 'account') return <><PageHeading title="Account" description="Manage your profile, workspace identity and access." /><SettingsSection title="Profile"><AccountProfileEditor profile={profile} setProfile={setProfile} onToast={onToast} /></SettingsSection><SettingsSection title="Plan"><div className="plan-card"><div><span>PERSONAL</span><h3>Mere {planLabel}</h3><p>Mere Apex 4.0 and workspace tools with rolling 5-hour usage windows.</p></div><button className="soft-button" onClick={() => setTab('billing')}>Manage plan</button></div></SettingsSection><SettingsSection title="Delete account"><form className="delete-account-form" onSubmit={removeAccount}><div><b>Permanently delete this account</b><p>Your synchronized workspace, sessions and stored files will be removed. Shared links may remain without your identity until they expire.</p></div><label><span>Confirm with your password</span><input type="password" value={deletePassword} onChange={event => setDeletePassword(event.target.value)} autoComplete="current-password" /></label><button disabled={accountBusy || !deletePassword}>Delete account</button></form></SettingsSection><button className="logout-button" onClick={onSignOut}><LogOut size={16} />Log out</button></>
+    if (tab === 'security') return <><PageHeading title="Security and login" description="Protect your account and review active access." /><SettingsSection title={passwordAccount ? 'Password' : 'Create a password'}><form className="security-form" onSubmit={updatePassword}>{passwordChallengeId ? <><label><span>Email confirmation code</span><input className="verification-code-input" value={passwordCode} onChange={event => setPasswordCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" autoFocus /></label><span className="settings-inline-note">Enter the 6-digit code sent to your account email.</span></> : <>{passwordAccount ? <label><span>Current password</span><input type="password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" /></label> : <span className="settings-inline-note">This account signs in with Google. Choose a password to also sign in with your email address; we confirm it with a code sent to {profile.email || 'your account email'}.</span>}<label><span>{passwordAccount ? 'New password' : 'Password'}</span><input type="password" value={nextPassword} onChange={event => setNextPassword(event.target.value)} autoComplete="new-password" placeholder="At least 8 characters" /></label></>}<button className="soft-button" disabled={accountBusy || (passwordChallengeId ? passwordCode.length !== 6 : (passwordAccount && !currentPassword) || nextPassword.length < 8)}>{passwordChallengeId ? (passwordAccount ? 'Confirm password change' : 'Confirm new password') : 'Send confirmation code'}</button>{passwordChallengeId && <button type="button" className="settings-text-button" onClick={() => { setPasswordChallengeId(''); setPasswordCode('') }}>Cancel</button>}</form></SettingsSection><SettingsSection title="Connected sign-in"><SettingRow icon={<ShieldCheck size={17} />} title="Google" desc={identities.find(identity => identity.provider === 'google')?.email || 'Not connected to this account'}><span className={identities.some(identity => identity.provider === 'google') ? 'connected-state' : 'feature-status'}>{identities.some(identity => identity.provider === 'google') ? <><Check size={13} />Connected</> : 'NOT CONNECTED'}</span></SettingRow></SettingsSection><SettingsSection title="Sessions">{sessions.map(session => <div className="session-row" key={session.id}><span className="device-icon"><Square size={15} /></span><span><b>{session.current ? 'This browser' : 'Signed-in browser'}</b><small>Started {new Date(session.createdAt).toLocaleDateString()} · Expires {new Date(session.expiresAt).toLocaleDateString()}</small></span><em>{session.current ? 'THIS DEVICE' : 'ACTIVE'}</em></div>)}{!sessions.length && <span className="settings-inline-note">{user ? 'Loading active sessions…' : 'Sign in to manage sessions.'}</span>}{user && <button className="manage-button" disabled={accountBusy || sessions.filter(session => !session.current).length === 0} onClick={() => void revokeOtherSessions()}>Sign out of all other devices<ChevronRight size={15} /></button>}</SettingsSection><SettingsSection title="Additional protection"><SettingRow icon={<ShieldCheck size={17} />} title="Two-step verification" desc="Requires verified message delivery before it can protect sign-in"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow><SettingRow icon={<Lock size={17} />} title="Passkey" desc="Device-bound passwordless sign-in is prepared for a production domain"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow></SettingsSection></>
+    if (tab === 'account') return <><PageHeading title="Account" description="Manage your profile, workspace identity and access." /><SettingsSection title="Profile"><AccountProfileEditor profile={profile} setProfile={setProfile} user={user} onUserUpdated={onUserUpdated} onToast={onToast} /></SettingsSection><SettingsSection title="Plan"><div className="plan-card"><div><span>PERSONAL</span><h3>Mere {planLabel}</h3><p>Mere Apex 4.0 and workspace tools with rolling 5-hour usage windows.</p></div><button className="soft-button" onClick={() => setTab('billing')}>Manage plan</button></div></SettingsSection><SettingsSection title="Delete account"><form className="delete-account-form" onSubmit={removeAccount}><div><b>Permanently delete this account</b><p>Your synchronized workspace, sessions and stored files will be removed. Shared links may remain without your identity until they expire.</p></div>{passwordAccount ? <label><span>Confirm with your password</span><input type="password" value={deletePassword} onChange={event => setDeletePassword(event.target.value)} autoComplete="current-password" /></label> : <label><span>Type {profile.email || 'your account email'} to confirm</span><input type="email" value={deleteEmail} onChange={event => setDeleteEmail(event.target.value)} autoComplete="off" placeholder={profile.email} /></label>}<button disabled={accountBusy || !(passwordAccount ? deletePassword : deleteEmail.trim())}>Delete account</button></form></SettingsSection><button className="logout-button" onClick={onSignOut}><LogOut size={16} />Log out</button></>
     return <><PageHeading title="Keyboard shortcuts" description="Move faster through chats, search and workspace controls." /><SettingsSection title="Navigation"><div className="shortcut-row"><span>New chat</span><kbd>Ctrl</kbd><b>+</b><kbd>N</kbd></div><div className="shortcut-row"><span>Search everything</span><kbd>Ctrl</kbd><b>+</b><kbd>K</kbd></div><div className="shortcut-row"><span>Close menu or modal</span><kbd>Esc</kbd></div></SettingsSection><SettingsSection title="Composer"><div className="shortcut-row"><span>Send message</span><kbd>Enter</kbd></div><div className="shortcut-row"><span>New line</span><kbd>Shift</kbd><b>+</b><kbd>Enter</kbd></div></SettingsSection></>
   })()
 
@@ -1327,7 +1481,7 @@ function PublicHeader({ navigate, current, user }: { navigate: (route: PublicRou
   return <header className="public-header">
     <button className="public-brand" onClick={() => navigate('landing')}><BrandMark /></button>
     <nav aria-label="Public navigation">{links.map(link => <button key={link.route} className={current === link.route ? 'active' : ''} onClick={() => navigate(link.route)}>{link.label}</button>)}</nav>
-    <div>{user ? <button className="public-account-return" onClick={() => navigate('app')} aria-label="Return to your Mere X workspace"><span className="avatar">{profileInitials(user.name)}</span><span><b>{user.name}</b><small>Mere {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}</small></span><ArrowRight size={15} /></button> : <><button className="public-signin" onClick={() => navigate('signin')}>Sign in</button><button className="landing-cta" onClick={() => navigate('signup')}>Get started<ArrowRight size={14} /></button></>}</div>
+    <div>{user ? <button className="public-account-return" onClick={() => navigate('app')} aria-label="Return to your Mere X workspace"><Avatar profile={user} /><span><b>{user.name}</b><small>Mere {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}</small></span><ArrowRight size={15} /></button> : <><button className="public-signin" onClick={() => navigate('signin')}>Sign in</button><button className="landing-cta" onClick={() => navigate('signup')}>Get started<ArrowRight size={14} /></button></>}</div>
   </header>
 }
 
@@ -1456,9 +1610,17 @@ function PaymentModal({ plan, annual, onClose, onCompleted }: { plan: PlanTier; 
       <div className="payment-checkout">
         <p className="payment-kicker">PAYMENT</p><h3>Complete checkout</h3><p className="payment-checkout-copy">Approval opens as a secure layer over this page. You stay inside Mere X throughout checkout and confirmation.</p>
         {!config && !configError && <div className="payment-loading"><RotateCcw className="spin" size={18} />Loading secure payment methods…</div>}
-        {configError && <div className="payment-inline-error"><Info size={16} />{configError}</div>}
+        {configError && <div className="payment-unavailable" role="status">
+          <span><Info size={18} /></span>
+          <div>
+            <b>Checkout is not available yet</b>
+            <p>{configError}</p>
+            <p>Nothing has been charged. Your current plan is unchanged.</p>
+          </div>
+          <button type="button" className="soft-button" onClick={onClose}>Close</button>
+        </div>}
         {config?.clientId && <PayPalProvider clientId={config.clientId} environment={config.environment} components={['paypal-subscriptions']} pageType="checkout"><EmbeddedSubscriptionCheckout plan={plan} annual={annual} quantity={quantity} onSuccess={onCompleted} /></PayPalProvider>}
-        <p className="payment-consent">By continuing, you authorize recurring charges according to the cycle shown and agree to the Mere X Terms and Privacy Policy.</p>
+        {config?.clientId && <p className="payment-consent">By continuing, you authorize recurring charges according to the cycle shown and agree to the Mere X Terms and Privacy Policy.</p>}
       </div>
     </section>
   </div>
@@ -1490,7 +1652,7 @@ function PricingPage({ navigate, user, onUserUpdated }: { navigate: (route: Publ
     {notice && <div className="pricing-action-notice"><Info size={16} />{notice}</div>}
     <section className="pricing-grid">{planTiers.map(plan => { const price = annual ? plan.annual : plan.monthly; const current = user?.plan === plan.name.toLowerCase(); return <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>{plan.featured && <span className="pricing-ribbon">RECOMMENDED</span>}<p>{plan.eyebrow}</p><h2>{plan.name}</h2><div className="plan-price">{price === null ? <strong>Custom</strong> : <><strong>${price}</strong><span>{price === 0 ? 'forever' : plan.name === 'Team' ? '/ seat / month' : '/ month'}</span></>}</div><small>{price && annual ? `$${price * 12}${plan.name === 'Team' ? ' per seat' : ''} billed annually` : price ? 'Billed monthly' : 'No credit card required'}</small><p className="plan-description">{plan.description}</p><button disabled={current} className={plan.featured ? 'primary-button' : 'soft-button'} onClick={() => void choose(plan)}>{current ? 'Current plan' : plan.action}<ArrowRight size={15} /></button><ul>{plan.features.map(feature => <li key={feature}><Check size={15} />{feature}</li>)}</ul></article> })}</section>
     <section className="pricing-note"><Clock3 size={19} /><div><b>Usage refreshes throughout the day.</b><p>Core access runs in rolling 5-hour windows. The amount available adapts to task complexity, file size and demand; advanced tools also use daily fair-use protection. Mere X shows reset timing before access pauses.</p></div></section>
-    <section className="comparison-section"><div className="public-section-head"><p className="landing-kicker">COMPARE</p><h2>Know exactly what is included.</h2></div><div className="comparison-scroll"><table><thead><tr><th>Capability</th><th>Free</th><th>Plus</th><th>Pro</th><th>Team</th></tr></thead><tbody>{comparison.map(row => <tr key={row[0]}>{row.map((cell, index) => index === 0 ? <th key={cell}>{cell}</th> : <td key={`${row[0]}-${cell}`}>{cell === 'Included' ? <CheckCircle2 size={16} /> : cell}</td>)}</tr>)}</tbody></table></div></section>
+    <section className="comparison-section"><div className="public-section-head"><p className="landing-kicker">COMPARE</p><h2>Know exactly what is included.</h2></div><div className="comparison-scroll"><table><thead><tr><th>Capability</th><th>Free</th><th>Plus</th><th>Pro</th><th>Team</th></tr></thead><tbody>{comparison.map(row => <tr key={row[0]}>{row.map((cell, index) => index === 0 ? <th key={cell}>{cell}</th> : <td key={`${row[0]}-column-${index}`}>{cell === 'Included' ? <CheckCircle2 size={16} /> : cell}</td>)}</tr>)}</tbody></table></div></section>
     <section className="public-faq"><div className="public-section-head"><p className="landing-kicker">QUESTIONS</p><h2>Billing without ambiguity.</h2></div><div>{[
       ['How do the 5-hour windows work?', 'Your active allowance refreshes on a rolling five-hour cycle. Short questions use less capacity than long-context research, large files, image work or complex generation.'],
       ['Why is there no fixed message number?', 'Workloads differ dramatically. An adaptive window is clearer in practice than promising a message count that changes with context length, tools and file complexity.'],
@@ -1700,8 +1862,17 @@ function LandingPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
 }
 
 function GoogleAuthButton({ mode, onAuthenticated, onNotice }: { mode: 'signin' | 'signup'; onAuthenticated: (user: AuthUser) => void; onNotice: (message: string) => void }) {
+  // Sign-in for the account this browser chooses, not the one it used last.
   const containerRef = useRef<HTMLDivElement>(null)
   const [clientId, setClientId] = useState('')
+  // The parent re-renders on every keystroke. Holding the callbacks in refs keeps
+  // Google Identity Services initialised exactly once, so a click can never land
+  // on a button that was torn down and rebuilt mid-flight.
+  const authenticatedRef = useRef(onAuthenticated)
+  const noticeRef = useRef(onNotice)
+  authenticatedRef.current = onAuthenticated
+  noticeRef.current = onNotice
+
   useEffect(() => {
     const controller = new AbortController()
     void fetch('/api/auth/config', { signal: controller.signal }).then(async response => {
@@ -1710,45 +1881,73 @@ function GoogleAuthButton({ mode, onAuthenticated, onNotice }: { mode: 'signin' 
     }).catch(() => undefined)
     return () => controller.abort()
   }, [])
+
   useEffect(() => {
-    if (!clientId || !containerRef.current) return
+    if (!clientId) return
+    let cancelled = false
     const submitCredential = async ({ credential }: GoogleCredentialResponse) => {
-      if (!credential) return onNotice('Google did not return a sign-in credential.')
-      onNotice('Verifying your Google account…')
+      if (!credential) return noticeRef.current('Google did not return a sign-in credential.')
+      noticeRef.current('Verifying your Google account…')
       try {
         const response = await fetch('/api/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential }) })
         const result = await response.json() as { user?: AuthUser; error?: string }
         if (!response.ok || !result.user) throw new Error(result.error || 'Google sign-in failed.')
-        onAuthenticated(result.user)
-      } catch (error) { onNotice(error instanceof Error ? error.message : 'Google sign-in failed.') }
+        // Do not let Google silently reuse this choice next time: the account
+        // picker must appear again so a shared device cannot sign the next
+        // person into the account that was used before.
+        forgetGoogleAccountChoice()
+        authenticatedRef.current(result.user)
+      } catch (error) { noticeRef.current(error instanceof Error ? error.message : 'Google sign-in failed.') }
     }
     const render = () => {
       const googleIdentity = (window as unknown as { google?: GoogleIdentityApi }).google
-      if (!googleIdentity || !containerRef.current) return
+      if (cancelled || !googleIdentity || !containerRef.current) return
+      googleIdentity.accounts.id.initialize({
+        client_id: clientId,
+        callback: (response: GoogleCredentialResponse) => void submitCredential(response),
+        ux_mode: 'popup',
+        // Never resume the previously approved account without asking.
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        itp_support: true,
+      })
+      googleIdentity.accounts.id.disableAutoSelect()
       containerRef.current.replaceChildren()
-      googleIdentity.accounts.id.initialize({ client_id: clientId, callback: (response: GoogleCredentialResponse) => void submitCredential(response), ux_mode: 'popup' })
       const width = Math.max(240, Math.min(400, Math.floor(containerRef.current.clientWidth || 380)))
-      googleIdentity.accounts.id.renderButton(containerRef.current, { type: 'standard', theme: 'filled_black', size: 'large', text: mode === 'signup' ? 'signup_with' : 'signin_with', shape: 'rectangular', logo_alignment: 'left', width })
+      googleIdentity.accounts.id.renderButton(containerRef.current, { type: 'standard', theme: 'filled_black', size: 'large', text: mode === 'signup' ? 'signup_with' : 'signin_with', shape: 'rectangular', logo_alignment: 'left', width, locale: 'en' })
     }
-    const existing = document.querySelector<HTMLScriptElement>('script[data-mere-google-identity]')
+    let script = document.querySelector<HTMLScriptElement>('script[data-mere-google-identity]')
     if ((window as unknown as { google?: GoogleIdentityApi }).google) render()
-    else if (existing) existing.addEventListener('load', render, { once: true })
     else {
-      const script = document.createElement('script')
-      script.src = 'https://accounts.google.com/gsi/client'
-      script.async = true
-      script.dataset.mereGoogleIdentity = 'true'
+      if (!script) {
+        script = document.createElement('script')
+        script.src = 'https://accounts.google.com/gsi/client?hl=en'
+        script.async = true
+        script.dataset.mereGoogleIdentity = 'true'
+        script.addEventListener('error', () => noticeRef.current('Google sign-in could not be loaded. Check your connection and try again.'), { once: true })
+        document.head.appendChild(script)
+      }
       script.addEventListener('load', render, { once: true })
-      document.head.appendChild(script)
     }
-    window.addEventListener('resize', render)
-    return () => { existing?.removeEventListener('load', render); window.removeEventListener('resize', render) }
-  }, [clientId, mode, onAuthenticated, onNotice])
+    // Re-measure the official button when the layout changes, without rebuilding
+    // it on every render.
+    let resizeTimer = 0
+    const onResize = () => { window.clearTimeout(resizeTimer); resizeTimer = window.setTimeout(render, 180) }
+    window.addEventListener('resize', onResize)
+    const listeningScript = script
+    return () => {
+      cancelled = true
+      window.clearTimeout(resizeTimer)
+      window.removeEventListener('resize', onResize)
+      listeningScript?.removeEventListener('load', render)
+    }
+  }, [clientId, mode])
+
   if (!clientId) return null
   return <div className="google-auth-section"><div className="google-auth-button" ref={containerRef} /></div>
 }
 
-function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signup'; navigate: (route: PublicRoute) => void; onAuthenticated: (user: AuthUser) => void }) {
+function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signup'; navigate: (route: PublicRoute) => void; onAuthenticated: (user: AuthUser, identities?: AuthIdentity[]) => void }) {
   const isSignUp = mode === 'signup'
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
@@ -1808,7 +2007,7 @@ function AuthPage({ mode, navigate, onAuthenticated }: { mode: 'signin' | 'signu
         <p className="landing-kicker">{isSignUp ? challengeId ? 'VERIFY YOUR EMAIL' : 'CREATE YOUR ACCOUNT' : 'WELCOME BACK'}</p>
         <h1>{isSignUp ? challengeId ? 'Check your inbox.' : 'Begin with Mere X.' : 'Sign in to Mere X.'}</h1>
         <p>{isSignUp ? challengeId ? `Enter the 6-digit code sent to ${email}.` : 'Your workspace for deeper thinking and better work.' : 'Continue to your conversations, projects and library.'}</p>
-        {!challengeId && <><GoogleAuthButton mode={mode} onAuthenticated={user => { onAuthenticated(user); navigate('app') }} onNotice={setAuthNotice} /><div className="auth-divider"><span>OR CONTINUE WITH EMAIL</span></div></>}
+        {!challengeId && <><GoogleAuthButton mode={mode} onAuthenticated={user => { onAuthenticated(user, [{ provider: 'google', email: user.email, createdAt: Date.now() }]); navigate('app') }} onNotice={setAuthNotice} /><div className="auth-divider"><span>OR CONTINUE WITH EMAIL</span></div></>}
         <form onSubmit={event => void submit(event)}>
           {isSignUp && challengeId ? <label><span>Verification code</span><input className="verification-code-input" value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" inputMode="numeric" autoComplete="one-time-code" autoFocus /></label> : <>
             {isSignUp && <label><span>Name</span><input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" autoComplete="name" /></label>}
@@ -1887,57 +2086,138 @@ export default function App() {
   const [liveVoiceOpen, setLiveVoiceOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
   const [toast, setToast] = useState('')
-  const [projects, setProjects] = usePersistentState<ProjectRecord[]>('mere-x-projects', defaultProjects)
-  const [library, setLibrary] = usePersistentState<LibraryRecord[]>('mere-x-library', defaultLibrary)
-  const [agentRecords, setAgentRecords] = usePersistentState<AgentRecord[]>('mere-x-agents', defaultAgents)
-  const [conversations, setConversations] = usePersistentState<ConversationRecord[]>('mere-x-conversations', defaultConversations)
-  const [preferences, setPreferences] = usePersistentState<Preferences>('mere-x-preferences', defaultPreferences)
-  const [settingsControls, setSettingsControls] = usePersistentState<SettingsControls>('mere-x-settings-controls', defaultSettingsControls)
-  const [profile, setProfile] = usePersistentState<UserProfile>('mere-x-profile', defaultUserProfile)
+  const [projects, setProjects] = useState<ProjectRecord[]>(defaultProjects)
+  const [library, setLibrary] = useState<LibraryRecord[]>(defaultLibrary)
+  const [agentRecords, setAgentRecords] = useState<AgentRecord[]>(defaultAgents)
+  const [conversations, setConversations] = useState<ConversationRecord[]>(defaultConversations)
+  const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
+  const [settingsControls, setSettingsControls] = useState<SettingsControls>(defaultSettingsControls)
+  const [profile, setProfile] = useState<UserProfile>(defaultUserProfile)
   const [sessionUser, setSessionUser] = useState<AuthUser | null>(null)
+  const [identities, setIdentities] = useState<AuthIdentity[]>([])
+  const [sessionResolved, setSessionResolved] = useState(false)
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
+  const [workspaceError, setWorkspaceError] = useState('')
   const workspaceVersionRef = useRef(0)
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(() => localStorage.getItem('mere-x-active-chat'))
+  // The account the loaded snapshot belongs to. Nothing is written back until a
+  // load for the signed-in account has completed, which is what keeps one
+  // account's work from being saved into another.
+  const workspaceOwnerRef = useRef<string | null>(null)
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [activeAgent, setActiveAgent] = useState<AgentRecord | null>(null)
   const [activeProject, setActiveProject] = useState<ProjectRecord | null>(null)
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try { return JSON.parse(localStorage.getItem('mere-x-thread') || '[]') as Message[] } catch { return [] }
-  })
+  const [messages, setMessages] = useState<Message[]>([])
 
   useEffect(() => {
-    const controller = new AbortController()
-    void fetch('/api/auth/session', { signal: controller.signal }).then(async response => {
-      const result = await response.json() as { authenticated?: boolean; user?: AuthUser }
-      if (result.authenticated && result.user) setSessionUser(result.user)
-      else setWorkspaceLoaded(true)
-    }).catch(() => setWorkspaceLoaded(true))
-    return () => controller.abort()
+    // Remove legacy browser-persisted workspace records from earlier previews.
+    // Account content is now loaded exclusively from authenticated database APIs.
+    for (const key of Object.keys(localStorage)) if (key.startsWith('mere-x-')) localStorage.removeItem(key)
+  }, [])
+
+  const readSession = useCallback(async (signal?: AbortSignal) => {
+    const response = await fetch('/api/auth/session', { signal })
+    if (!response.ok) throw new Error('Session unavailable')
+    return await response.json() as { authenticated?: boolean; user?: AuthUser; identities?: AuthIdentity[] }
   }, [])
 
   useEffect(() => {
-    if (!sessionUser) return
     const controller = new AbortController()
-    setProfile({ name: sessionUser.name, email: sessionUser.email })
+    void readSession(controller.signal).then(result => {
+      if (result.authenticated && result.user) {
+        setSessionUser(result.user)
+        setIdentities(result.identities || [])
+      } else setWorkspaceLoaded(true)
+    }).catch(() => {
+      if (controller.signal.aborted) return
+      setWorkspaceError('Mere X could not verify this browser session.')
+    }).finally(() => { if (!controller.signal.aborted) setSessionResolved(true) })
+    return () => controller.abort()
+  }, [readSession])
+
+  // The signed-in account can change without this tab knowing: another tab signs
+  // in, a session expires, someone signs out on a shared device. Re-check when
+  // this tab comes back so what is on screen always belongs to the account that
+  // is actually signed in.
+  useEffect(() => {
+    const revalidate = () => {
+      if (document.visibilityState !== 'visible') return
+      void readSession().then(result => {
+        const nextUser = result.authenticated && result.user ? result.user : null
+        setIdentities(result.identities || [])
+        setSessionUser(current => {
+          if (!current && !nextUser) return current
+          if (current && nextUser && current.id === nextUser.id) {
+            const unchanged = current.name === nextUser.name && current.email === nextUser.email
+              && current.plan === nextUser.plan && current.avatar === nextUser.avatar && current.hasPassword === nextUser.hasPassword
+            return unchanged ? current : nextUser
+          }
+          // A different account (or none at all) owns this browser now. Stop
+          // synchronizing immediately so nothing is written to the wrong account.
+          workspaceOwnerRef.current = null
+          workspaceVersionRef.current = 0
+          setWorkspaceLoaded(!nextUser)
+          return nextUser
+        })
+      }).catch(() => undefined)
+    }
+    document.addEventListener('visibilitychange', revalidate)
+    window.addEventListener('focus', revalidate)
+    return () => {
+      document.removeEventListener('visibilitychange', revalidate)
+      window.removeEventListener('focus', revalidate)
+    }
+  }, [readSession])
+
+  useEffect(() => {
+    if (!sessionUser) return
+    const accountId = sessionUser.id
+    const controller = new AbortController()
+    workspaceOwnerRef.current = null
+    workspaceVersionRef.current = 0
+    setWorkspaceLoaded(false)
+    setWorkspaceError('')
+    setProjects([])
+    setLibrary([])
+    setAgentRecords(defaultAgents)
+    setConversations([])
+    setPreferences(defaultPreferences)
+    setSettingsControls(defaultSettingsControls)
+    setMessages([])
+    setActiveConversationId(null)
+    setActiveAgent(null)
+    setActiveProject(null)
+    setProfile({ name: sessionUser.name, email: sessionUser.email, avatar: sessionUser.avatar })
     void fetch('/api/workspace', { signal: controller.signal }).then(async response => {
+      if (response.status === 401) throw new Error('This browser is no longer signed in.')
       if (!response.ok) throw new Error('Workspace sync is unavailable.')
-      const result = await response.json() as { version: number; data: WorkspaceSnapshot }
+      const result = await response.json() as { version: number; data: WorkspaceSnapshot; userId?: string }
+      // Refuse content that arrived for a different account than this render is
+      // for: the request raced a sign-in and belongs to nobody here.
+      if (result.userId && result.userId !== accountId) throw new Error('The signed-in account changed. Reload Mere X to continue.')
       workspaceVersionRef.current = result.version
+      workspaceOwnerRef.current = accountId
       const data = result.data || {}
       setProjects(Array.isArray(data.projects) ? data.projects : [])
       setLibrary(Array.isArray(data.library) ? data.library : [])
       setAgentRecords(Array.isArray(data.agents) ? data.agents : defaultAgents)
       setConversations(Array.isArray(data.conversations) ? data.conversations : [])
-      if (data.preferences) setPreferences(current => ({ ...current, ...data.preferences }))
-      if (data.settingsControls) setSettingsControls(current => ({ ...current, ...data.settingsControls }))
-      if (data.profile) setProfile(data.profile)
+      setPreferences({ ...defaultPreferences, ...(data.preferences || {}) })
+      setSettingsControls({ ...defaultSettingsControls, ...(data.settingsControls || {}) })
       setMessages(Array.isArray(data.thread) ? data.thread : [])
+      setActiveConversationId(typeof data.activeConversationId === 'string' ? data.activeConversationId : null)
       setWorkspaceLoaded(true)
-    }).catch(() => setWorkspaceLoaded(true))
+    }).catch(error => {
+      if (controller.signal.aborted) return
+      setWorkspaceError(error instanceof Error ? error.message : 'Workspace sync is unavailable.')
+    })
     return () => controller.abort()
   }, [sessionUser?.id])
 
   useEffect(() => {
     if (!sessionUser || !workspaceLoaded) return
+    const accountId = sessionUser.id
+    // Only ever write a snapshot that was actually loaded for this account.
+    if (workspaceOwnerRef.current !== accountId) return
     const timer = window.setTimeout(() => {
       const lightweightMessages = (records: Message[]) => records.map(({ images: _images, files: _files, ...message }) => message)
       const snapshot: WorkspaceSnapshot = {
@@ -1947,33 +2227,43 @@ export default function App() {
         conversations: conversations.map(record => ({ ...record, messages: lightweightMessages(record.messages) })),
         preferences,
         settingsControls,
-        profile,
-        thread: lightweightMessages(messages),
+        thread: settingsControls.chatHistory ?? true ? lightweightMessages(messages) : [],
+        activeConversationId: settingsControls.chatHistory ?? true ? activeConversationId : null,
       }
-      void fetch('/api/workspace', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: workspaceVersionRef.current, data: snapshot }) }).then(async response => {
-        const result = await response.json() as { version?: number }
-        if (response.ok && typeof result.version === 'number') workspaceVersionRef.current = result.version
-        else if (response.status === 409 && typeof result.version === 'number') workspaceVersionRef.current = result.version
+      void fetch('/api/workspace', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        // The account the snapshot belongs to travels with it, so the server can
+        // refuse the write outright if this browser has moved to another account.
+        body: JSON.stringify({ version: workspaceVersionRef.current, userId: accountId, data: snapshot }),
+      }).then(async response => {
+        if (workspaceOwnerRef.current !== accountId) return
+        const result = await response.json().catch(() => ({})) as { version?: number; code?: string }
+        if (response.ok && typeof result.version === 'number') { workspaceVersionRef.current = result.version; return }
+        if (response.status === 401) {
+          workspaceOwnerRef.current = null
+          setSessionUser(null)
+          setWorkspaceLoaded(true)
+          return
+        }
+        if (response.status === 409 && result.code === 'account-changed') {
+          // Another account is signed in now. Stop writing and let this tab
+          // reload onto whoever actually owns the session.
+          workspaceOwnerRef.current = null
+          setWorkspaceError('The signed-in account changed in another tab. Reload Mere X to continue.')
+          setWorkspaceLoaded(false)
+          return
+        }
+        if (response.status === 409 && typeof result.version === 'number') workspaceVersionRef.current = result.version
       }).catch(() => undefined)
     }, 900)
     return () => window.clearTimeout(timer)
-  }, [sessionUser?.id, workspaceLoaded, projects, library, agentRecords, conversations, preferences, settingsControls, profile, messages])
-
-  useEffect(() => {
-    if (!sessionUser || profile.name === sessionUser.name && profile.email === sessionUser.email) return
-    const timer = window.setTimeout(() => {
-      void fetch('/api/account', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) }).then(async response => {
-        const result = await response.json() as { user?: AuthUser }
-        if (response.ok && result.user) setSessionUser(result.user)
-      }).catch(() => undefined)
-    }, 700)
-    return () => window.clearTimeout(timer)
-  }, [profile, sessionUser])
+  }, [sessionUser?.id, workspaceLoaded, projects, library, agentRecords, conversations, preferences, settingsControls, messages, activeConversationId])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearchOpen(true) }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); setPublicRoute('app'); setPage('chat'); setMessages([]); setActiveConversationId(null); localStorage.removeItem('mere-x-active-chat'); setActiveAgent(null); setActiveProject(null); window.location.hash = '/app' }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); setPublicRoute('app'); setPage('chat'); setMessages([]); setActiveConversationId(null); setActiveAgent(null); setActiveProject(null); window.location.hash = '/app' }
       if (e.key === 'Escape') { setSearchOpen(false); setShareOpen(false); setInfoOpen(false); setSettingsOpen(false) }
     }
     window.addEventListener('keydown', handler)
@@ -1981,23 +2271,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!(settingsControls.chatHistory ?? true)) {
-      localStorage.removeItem('mere-x-thread')
-      localStorage.removeItem('mere-x-active-chat')
-      return
-    }
-    try {
-      const persistentMessages = messages.map(({ images: _images, files: _files, ...message }) => message)
-      localStorage.setItem('mere-x-thread', JSON.stringify(persistentMessages))
-    } catch { /* Storage can be unavailable or full; the active chat still works. */ }
-  }, [messages, settingsControls.chatHistory])
-
-  useEffect(() => {
     if (!messages.length || !(settingsControls.chatHistory ?? true)) return
     const conversationId = activeConversationId || `chat-${Date.now()}`
     if (!activeConversationId) {
       setActiveConversationId(conversationId)
-      localStorage.setItem('mere-x-active-chat', conversationId)
     }
     const firstUserMessage = messages.find(message => message.role === 'user')
     const title = (firstUserMessage?.content || activeAgent?.name || activeProject?.name || 'New conversation').replace(/[#*_`]/g, '').slice(0, 52)
@@ -2007,6 +2284,17 @@ export default function App() {
       return [{ id: conversationId, title, messages: persistentMessages, updated: 'Active now', favorite: previous?.favorite, archived: previous?.archived }, ...current.filter(record => record.id !== conversationId)].slice(0, 50)
     })
   }, [messages, activeConversationId, activeAgent?.name, activeProject?.name, setConversations, settingsControls.chatHistory])
+
+  useEffect(() => {
+    if (!sessionResolved) return
+    if (!sessionUser && publicRoute === 'app') {
+      setPublicRoute('signin')
+      window.location.hash = '/signin'
+    } else if (sessionUser && (publicRoute === 'signin' || publicRoute === 'signup')) {
+      setPublicRoute('app')
+      window.location.hash = '/app'
+    }
+  }, [sessionResolved, sessionUser?.id, publicRoute])
 
   useEffect(() => {
     const syncRoute = () => {
@@ -2021,35 +2309,51 @@ export default function App() {
   }, [])
 
   const notify = (text: string) => setToast(text)
-  const authenticated = (user: AuthUser) => {
+  const authenticated = (user: AuthUser, providers: AuthIdentity[] = []) => {
+    workspaceOwnerRef.current = null
+    workspaceVersionRef.current = 0
+    setIdentities(providers)
     setProjects([])
     setLibrary([])
     setAgentRecords(defaultAgents)
     setConversations([])
+    setPreferences(defaultPreferences)
+    setSettingsControls(defaultSettingsControls)
     setMessages([])
     setActiveConversationId(null)
-    localStorage.removeItem('mere-x-active-chat')
     setActiveAgent(null)
     setActiveProject(null)
     setSessionUser(user)
+    setSessionResolved(true)
     setWorkspaceLoaded(false)
-    setProfile({ name: user.name, email: user.email })
+    setWorkspaceError('')
+    setProfile({ name: user.name, email: user.email, avatar: user.avatar })
+    // Password sign-in does not know which providers are linked; ask the server.
+    if (!providers.length) void readSession().then(result => setIdentities(result.identities || [])).catch(() => undefined)
   }
-  const signOut = () => {
+  const signOut = (destination: PublicRoute = 'landing') => {
+    // Release the remembered Google account before the session goes away, so the
+    // next sign-in on this device asks which account to use.
+    forgetGoogleAccountChoice()
+    workspaceOwnerRef.current = null
+    workspaceVersionRef.current = 0
     void fetch('/api/auth/signout', { method: 'POST' }).finally(() => {
       setSessionUser(null)
+      setIdentities([])
       setProjects([])
       setLibrary([])
       setAgentRecords(defaultAgents)
       setConversations([])
+      setPreferences(defaultPreferences)
+      setSettingsControls(defaultSettingsControls)
       setMessages([])
       setActiveConversationId(null)
-      localStorage.removeItem('mere-x-active-chat')
       setActiveAgent(null)
       setActiveProject(null)
       setProfile(defaultUserProfile)
       setWorkspaceLoaded(true)
-      navigatePublic('landing')
+      try { sessionStorage.removeItem('mere-x-password-reset') } catch { /* Private browsing can block session storage. */ }
+      navigatePublic(destination)
     })
   }
   const openSettings = (tab: SettingsTab = 'general') => { setSearchOpen(false); setShareOpen(false); setInfoOpen(false); setSettingsTab(tab); setSettingsOpen(true) }
@@ -2064,18 +2368,16 @@ export default function App() {
     setPage(target)
     window.location.hash = target === 'chat' ? '/app' : `/${target}`
   }
-  const newChat = () => { setMessages([]); setActiveConversationId(null); localStorage.removeItem('mere-x-active-chat'); setActiveAgent(null); setActiveProject(null); navigate('chat'); setInfoOpen(false) }
+  const newChat = () => { setMessages([]); setActiveConversationId(null); setActiveAgent(null); setActiveProject(null); navigate('chat'); setInfoOpen(false) }
   const openChat = (conversation: ConversationRecord) => {
     setActiveAgent(null)
     setActiveProject(null)
     setActiveConversationId(conversation.id)
-    localStorage.setItem('mere-x-active-chat', conversation.id)
     navigate('chat')
     setMessages(conversation.messages)
   }
   const openProject = (project: ProjectRecord) => {
     setActiveConversationId(null)
-    localStorage.removeItem('mere-x-active-chat')
     setActiveProject(project)
     setActiveAgent(null)
     setProjects(current => current.map(record => record.id === project.id ? { ...record, chatCount: record.chatCount + 1, updated: 'Active now' } : record))
@@ -2084,7 +2386,6 @@ export default function App() {
   }
   const openAgent = (agent: AgentRecord) => {
     setActiveConversationId(null)
-    localStorage.removeItem('mere-x-active-chat')
     setActiveAgent(agent)
     setActiveProject(null)
     setMessages([{ id: Date.now(), role: 'assistant', content: `**${agent.name} is ready.**\n\n${agent.desc} What should we work on?` }])
@@ -2094,7 +2395,7 @@ export default function App() {
     setLibrary(current => [artifact, ...current.filter(item => item.id !== artifact.id)])
   }
   const continueArtifact = (artifact: LibraryRecord) => {
-    setActiveAgent(null); setActiveProject(null); setActiveConversationId(null); localStorage.removeItem('mere-x-active-chat')
+    setActiveAgent(null); setActiveProject(null); setActiveConversationId(null)
     setMessages([{ id: Date.now(), role: 'assistant', content: `**${artifact.title} loaded from Library.**\n\n${artifact.content || 'The saved visual is ready for a new direction.'}`, images: artifact.preview ? [artifact.preview] : undefined }])
     navigate('chat'); notify('Library item loaded into chat')
   }
@@ -2138,14 +2439,17 @@ export default function App() {
     notify(activeConversation?.favorite ? 'Removed from favorites' : 'Added to favorites')
   }
   const deleteAllChats = () => {
-    setMessages([]); setActiveConversationId(null); setConversations([]); localStorage.removeItem('mere-x-thread'); localStorage.removeItem('mere-x-active-chat'); notify('All conversations deleted')
+    setMessages([]); setActiveConversationId(null); setConversations([]); notify('All conversations deleted')
   }
+  if (publicRoute === 'app' && !sessionResolved) return <div className="workspace-gate"><BrandMark /><span className="workspace-gate-pulse" /><h1>Securing your session</h1><p>Connecting to your private Mere X workspace…</p></div>
+  if (publicRoute === 'app' && !sessionUser) return <AuthPage mode="signin" navigate={navigatePublic} onAuthenticated={authenticated} />
+  if (publicRoute === 'app' && !workspaceLoaded) return <div className="workspace-gate"><BrandMark /><span className="workspace-gate-pulse" /><h1>{workspaceError ? 'Workspace unavailable' : 'Loading your workspace'}</h1><p>{workspaceError || 'Reading this account’s private data from Mere X storage…'}</p>{workspaceError && <button className="primary-button" onClick={() => window.location.reload()}>Try again<RotateCcw size={15} /></button>}</div>
   if (publicRoute === 'landing') return <LandingPage navigate={navigatePublic} />
   if (publicRoute === 'signin' || publicRoute === 'signup') return <AuthPage mode={publicRoute} navigate={navigatePublic} onAuthenticated={authenticated} />
   if (publicRoute === 'reset-password') return <ResetPasswordPage navigate={navigatePublic} />
   if (publicRoute === 'shared') return <SharedConversationPage shareId={window.location.hash.replace('#/shared/', '')} navigate={navigatePublic} />
   if (publicRoute === 'apex') return <ApexDocsPage navigate={navigatePublic} />
-  if (publicRoute === 'pricing') return <PricingPage navigate={navigatePublic} user={sessionUser} onUserUpdated={user => { setSessionUser(user); setProfile({ name: user.name, email: user.email }) }} />
+  if (publicRoute === 'pricing') return <PricingPage navigate={navigatePublic} user={sessionUser} onUserUpdated={user => { setSessionUser(user); setProfile({ name: user.name, email: user.email, avatar: user.avatar }) }} />
   if (publicRoute === 'privacy' || publicRoute === 'terms' || publicRoute === 'acceptable-use' || publicRoute === 'cookies') return <LegalPage route={publicRoute} navigate={navigatePublic} />
   if (publicRoute === 'security') return <SecurityPage navigate={navigatePublic} />
   if (publicRoute === 'help') return <HelpPage navigate={navigatePublic} />
@@ -2153,7 +2457,7 @@ export default function App() {
   if (publicRoute === 'release-notes') return <ReleaseNotesPage navigate={navigatePublic} />
   if (publicRoute === 'download') return <DownloadPage navigate={navigatePublic} />
   return <div className="app">
-    <Sidebar page={page} setPage={navigate} collapsed={collapsed} setCollapsed={setCollapsed} onSearch={() => setSearchOpen(true)} onNewChat={newChat} onOpenChat={openChat} onOpenSettings={openSettings} onOpenPublic={navigatePublic} onSignOut={signOut} conversations={conversations} activeConversationId={activeConversationId} profile={profile} plan={sessionUser?.plan || 'free'} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+    <Sidebar page={page} setPage={navigate} collapsed={collapsed} setCollapsed={setCollapsed} onSearch={() => setSearchOpen(true)} onNewChat={newChat} onOpenChat={openChat} onOpenSettings={openSettings} onOpenPublic={navigatePublic} onSignOut={() => signOut()} onSwitchAccount={() => signOut('signin')} conversations={conversations} activeConversationId={activeConversationId} profile={profile} plan={sessionUser?.plan || 'free'} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
     <div className="main-area">
       <Topbar page={page} setMobileOpen={setMobileOpen} onShare={() => setShareOpen(true)} onInfo={() => setInfoOpen(!infoOpen)} onNotify={notify} />
       <div className="page-area">
@@ -2162,11 +2466,11 @@ export default function App() {
         {page === 'library' && <LibraryPage items={library} setItems={setLibrary} onToast={notify} onContinue={continueArtifact} />}
         {page === 'agents' && <AgentsPage records={agentRecords} setRecords={setAgentRecords} onToast={notify} onOpen={openAgent} />}
         {page === 'workflows' && <WorkflowsPage authenticated={Boolean(sessionUser)} plan={sessionUser?.plan || 'guest'} onSignIn={() => navigatePublic('signin')} onUpgrade={() => navigatePublic('pricing')} onToast={notify} />}
-        {page === 'settings' && <SettingsPage onToast={notify} compact={collapsed} setCompact={setCollapsed} preferences={preferences} setPreferences={setPreferences} controls={settingsControls} setControls={setSettingsControls} profile={profile} user={sessionUser} setProfile={setProfile} onDeleteChats={deleteAllChats} onSignOut={signOut} onOpenPricing={() => navigatePublic('pricing')} onOpenHelp={() => navigatePublic('help')} />}
+        {page === 'settings' && <SettingsPage onToast={notify} compact={collapsed} setCompact={setCollapsed} preferences={preferences} setPreferences={setPreferences} controls={settingsControls} setControls={setSettingsControls} profile={profile} user={sessionUser} identities={identities} onUserUpdated={setSessionUser} setProfile={setProfile} onDeleteChats={deleteAllChats} onSignOut={() => signOut()} onOpenPricing={() => navigatePublic('pricing')} onOpenHelp={() => navigatePublic('help')} />}
       </div>
     </div>
     {infoOpen && <InfoPanel title={conversationTitle} favorite={Boolean(activeConversation?.favorite)} onClose={() => setInfoOpen(false)} onFavorite={toggleFavoriteConversation} onMove={() => { setInfoOpen(false); navigate('projects') }} onArchive={archiveCurrentConversation} onDelete={deleteCurrentConversation} />}
-    {settingsOpen && <SettingsPage modal initialTab={settingsTab} onClose={() => setSettingsOpen(false)} onToast={notify} compact={collapsed} setCompact={setCollapsed} preferences={preferences} setPreferences={setPreferences} controls={settingsControls} setControls={setSettingsControls} profile={profile} user={sessionUser} setProfile={setProfile} onDeleteChats={deleteAllChats} onSignOut={signOut} onOpenPricing={() => navigatePublic('pricing')} onOpenHelp={() => navigatePublic('help')} />}
+    {settingsOpen && <SettingsPage modal initialTab={settingsTab} onClose={() => setSettingsOpen(false)} onToast={notify} compact={collapsed} setCompact={setCollapsed} preferences={preferences} setPreferences={setPreferences} controls={settingsControls} setControls={setSettingsControls} profile={profile} user={sessionUser} identities={identities} onUserUpdated={setSessionUser} setProfile={setProfile} onDeleteChats={deleteAllChats} onSignOut={() => signOut()} onOpenPricing={() => navigatePublic('pricing')} onOpenHelp={() => navigatePublic('help')} />}
     {searchOpen && <SearchModal items={searchRecords} onClose={() => setSearchOpen(false)} onSelect={selectSearchResult} />}
     {shareOpen && <ShareModal messages={messages} onClose={() => setShareOpen(false)} onToast={notify} />}
     {liveVoiceOpen && <LiveVoiceOverlay authenticated={Boolean(sessionUser)} onClose={() => setLiveVoiceOpen(false)} onSignIn={() => navigatePublic('signin')} />}

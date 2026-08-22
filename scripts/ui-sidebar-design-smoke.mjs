@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises'
+import { ensureBrowserAccount } from './browser-auth.mjs'
 
 const debugPort = process.env.MERE_CDP_PORT || '9333'
 const baseUrl = process.env.MERE_URL || 'http://127.0.0.1:5173/#/app'
@@ -83,7 +84,9 @@ try {
   await command('Runtime.enable')
   await command('Page.enable')
   await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
-  await evaluate(`location.hash = '/app'; location.reload()`)
+  await waitFor(`Boolean(document.querySelector('body'))`)
+  await ensureBrowserAccount(evaluate, 'Sidebar Design Smoke')
+  await command('Page.navigate', { url: `${new URL(baseUrl).origin}${new URL(baseUrl).pathname}?qa=${Date.now()}#/app` })
   await waitFor(`Boolean(document.querySelector('.sidebar .account-row'))`)
   await evaluate(`document.querySelector('.account-row').click()`)
   await waitFor(`Boolean(document.querySelector('.profile-menu'))`)

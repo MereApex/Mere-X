@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises'
+import { ensureBrowserAccount } from './browser-auth.mjs'
 
 const debugPort = process.env.MERE_CDP_PORT || '9333'
 const baseUrl = process.env.MERE_URL || 'http://127.0.0.1:5173/#/app'
@@ -7,6 +8,7 @@ const target = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURICo
 const socket = new WebSocket(target.webSocketDebuggerUrl)
 const pending = new Map()
 const runtimeErrors = []
+const seedWorkspace = patch => `(async()=>{for(let attempt=0;attempt<6;attempt+=1){const current=await fetch('/api/workspace').then(response=>response.json());const response=await fetch('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:current.version,userId:current.userId,data:{...(current.data||{}),...(${patch})}})});if(response.ok)return true;const failure=await response.json().catch(()=>({}));if(failure.code!=='version-conflict')return false;await new Promise(resolve=>setTimeout(resolve,350))}return false})()`
 let commandId = 0
 
 await new Promise((resolve, reject) => {
@@ -83,9 +85,12 @@ try {
   await command('Runtime.enable')
   await command('Page.enable')
   await command('Network.enable')
-  await command('Network.deleteCookies', { name: 'mere_session', url: 'http://127.0.0.1:5173' })
   await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
-  await evaluate(`localStorage.removeItem('mere-x-thread'); localStorage.removeItem('mere-x-active-chat'); location.hash = '/app'; location.reload()`)
+  await waitFor(`Boolean(document.querySelector('body'))`)
+  await ensureBrowserAccount(evaluate, 'Chat Design Smoke')
+  const cleared = await evaluate(seedWorkspace(`{thread:[],conversations:[],activeConversationId:null}`))
+  if (!cleared) throw new Error('Could not clear the account chat workspace')
+  await command('Page.navigate', { url: `${new URL(baseUrl).origin}${new URL(baseUrl).pathname}?qa=${Date.now()}#/app` })
   await waitFor(`Boolean(document.querySelector('.empty-chat .composer'))`)
   await sleep(250)
   const emptyState = await evaluate(`({ starterCount: document.querySelectorAll('.starter-grid button').length, composerWidth: Math.round(document.querySelector('.composer').getBoundingClientRect().width), horizontalOverflow: document.querySelector('.page-area').scrollWidth > document.querySelector('.page-area').clientWidth + 2 })`)
@@ -96,7 +101,9 @@ try {
   await screenshot('mere-x-chat-empty-v2-mobile-qa.png')
   await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
 
-  await evaluate(`localStorage.setItem('mere-x-thread', ${JSON.stringify(JSON.stringify(seededMessages))}); location.reload()`)
+  const seeded = await evaluate(seedWorkspace(`{thread:${JSON.stringify(seededMessages)},conversations:[],activeConversationId:'chat-design-smoke'}`))
+  if (!seeded) throw new Error('Could not seed the account chat workspace')
+  await command('Page.reload')
   await waitFor(`document.querySelectorAll('.message').length === 2`)
   await sleep(250)
   const desktop = await audit()

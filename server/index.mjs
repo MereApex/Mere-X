@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url'
 import {
   applyPasswordResetCode,
   applyPasswordChangeCode,
+  applyEmailChangeCode,
+  createEmailChangeChallenge,
   consumeSignupChallenge,
   createPasswordChangeChallenge,
   createPasswordResetChallenge,
@@ -26,7 +28,9 @@ import {
   deleteOtherSessions,
   deleteSession,
   deleteUser,
+  exportAccountData,
   findUserByEmail,
+  getAccountStorage,
   getShare,
   getJob,
   getKnowledgeStore,
@@ -34,11 +38,16 @@ import {
   getStoredFile,
   getUser,
   getWorkspace,
+  getUserAvatar,
+  hashPassword,
+  clearUserAvatar,
+  listAuthIdentities,
   listBillingTransactions,
   listSessions,
   listJobs,
   saveWorkspace,
   saveKnowledgeStore,
+  setUserAvatar,
   signInWithGoogleIdentity,
   storeFile,
   updateUser,
@@ -64,6 +73,9 @@ import {
   createPayPalSubscription,
   paymentCatalog,
   paymentError,
+  paypalConfigured,
+  paypalCredentialProblems,
+  paypalDiagnostics,
   processPayPalWebhook,
   publicPayPalConfig,
   verifyPayPalWebhook,
@@ -121,7 +133,10 @@ app.use('/api', (req, res, next) => {
   const now = Date.now()
   const key = req.identity?.subject || req.ip || 'local'
   const recent = (requestLog.get(key) || []).filter((time) => now - time < 60_000)
-  if (recent.length >= 90) return res.status(429).json({ error: 'Too many requests. Please wait a moment.' })
+  // A signed-in workspace loads several synchronized surfaces in parallel and
+  // may be open in multiple tabs. Sensitive auth actions have their own much
+  // tighter limits below, so the general API ceiling can safely allow normal workspace traffic.
+  if (recent.length >= 300) return res.status(429).json({ error: 'Too many requests. Please wait a moment.' })
   recent.push(now)
   requestLog.set(key, recent)
   res.setHeader('Cache-Control', 'no-store')
@@ -152,6 +167,18 @@ function requireSameOrigin(req, res, next) {
   next()
 }
 
+// Every successful sign-in retires the session token this browser was already
+// carrying. Without it, switching accounts on one device leaves the previous
+// account's session alive and listed as an active device.
+async function startSession(req, res, userId, ttlMs) {
+  const previousToken = req.identity?.sessionToken
+  if (previousToken) await deleteSession(previousToken).catch(() => undefined)
+  const session = await createSession(userId, ttlMs)
+  setSessionCookie(res, session.token, session.expiresAt)
+  req.identity = { ...(req.identity || {}), sessionToken: session.token, guestId: null }
+  return session
+}
+
 function authPreview(email, code) {
   const enabled = process.env.AUTH_PREVIEW_CODES === 'true' && process.env.NODE_ENV !== 'production' && !process.env.RAILWAY_ENVIRONMENT
   return enabled && String(email).toLowerCase().endsWith('.test') ? code : undefined
@@ -165,7 +192,19 @@ async function deliverAuthCode({ email, challenge, purpose }) {
 
 function client() {
   if (!apiKey) return null
-  return new GoogleGenAI({ apiKey })
+  // Every upstream call gets a ceiling so a stalled provider cannot pin a
+  // request, a database connection and a usage reservation open forever.
+  return new GoogleGenAI({ apiKey, httpOptions: { timeout: 120_000 } })
+}
+
+// Aborts as soon as the visitor gives up on the request, so abandoned work stops
+// costing time and quota instead of streaming into a closed socket.
+function clientDisconnectSignal(req, res) {
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  res.once('close', abort)
+  res.once('finish', () => res.off('close', abort))
+  return controller.signal
 }
 
 function publicError(error) {
@@ -444,7 +483,21 @@ function collectUrlSources(metadata, sourceMap) {
 
 app.get('/api/health', async (_req, res) => {
   const database = await databaseHealth()
-  res.status(database.ok ? 200 : 503).json({ ok: database.ok, configured: Boolean(apiKey), database, model: 'Mere Apex 4.0' })
+  res.status(database.ok ? 200 : 503).json({
+    ok: database.ok,
+    configured: Boolean(apiKey),
+    database,
+    // Whether checkout is usable, without exposing any credential material.
+    payments: { configured: paypalConfigured(), ready: paypalConfigured() && paypalCredentialProblems().length === 0 },
+    model: 'Mere Apex 4.0',
+  })
+})
+
+// A signed-in account can see why checkout is unavailable, so the problem is
+// visible in the product instead of only in a server log.
+app.get('/api/billing/diagnostics', requireUser, async (_req, res) => {
+  const diagnostics = await paypalDiagnostics()
+  res.json(diagnostics)
 })
 
 app.get('/api/auth/config', (_req, res) => {
@@ -457,8 +510,7 @@ app.post('/api/auth/signup', requireSameOrigin, async (req, res) => {
     try {
       const user = await consumeSignupChallenge({ id: req.body.challengeId, code: String(req.body.code).replace(/\D/g, '').slice(0, 6) })
       if (!user) return res.status(400).json({ error: 'The verification code is incorrect or expired.' })
-      const session = await createSession(user.id)
-      setSessionCookie(res, session.token, session.expiresAt)
+      await startSession(req, res, user.id, 30 * 24 * 60 * 60 * 1000)
       return res.status(201).json({ user })
     } catch (error) {
       if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'An account with this email already exists.' })
@@ -485,14 +537,26 @@ app.post('/api/auth/signup', requireSameOrigin, async (req, res) => {
   }
 })
 
+// A dummy verification keeps the response time of an unknown address in line with
+// a known one, so sign-in cannot be used to discover which emails have accounts.
+const decoyPasswordHash = hashPassword(randomUUID())
+
 app.post('/api/auth/signin', requireSameOrigin, async (req, res) => {
   const email = String(req.body?.email || '').trim()
   const password = String(req.body?.password || '')
+  if (!validateEmail(email) || !password) return res.status(400).json({ error: 'Enter your email address and password.' })
+  if (!allowSensitiveRequest(`signin:${req.ip}:${email.toLowerCase()}`, 10, 15 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-in attempts. Try again in a few minutes.' })
+  if (!allowSensitiveRequest(`signin-ip:${req.ip}`, 40, 15 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-in attempts. Try again in a few minutes.' })
   const row = await findUserByEmail(email)
-  if (!row || !verifyPassword(password, row.password_hash)) return res.status(401).json({ error: 'Email or password is incorrect.' })
-  const session = await createSession(row.id, req.body?.remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)
-  setSessionCookie(res, session.token, session.expiresAt)
-  res.json({ user: { id: row.id, email: row.email, name: row.name, plan: row.plan } })
+  const passwordMatches = verifyPassword(password, row ? row.password_hash : decoyPasswordHash)
+  if (!row || !passwordMatches) {
+    // An account created through Google has no password its owner can type, so
+    // point them at the right button instead of a generic failure.
+    if (row && !Number(row.password_set ?? 1)) return res.status(409).json({ error: 'This account uses Google sign-in. Continue with Google, then add a password from Security and login.', provider: 'google' })
+    return res.status(401).json({ error: 'Email or password is incorrect.' })
+  }
+  await startSession(req, res, row.id, req.body?.remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)
+  res.json({ user: await getUser(row.id) })
 })
 
 app.post('/api/auth/google', requireSameOrigin, async (req, res) => {
@@ -506,10 +570,15 @@ app.post('/api/auth/google', requireSameOrigin, async (req, res) => {
     const payload = ticket.getPayload()
     if (!payload?.sub || !payload.email || !payload.email_verified) return res.status(401).json({ error: 'Google could not verify this email address.' })
     const authoritativeEmail = payload.email.toLowerCase().endsWith('@gmail.com') || Boolean(payload.hd)
-    const result = await signInWithGoogleIdentity({ subject: payload.sub, email: payload.email, name: payload.name || payload.given_name || '', authoritativeEmail })
+    const result = await signInWithGoogleIdentity({
+      subject: payload.sub,
+      email: payload.email,
+      name: payload.name || payload.given_name || '',
+      picture: payload.picture || '',
+      authoritativeEmail,
+    })
     if (result.conflict) return res.status(409).json({ error: 'Sign in with your password first, then connect Google from account settings.' })
-    const session = await createSession(result.user.id, 30 * 24 * 60 * 60 * 1000)
-    setSessionCookie(res, session.token, session.expiresAt)
+    await startSession(req, res, result.user.id, 30 * 24 * 60 * 60 * 1000)
     res.json({ user: result.user, created: result.created })
   } catch (error) {
     console.error('[google-auth]', { message: String(error?.message || error).slice(0, 180) })
@@ -517,14 +586,19 @@ app.post('/api/auth/google', requireSameOrigin, async (req, res) => {
   }
 })
 
-app.post('/api/auth/signout', async (req, res) => {
+app.post('/api/auth/signout', requireSameOrigin, async (req, res) => {
   await deleteSession(req.identity?.sessionToken)
   clearSessionCookie(res)
   res.json({ ok: true })
 })
 
-app.get('/api/auth/session', (req, res) => {
-  res.json({ authenticated: Boolean(req.identity?.user), user: req.identity?.user || null })
+app.get('/api/auth/session', async (req, res) => {
+  const user = req.identity?.user || null
+  res.json({
+    authenticated: Boolean(user),
+    user,
+    identities: user ? await listAuthIdentities(user.id) : [],
+  })
 })
 
 app.post('/api/auth/forgot-password', requireSameOrigin, async (req, res) => {
@@ -550,6 +624,18 @@ app.post('/api/auth/reset-password', requireSameOrigin, async (req, res) => {
   res.json({ ok: true })
 })
 
+// Authentication is the boundary for every private Mere X capability. The
+// public catalog and view-only share links remain readable without an account;
+// all writes and all account data require a verified session.
+app.use('/api', (req, res, next) => {
+  const publicRead = req.method === 'GET' && (req.path === '/billing/plans' || /^\/share\/[^/]+$/.test(req.path))
+  if (publicRead) return next()
+  return requireUser(req, res, () => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next()
+    return requireSameOrigin(req, res, next)
+  })
+})
+
 app.patch('/api/account', requireUser, async (req, res) => {
   const updates = {}
   if (req.body?.name !== undefined) {
@@ -557,14 +643,41 @@ app.patch('/api/account', requireUser, async (req, res) => {
     if (!name || name.length > 100) return res.status(400).json({ error: 'Enter your name.' })
     updates.name = name
   }
-  if (req.body?.email !== undefined) {
-    if (!validateEmail(req.body.email)) return res.status(400).json({ error: 'Enter a valid email address.' })
-    updates.email = req.body.email
+  // The email address is the account's recovery route, so it can only move to an
+  // address the person proves they can read. /api/account/email owns that flow.
+  if (req.body?.email !== undefined && String(req.body.email).trim().toLowerCase() !== String(req.identity.user.email).toLowerCase()) {
+    return res.status(400).json({ error: 'Confirm a new email address from the account settings before it can be changed.', code: 'email-requires-verification' })
   }
+  if (!Object.keys(updates).length) return res.json({ user: req.identity.user })
   try { res.json({ user: await updateUser(req.identity.user.id, updates) }) }
   catch (error) {
     if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'This email address is already in use.' })
     res.status(500).json({ error: 'The account could not be updated.' })
+  }
+})
+
+app.post('/api/account/email', requireUser, async (req, res) => {
+  const userId = req.identity.user.id
+  if (req.body?.challengeId && req.body?.code) {
+    if (!allowSensitiveRequest(`email-change-verify:${userId}:${String(req.body.challengeId)}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
+    const result = await applyEmailChangeCode({ id: String(req.body.challengeId), code: String(req.body.code).replace(/\D/g, '').slice(0, 6), userId })
+    if (result.error === 'taken') return res.status(409).json({ error: 'This email address is already in use.' })
+    if (result.error) return res.status(400).json({ error: 'The verification code is incorrect or expired.' })
+    return res.json({ user: result.user })
+  }
+  const email = String(req.body?.email || '').trim()
+  if (!validateEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' })
+  if (!allowSensitiveRequest(`email-change:${userId}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification codes requested. Try again later.' })
+  const challenge = await createEmailChangeChallenge({ userId, email })
+  if (challenge.error === 'taken') return res.status(409).json({ error: 'This email address is already in use.' })
+  if (challenge.error === 'unchanged') return res.status(400).json({ error: 'This is already your account email address.' })
+  if (challenge.error) return res.status(400).json({ error: 'The email address could not be changed.' })
+  try {
+    const previewCode = await deliverAuthCode({ email: challenge.email, challenge, purpose: 'email_change' })
+    res.status(202).json({ challengeId: challenge.id, expiresAt: challenge.expiresAt, email: challenge.email, message: `We sent a 6-digit code to ${challenge.email}.`, previewCode })
+  } catch (error) {
+    console.error('[email-change-request]', { message: String(error?.message || error).slice(0, 300) })
+    res.status(Number(error?.statusCode) === 503 ? 503 : 502).json({ error: 'The confirmation email could not be sent. Check the email service configuration.' })
   }
 })
 
@@ -590,8 +703,61 @@ app.post('/api/account/password', requireUser, async (req, res) => {
   }
 })
 
+const avatarMimeTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+
+app.get('/api/account/avatar', requireUser, async (req, res) => {
+  const avatar = await getUserAvatar(req.identity.user.id)
+  if (!avatar) return res.status(404).json({ error: 'No profile photo has been uploaded.' })
+  res.setHeader('Content-Type', avatar.mimeType)
+  res.setHeader('Content-Length', String(avatar.buffer.length))
+  // Private to the account, but the versioned URL means the browser can reuse it
+  // until a new photo is saved.
+  res.setHeader('Cache-Control', 'private, max-age=86400')
+  res.setHeader('Content-Disposition', 'inline')
+  res.send(avatar.buffer)
+})
+
+app.post('/api/account/avatar', requireUser, async (req, res) => {
+  const mimeType = String(req.body?.mimeType || '').toLowerCase().split(';')[0].trim()
+  const data = String(req.body?.data || '')
+  if (!avatarMimeTypes.has(mimeType)) return res.status(400).json({ error: 'Choose a PNG, JPEG, WebP or GIF image.' })
+  if (!data) return res.status(400).json({ error: 'Choose a profile photo.' })
+  if (data.length > 8_400_000) return res.status(413).json({ error: 'Profile photos can be up to 6 MB.' })
+  let buffer
+  try { buffer = Buffer.from(data, 'base64') } catch { return res.status(400).json({ error: 'The image could not be read.' }) }
+  if (!buffer.length) return res.status(400).json({ error: 'The image could not be read.' })
+  if (buffer.length > 6 * 1024 * 1024) return res.status(413).json({ error: 'Profile photos can be up to 6 MB.' })
+  // Confirm the bytes really are the image type they claim, so the account photo
+  // route can never be used to serve something else back to the browser.
+  const signatures = {
+    'image/png': buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+    'image/jpeg': buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
+    'image/webp': buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP',
+    'image/gif': buffer.subarray(0, 6).toString('ascii').startsWith('GIF8'),
+  }
+  if (!signatures[mimeType]) return res.status(400).json({ error: 'That file is not a valid image.' })
+  try { res.json({ user: await setUserAvatar(req.identity.user.id, { mimeType, buffer }) }) }
+  catch (error) {
+    console.error('[account-avatar]', { message: String(error?.message || error).slice(0, 300) })
+    res.status(500).json({ error: 'The profile photo could not be saved.' })
+  }
+})
+
+app.delete('/api/account/avatar', requireUser, async (req, res) => {
+  res.json({ user: await clearUserAvatar(req.identity.user.id) })
+})
+
 app.get('/api/account/sessions', requireUser, async (req, res) => {
   res.json({ sessions: await listSessions(req.identity.user.id, req.identity.sessionToken) })
+})
+
+app.get('/api/account/storage', requireUser, async (req, res) => {
+  res.json(await getAccountStorage(req.identity.user.id))
+})
+
+app.get('/api/account/export', requireUser, async (req, res) => {
+  res.setHeader('Content-Disposition', `attachment; filename="mere-x-account-${new Date().toISOString().slice(0, 10)}.json"`)
+  res.json(await exportAccountData(req.identity.user.id))
 })
 
 app.delete('/api/account/sessions', requireUser, async (req, res) => {
@@ -600,20 +766,39 @@ app.delete('/api/account/sessions', requireUser, async (req, res) => {
 
 app.delete('/api/account', requireUser, async (req, res) => {
   const row = await findUserByEmail(req.identity.user.email)
-  if (!row || !verifyPassword(String(req.body?.password || ''), row.password_hash)) return res.status(401).json({ error: 'Password is incorrect.' })
+  if (!row || row.id !== req.identity.user.id) return res.status(401).json({ error: 'This account could not be verified.' })
+  if (!allowSensitiveRequest(`account-delete:${row.id}`, 6, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many attempts. Try again later.' })
+  // A Google-created account has no password its owner knows, so confirm the
+  // deletion by typing the account email instead of locking them out entirely.
+  if (Number(row.password_set ?? 1)) {
+    if (!verifyPassword(String(req.body?.password || ''), row.password_hash)) return res.status(401).json({ error: 'Password is incorrect.' })
+  } else if (String(req.body?.confirmEmail || '').trim().toLowerCase() !== String(row.email).toLowerCase()) {
+    return res.status(401).json({ error: 'Type your account email address exactly to confirm.' })
+  }
   await deleteUser(req.identity.user.id)
   clearSessionCookie(res)
   res.json({ ok: true })
 })
 
-app.get('/api/workspace', requireUser, async (req, res) => res.json(await getWorkspace(req.identity.user.id)))
+app.get('/api/workspace', requireUser, async (req, res) => {
+  res.json({ ...await getWorkspace(req.identity.user.id), userId: req.identity.user.id })
+})
 
 app.put('/api/workspace', requireUser, async (req, res) => {
+  const userId = req.identity.user.id
+  // The browser states which account the snapshot was built for. If the session
+  // has moved to another account since then - a second tab signed in, a session
+  // expired and was replaced - the write belongs to nobody and must be refused
+  // rather than saved into whoever is signed in now.
+  const intendedUserId = req.body?.userId === undefined || req.body?.userId === null ? '' : String(req.body.userId)
+  if (intendedUserId !== userId) {
+    return res.status(409).json({ error: 'This workspace belongs to a different account.', code: 'account-changed', userId })
+  }
   const serialized = JSON.stringify(req.body?.data || {})
   if (Buffer.byteLength(serialized) > 8 * 1024 * 1024) return res.status(413).json({ error: 'The synchronized workspace is too large.' })
-  const result = await saveWorkspace(req.identity.user.id, req.body?.data || {}, Number(req.body?.version))
-  if (result.conflict) return res.status(409).json({ error: 'A newer workspace version is available.', ...result.workspace })
-  res.json(result.workspace)
+  const result = await saveWorkspace(userId, req.body?.data || {}, Number(req.body?.version))
+  if (result.conflict) return res.status(409).json({ error: 'A newer workspace version is available.', code: 'version-conflict', ...result.workspace, userId })
+  res.json({ ...result.workspace, userId })
 })
 
 app.get('/api/usage', async (req, res) => res.json(await usageSummary(req.identity)))
@@ -632,10 +817,22 @@ app.get('/api/billing/plans', (req, res) => {
   })
 })
 
-app.get('/api/billing/config', requireUser, (_req, res) => res.json(publicPayPalConfig()))
+app.get('/api/billing/config', requireUser, (_req, res) => {
+  const config = publicPayPalConfig()
+  const problems = config.enabled ? paypalCredentialProblems() : []
+  // A checkout that is configured but cannot authenticate must not render a
+  // payment button that is guaranteed to fail.
+  if (problems.length) return res.json({ ...config, enabled: false, clientId: undefined, error: 'Secure checkout is being configured and is not available yet.' })
+  res.json(config)
+})
 
 function sendPaymentError(res, error) {
   const failure = paymentError(error)
+  // The shopper gets a plain message; the reason a deployment cannot take
+  // payments belongs in the server log where the operator will find it.
+  const hint = failure.operatorHint || error?.operatorHint
+  if (hint) console.error('[billing-configuration]', { hint, supportId: failure.debugId })
+  else if (failure.status >= 500) console.error('[billing]', { message: String(error?.message || error).slice(0, 300), supportId: failure.debugId })
   res.status(failure.status).json({ error: failure.message, supportId: failure.debugId })
 }
 
@@ -708,13 +905,13 @@ app.post('/api/files', async (req, res) => {
   if (!await reserveUsage(req, res, 'file', 1, { name, mimeType })) return
   try {
     const buffer = Buffer.from(data, 'base64')
-    const file = await storeFile({ ownerId: req.identity.user?.id, guestId: req.identity.guestId, name, mimeType, buffer })
+    const file = await storeFile({ ownerId: req.identity.user.id, name, mimeType, buffer })
     res.status(201).json({ file })
   } catch { res.status(500).json({ error: 'The file could not be stored.' }) }
 })
 
 app.get('/api/files/:id', async (req, res) => {
-  const file = await getStoredFile(req.params.id, { ownerId: req.identity.user?.id, guestId: req.identity.guestId })
+  const file = await getStoredFile(req.params.id, { ownerId: req.identity.user.id })
   if (!file) return res.status(404).json({ error: 'File not found.' })
   res.setHeader('Content-Type', file.mimeType)
   res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`)
@@ -726,7 +923,7 @@ async function startManagedJob(req, res, { type, agent, environment, agentConfig
   const prompt = String(req.body?.prompt || '').trim()
   if (!prompt) return res.status(400).json({ error: 'Describe the outcome you want.' })
   if (!await reserveUsage(req, res, usageKind, 1, { type })) return
-  const job = await createJob({ ownerId: req.identity.user?.id, guestId: req.identity.guestId, type, payload: { prompt: prompt.slice(0, 60_000) } })
+  const job = await createJob({ ownerId: req.identity.user.id, type, payload: { prompt: prompt.slice(0, 60_000) } })
   try {
     await updateJob(job.id, { status: 'running' })
     const interaction = await createInteraction({
@@ -842,7 +1039,7 @@ app.get('/api/jobs', requireUser, async (req, res) => {
 })
 
 app.get('/api/jobs/:id', async (req, res) => {
-  const job = await getJob(req.params.id, { ownerId: req.identity.user?.id, guestId: req.identity.guestId })
+  const job = await getJob(req.params.id, { ownerId: req.identity.user.id })
   if (!job) return res.status(404).json({ error: 'Task not found.' })
   if (job.type === 'video') {
     const operationName = job.result?.operationName
@@ -860,7 +1057,7 @@ app.get('/api/jobs/:id', async (req, res) => {
       let buffer
       if (video?.videoBytes) buffer = Buffer.from(video.videoBytes, 'base64')
       else if (video?.uri) {
-        const response = await fetch(video.uri, { headers: { 'x-goog-api-key': apiKey } })
+        const response = await fetch(video.uri, { headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(120_000) })
         if (!response.ok) throw new Error(`Generated video download failed (${response.status})`)
         buffer = Buffer.from(await response.arrayBuffer())
       }
@@ -935,7 +1132,7 @@ app.post('/api/share', async (req, res) => {
     sources: Array.isArray(message?.sources) ? message.sources.slice(0, 10) : undefined,
   })).filter((message) => message.content) : []
   if (!messages.length) return res.status(400).json({ error: 'There is no conversation to share yet.' })
-  const id = await createShare({ ownerId: req.identity.user?.id || null, title: String(req.body?.title || 'Shared Mere X conversation').slice(0, 120), messages })
+  const id = await createShare({ ownerId: req.identity.user.id, title: String(req.body?.title || 'Shared Mere X conversation').slice(0, 120), messages })
   res.json({ id })
 })
 
@@ -955,6 +1152,7 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.flushHeaders()
+  const abortSignal = clientDisconnectSignal(req, res)
 
   try {
     const contextualInstruction = [
@@ -987,6 +1185,7 @@ app.post('/api/chat', async (req, res) => {
           systemInstruction: contextualInstruction,
           tools: interactionTools,
           thinkingLevel: reasoning ? 'high' : 'low',
+          signal: abortSignal,
           onEvent: (event) => {
             if (event.event_type === 'interaction.created' && event.interaction?.id) {
               interactionId = event.interaction.id
@@ -1009,6 +1208,7 @@ app.post('/api/chat', async (req, res) => {
         res.end()
         return
       } catch (error) {
+        if (abortSignal.aborted) return
         if (wroteInteractionText) throw error
       }
     }
@@ -1027,7 +1227,7 @@ app.post('/api/chat', async (req, res) => {
     for (const model of modelCandidates) {
       let wroteText = false
       try {
-        const stream = await ai.models.generateContentStream({ model, contents: await normalizeContents(messages, attachments), config })
+        const stream = await ai.models.generateContentStream({ model, contents: await normalizeContents(messages, attachments), config: { ...config, abortSignal } })
         for await (const chunk of stream) {
           if (chunk.text) {
             wroteText = true
@@ -1039,6 +1239,7 @@ app.post('/api/chat', async (req, res) => {
         completed = true
         break
       } catch (error) {
+        if (abortSignal.aborted) return
         lastError = error
         if (wroteText) throw error
       }
@@ -1048,6 +1249,7 @@ app.post('/api/chat', async (req, res) => {
     res.write(`${JSON.stringify({ type: 'done' })}\n`)
     res.end()
   } catch (error) {
+    if (abortSignal.aborted || res.writableEnded) return
     console.error('[chat]', { status: error?.status || error?.code, message: String(error?.message || error).slice(0, 600) })
     const safe = publicError(error)
     res.write(`${JSON.stringify({ type: 'error', error: safe.message })}\n`)
@@ -1077,7 +1279,7 @@ app.post('/api/image', async (req, res) => {
   const ai = client()
   if (!ai) return res.status(503).json({ error: 'Mere X intelligence is not configured.' })
   const { prompt, attachments = [] } = req.body || {}
-  const aspectRatio = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'].includes(req.body?.aspectRatio) ? req.body.aspectRatio : '1:1'
+  const aspectRatio = ['1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9'].includes(req.body?.aspectRatio) ? req.body.aspectRatio : '1:1'
   const imageSize = ['1K', '2K', '4K'].includes(req.body?.imageSize) ? req.body.imageSize : '2K'
   if (!String(prompt || '').trim()) return res.status(400).json({ error: 'Describe the image you want to create.' })
   if (!await reserveUsage(req, res, 'image', (attachments.length ? 1.15 : 1) * (imageSize === '4K' ? 1.7 : imageSize === '2K' ? 1.15 : 1), { editing: attachments.length > 0, aspectRatio, imageSize })) return
@@ -1092,7 +1294,7 @@ app.post('/api/image', async (req, res) => {
     let lastError
     for (const model of imageModels) {
       try {
-        response = await ai.models.generateContent({ model, contents: [{ role: 'user', parts }], config: { responseModalities: ['TEXT', 'IMAGE'], responseFormat: { image: { aspectRatio, imageSize } } } })
+        response = await ai.models.generateContent({ model, contents: [{ role: 'user', parts }], config: { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio, imageSize }, abortSignal: clientDisconnectSignal(req, res) } })
         break
       } catch (error) { lastError = error }
     }
@@ -1129,6 +1331,9 @@ let cleanupTimer
 async function startServer() {
   await initializeDatabase()
   await cleanupExpired()
+  // Surface a checkout that cannot work at boot instead of at the first purchase.
+  const paymentProblems = paypalConfigured() ? paypalCredentialProblems() : ['PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are not set; checkout is disabled.']
+  if (paymentProblems.length) console.warn('[payments]', { ready: false, problems: paymentProblems })
   cleanupTimer = setInterval(() => {
     void cleanupExpired().catch(error => console.error('[database-cleanup]', { message: String(error?.message || error).slice(0, 300) }))
   }, 60 * 60 * 1000)

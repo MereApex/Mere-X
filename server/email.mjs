@@ -24,17 +24,19 @@ function sender() {
 }
 
 function codeMarkup(code, purpose) {
-  const heading = purpose === 'signup' ? 'Verify your Mere X account' : purpose === 'password_change' ? 'Confirm your password change' : 'Reset your Mere X password'
+  const heading = purpose === 'signup' ? 'Verify your Mere X account' : purpose === 'password_change' ? 'Confirm your password change' : purpose === 'email_change' ? 'Confirm your new email address' : 'Reset your Mere X password'
   const explanation = purpose === 'signup'
     ? 'Enter this code to finish creating your Mere X workspace.'
     : purpose === 'password_change'
       ? 'Enter this code in Security and login to confirm your new password.'
-      : 'Enter this code to choose a new password for your Mere X account.'
+      : purpose === 'email_change'
+        ? 'Enter this code in Mere X to move your account to this email address.'
+        : 'Enter this code to choose a new password for your Mere X account.'
   return `<!doctype html><html><body style="margin:0;background:#080808;color:#efefec;font-family:Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#080808"><tr><td align="center" style="padding:40px 18px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;border:1px solid #2d2d2d;border-radius:18px;background:#101010"><tr><td style="padding:34px"><div style="font-size:14px;font-weight:700;letter-spacing:.08em">MERE X</div><h1 style="margin:42px 0 12px;font-family:Georgia,serif;font-size:30px;font-weight:400">${heading}</h1><p style="margin:0;color:#999;line-height:1.65">${explanation}</p><div style="margin:28px 0;padding:20px;border:1px solid #373737;border-radius:12px;background:#0a0a0a;text-align:center;font-family:monospace;font-size:34px;font-weight:700;letter-spacing:.22em">${code}</div><p style="margin:0;color:#777;font-size:13px;line-height:1.6">This code expires in 10 minutes and can be used once. If you did not request it, you can safely ignore this email.</p></td></tr></table></td></tr></table></body></html>`
 }
 
 export async function sendAccountCode({ to, code, purpose, challengeId }) {
-  const subject = purpose === 'signup' ? `${code} is your Mere X verification code` : purpose === 'password_change' ? `${code} confirms your Mere X password change` : `${code} is your Mere X password reset code`
+  const subject = purpose === 'signup' ? `${code} is your Mere X verification code` : purpose === 'password_change' ? `${code} confirms your Mere X password change` : purpose === 'email_change' ? `${code} confirms your new Mere X email address` : `${code} is your Mere X password reset code`
   const { data, error } = await emailClient().emails.send({
     from: sender(),
     to: [String(to)],

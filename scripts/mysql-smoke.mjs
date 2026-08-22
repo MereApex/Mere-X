@@ -40,6 +40,7 @@ dotenv.config({ path: '.env.local', quiet: true })
 dotenv.config({ quiet: true })
 
 let user = null
+let isolationUser = null
 let shareId = null
 const subject = `test:${randomUUID()}`
 const email = `database-smoke-${Date.now()}-${randomUUID().slice(0, 8)}@mere-x.test`
@@ -69,6 +70,12 @@ try {
   const stored = await storeFile({ ownerId: user.id, name: 'smoke.txt', mimeType: 'text/plain', buffer: content })
   const restored = await getStoredFile(stored.id, { ownerId: user.id })
   if (!restored || !restored.buffer.equals(content) || restored.checksum !== stored.checksum) throw new Error('Binary file persistence failed.')
+
+  isolationUser = await createUser({ email: `database-isolation-${Date.now()}-${randomUUID().slice(0, 8)}@mere-x.test`, password, name: 'Database Isolation' })
+  if ((await getWorkspace(isolationUser.id)).data?.projects?.length) throw new Error('A new user inherited another workspace.')
+  if (await getStoredFile(stored.id, { ownerId: isolationUser.id })) throw new Error('Stored file ownership isolation failed.')
+  await saveWorkspace(isolationUser.id, { marker: 'SECOND_USER' }, 1)
+  if ((await getWorkspace(user.id)).data?.marker) throw new Error('A second user changed the first workspace.')
 
   const job = await createJob({ ownerId: user.id, type: 'smoke', payload: { target: 'database' } })
   const completedJob = await updateJob(job.id, { status: 'completed', result: { ok: true } })
@@ -118,6 +125,7 @@ try {
   if (shareId) await execute('DELETE FROM shared_conversations WHERE id=?', [shareId]).catch(() => undefined)
   await execute('DELETE FROM usage_events WHERE subject=?', [subject]).catch(() => undefined)
   if (user?.id) await deleteUser(user.id).catch(() => undefined)
+  if (isolationUser?.id) await deleteUser(isolationUser.id).catch(() => undefined)
   await execute('DELETE FROM billing_plans WHERE environment=?', [billingEnvironment]).catch(() => undefined)
   await execute('DELETE FROM billing_products WHERE environment=?', [billingEnvironment]).catch(() => undefined)
   await closeDatabase().catch(() => undefined)

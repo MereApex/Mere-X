@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises'
+import { ensureBrowserAccount } from './browser-auth.mjs'
 
 const debugPort = process.env.MERE_CDP_PORT || '9333'
 const baseUrl = process.env.MERE_URL || 'http://127.0.0.1:5173/#/app'
@@ -7,6 +8,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 const target = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(baseUrl)}`, { method: 'PUT' }).then(response => response.json())
 const socket = new WebSocket(target.webSocketDebuggerUrl)
 const pending = new Map()
+const seedWorkspace = patch => `(async()=>{for(let attempt=0;attempt<6;attempt+=1){const current=await fetch('/api/workspace').then(response=>response.json());const response=await fetch('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:current.version,userId:current.userId,data:{...(current.data||{}),...(${patch})}})});if(response.ok)return true;const failure=await response.json().catch(()=>({}));if(failure.code!=='version-conflict')return false;await new Promise(resolve=>setTimeout(resolve,350))}return false})()`
 let commandId = 0
 
 await new Promise((resolve, reject) => {
@@ -44,7 +46,11 @@ async function waitFor(expression, timeout = 10_000) {
   throw new Error(`Timed out waiting for: ${expression}`)
 }
 
-const fontSize = selector => evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).fontSize`)
+const fontSize = async selector => {
+  const size = await evaluate(`(() => { const node = document.querySelector(${JSON.stringify(selector)}); return node ? getComputedStyle(node).fontSize : null })()`)
+  if (!size) throw new Error(`Missing typography selector: ${selector}`)
+  return size
+}
 
 async function navigate(hash, selector) {
   await evaluate(`location.hash = ${JSON.stringify(hash)}`)
@@ -78,11 +84,16 @@ try {
   await command('Runtime.enable')
   await command('Page.enable')
   await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
+  await waitFor(`Boolean(document.querySelector('body'))`)
+  await ensureBrowserAccount(evaluate, 'Typography Smoke')
+  const seeded = await evaluate(seedWorkspace(`{projects:[{id:'type-project',name:'Typography project',description:'A private account project used for visual validation.',updated:'Active now',chatCount:1,fileCount:1}],library:[{id:'type-library',title:'Typography document',type:'Document',date:'Saved now',content:'Typography validation content'}],conversations:[{id:'type-chat',title:'Typography conversation',updated:'Active now',messages:[{id:71001,role:'user',content:'Typography validation'}]}]}`))
+  if (!seeded) throw new Error('Could not seed typography workspace records')
+  await command('Page.navigate', { url: `${new URL(baseUrl).origin}${new URL(baseUrl).pathname}?qa=${Date.now()}#/app` })
   await waitFor(`Boolean(document.querySelector('.account-row'))`)
 
   const chat = {
     navigation: await fontSize('.nav-row'),
-    history: await fontSize('.history-group button'),
+    history: await fontSize('.history-group p'),
     composer: await fontSize('.composer textarea'),
     helper: await fontSize('.thread-composer > p, .disclaimer')
   }
@@ -156,7 +167,9 @@ try {
   const landingAudit = await textAudit()
   await screenshot('mere-x-landing-type-qa.png')
 
-  await navigate('/signin', '.auth-form-wrap')
+  await evaluate(`fetch('/api/auth/signout', { method: 'POST' }).then(() => true)`)
+  await command('Page.navigate', { url: `${new URL(baseUrl).origin}${new URL(baseUrl).pathname}?qa=${Date.now()}#/signin` })
+  await waitFor(`Boolean(document.querySelector('.auth-form-wrap'))`)
   const auth = {
     description: await fontSize('.auth-form-wrap > p:nth-of-type(2)'),
     label: await fontSize('.auth-form-wrap form > label:not(.check-label)'),
@@ -167,8 +180,10 @@ try {
   const authAudit = await textAudit()
   await screenshot('mere-x-auth-type-qa.png')
 
+  await ensureBrowserAccount(evaluate, 'Typography Mobile Smoke')
   await command('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true })
-  await navigate('/app', '.composer')
+  await command('Page.navigate', { url: `${new URL(baseUrl).origin}${new URL(baseUrl).pathname}?qa=${Date.now()}#/app` })
+  await waitFor(`Boolean(document.querySelector('.composer'))`)
   const mobile = {
     navigation: await fontSize('.nav-row'),
     composer: await fontSize('.composer textarea'),
@@ -179,7 +194,8 @@ try {
 
   console.log(JSON.stringify({ ok: true, chat, profile, settings, entity, projects, library, landing, auth, mobile, audits: { chat: chatAudit, projects: projectsAudit, library: libraryAudit, landing: landingAudit, auth: authAudit, mobile: mobileAudit } }, null, 2))
 } catch (error) {
-  console.error(JSON.stringify({ ok: false, error: error.message }, null, 2))
+  const diagnostic = await evaluate(`(async()=>({hash:location.hash,root:document.querySelector('#root')?.innerHTML.slice(0,800)||'',session:await fetch('/api/auth/session').then(response=>response.json()).catch(reason=>({error:String(reason)}))}))()`).catch(() => null)
+  console.error(JSON.stringify({ ok: false, error: error.message, diagnostic }, null, 2))
   process.exitCode = 1
 } finally {
   await command('Target.closeTarget', { targetId: target.id }).catch(() => {})

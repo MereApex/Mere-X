@@ -1,7 +1,9 @@
 import { writeFile } from 'node:fs/promises'
+import { ensureBrowserAccount } from './browser-auth.mjs'
 
 const debugPort = process.env.MERE_CDP_PORT || '9333'
 const baseUrl = process.env.MERE_URL || 'http://127.0.0.1:5173/#/app'
+const profileEmail = `settings-${Date.now()}@mere.test`
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const target = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(baseUrl)}`, { method: 'PUT' }).then(response => response.json())
 const socket = new WebSocket(target.webSocketDebuggerUrl)
@@ -84,7 +86,10 @@ try {
   await command('Runtime.enable')
   await command('Page.enable')
   await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
-  await waitFor(`Boolean(document.querySelector('.page-area'))`)
+  await waitFor(`Boolean(document.querySelector('body'))`)
+  await ensureBrowserAccount(evaluate, 'Settings Smoke')
+  await command('Page.navigate', { url: `${new URL(baseUrl).origin}${new URL(baseUrl).pathname}?qa=${Date.now()}#/app` })
+  await waitFor(`Boolean(document.querySelector('.page-area'))`, 20_000)
 
   const modelHeader = await evaluate(`(() => { const node = document.querySelector('.model-identity'); return { exists: Boolean(node), tag: node?.tagName, hasChevron: Boolean(node?.querySelector('.lucide-chevron-down')), text: node?.textContent.trim() } })()`)
 
@@ -119,24 +124,28 @@ try {
   await clickText('.settings-nav-group > button', 'General')
   await setValue('.settings-content select[aria-label="Language"]', 'ქართული')
   await clickText('.settings-nav-group > button', 'Notifications')
-  const notificationBefore = await evaluate(`JSON.parse(localStorage.getItem('mere-x-settings-controls') || '{}').notifications`)
+  const notificationBefore = await evaluate(`document.querySelector('.settings-content button[aria-label="Product notifications"]')?.getAttribute('aria-checked') === 'true'`)
   await click('.settings-content button[aria-label="Product notifications"]')
-  const notificationAfter = await evaluate(`JSON.parse(localStorage.getItem('mere-x-settings-controls') || '{}').notifications`)
+  const notificationAfter = await evaluate(`document.querySelector('.settings-content button[aria-label="Product notifications"]')?.getAttribute('aria-checked') === 'true'`)
 
   await clickText('.settings-nav-group > button', 'Voice')
-  const voiceBefore = await evaluate(`JSON.parse(localStorage.getItem('mere-x-settings-controls') || '{}').voiceInput`)
+  const voiceBefore = await evaluate(`document.querySelector('.settings-content button[aria-label="Voice input"]')?.getAttribute('aria-checked') === 'true'`)
   await click('.settings-content button[aria-label="Voice input"]')
-  const voiceAfter = await evaluate(`JSON.parse(localStorage.getItem('mere-x-settings-controls') || '{}').voiceInput`)
+  const voiceAfter = await evaluate(`document.querySelector('.settings-content button[aria-label="Voice input"]')?.getAttribute('aria-checked') === 'true'`)
 
   await clickText('.settings-nav-group > button', 'Storage')
+  await sleep(600)
+  const storageProbe = await evaluate(`fetch('/api/account/storage').then(async response => ({ status: response.status, body: await response.text() }))`)
+  if (storageProbe.status !== 200) throw new Error(`Account storage API returned ${storageProbe.status}: ${storageProbe.body}`)
   const storageLabel = await evaluate(`document.querySelector('.storage-meter b')?.textContent`)
   await clickText('.settings-nav-group > button', 'Account')
   await clickText('.profile-row .soft-button', 'Edit profile')
   await setValue('.profile-edit-form label:first-child input', 'QA User')
-  await setValue('.profile-edit-form input[type="email"]', 'qa@example.com')
+  await setValue('.profile-edit-form input[type="email"]', profileEmail)
   await click('.profile-edit-form .primary-button')
   await waitFor(`document.querySelector('.profile-row b')?.textContent === 'QA User'`)
-  const profileSaved = await evaluate(`JSON.parse(localStorage.getItem('mere-x-profile') || '{}').name === 'QA User'`)
+  await sleep(950)
+  const profileSaved = await evaluate(`fetch('/api/auth/session').then(response => response.json()).then(result => result.user?.name === 'QA User')`)
   await screenshot('mere-x-settings-account-audit.png')
 
   await click('.settings-nav-head .icon-button')
@@ -146,11 +155,11 @@ try {
 
   await openSettings('Settings')
   await clickText('.settings-nav-group > button', 'Data controls')
-  const historyBefore = await evaluate(`JSON.parse(localStorage.getItem('mere-x-settings-controls') || '{}').chatHistory ?? true`)
+  const historyBefore = await evaluate(`document.querySelector('.settings-content button[aria-label="Chat history"]')?.getAttribute('aria-checked') === 'true'`)
   await click('.settings-content button[aria-label="Chat history"]')
   await sleep(100)
-  const historyAfter = await evaluate(`JSON.parse(localStorage.getItem('mere-x-settings-controls') || '{}').chatHistory`)
-  const threadRemoved = await evaluate(`localStorage.getItem('mere-x-thread') === null`)
+  const historyAfter = await evaluate(`document.querySelector('.settings-content button[aria-label="Chat history"]')?.getAttribute('aria-checked') === 'true'`)
+  const threadRemoved = await evaluate(`Object.keys(localStorage).every(key => !key.startsWith('mere-x-'))`)
   await click('.settings-content button[aria-label="Chat history"]')
   await clickText('.settings-nav-group > button', 'Safety')
   await clickText('.settings-content .soft-button', 'Open guide')
@@ -175,7 +184,7 @@ try {
   }
 
   await navigate('/app')
-  await evaluate(`localStorage.setItem('mere-x-profile', JSON.stringify({ name: 'Nika K.', email: 'nika@example.com' })); localStorage.setItem('mere-x-preferences', JSON.stringify({ ...JSON.parse(localStorage.getItem('mere-x-preferences') || '{}'), language: 'English' })); localStorage.setItem('mere-x-settings-controls', JSON.stringify({ ...JSON.parse(localStorage.getItem('mere-x-settings-controls') || '{}'), notifications: ${JSON.stringify(notificationBefore)}, voiceInput: ${JSON.stringify(voiceBefore)}, chatHistory: ${JSON.stringify(historyBefore)} })); location.reload()`)
+  await command('Page.reload')
   await waitFor(`Boolean(document.querySelector('.page-area'))`)
 
   await command('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true })
@@ -203,7 +212,7 @@ try {
     !storageLabel || storageLabel === '2.4 MB used' ? 'Storage usage is still hardcoded' : null,
     billingPricingRoute !== '#/pricing' ? 'Compare plans did not open Pricing cleanly' : null,
     !profileSaved || accountName !== 'QA User' ? 'Profile edits did not propagate to the sidebar' : null,
-    historyBefore === historyAfter || !threadRemoved ? 'Chat history setting did not disable local thread persistence' : null,
+    historyBefore === historyAfter || !threadRemoved ? 'Chat history setting or browser-storage isolation failed' : null,
     !safetyRouteClosedModal ? 'Leaving settings kept the modal open' : null,
     routeResults.length !== profileRoutes.length ? 'A profile resource route failed' : null,
     mobileMenu.overflow ? 'Profile menu overflows the mobile viewport' : null,
@@ -214,7 +223,8 @@ try {
   console.log(JSON.stringify({ ok: failures.length === 0, failures, modelHeader, billingPricingRoute, settingsSearchResults, tabResults, controls: { notificationBefore, notificationAfter, voiceBefore, voiceAfter, voiceButtonVisible, historyBefore, historyAfter, threadRemoved }, storageLabel, profileSaved, accountName, routeResults, mobileMenu, mobileSettings, runtimeErrors }, null, 2))
   if (failures.length) process.exitCode = 1
 } catch (error) {
-  console.error(JSON.stringify({ ok: false, error: error.message, runtimeErrors }, null, 2))
+  const diagnostic = await evaluate(`(async()=>({hash:location.hash,root:document.querySelector('#root')?.innerHTML.slice(0,800)||'',session:await fetch('/api/auth/session').then(response=>response.json()).catch(reason=>({error:String(reason)}))}))()`).catch(() => null)
+  console.error(JSON.stringify({ ok: false, error: error.message, diagnostic, runtimeErrors }, null, 2))
   process.exitCode = 1
 } finally {
   await command('Target.closeTarget', { targetId: target.id }).catch(() => {})

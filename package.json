@@ -9,6 +9,7 @@
     "api": "node server/index.mjs",
     "db:migrate": "node scripts/mysql-migrate.mjs",
     "db:import:sqlite": "node scripts/mysql-import-sqlite.mjs",
+    "paypal:check": "node scripts/paypal-check.mjs",
     "paypal:setup": "node scripts/paypal-setup.mjs",
     "build": "tsc -b && vite build",
     "test:database": "node scripts/mysql-smoke.mjs",
