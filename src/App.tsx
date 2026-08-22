@@ -73,7 +73,16 @@ import {
 } from 'lucide-react'
 import { Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { LiveServerMessage, Session } from '@google/genai'
-import { PayPalProvider, usePayPalOneTimePaymentSession, usePayPalSubscriptionPaymentSession } from '@paypal/react-paypal-js/sdk-v6'
+import {
+  PayPalCardCvvField,
+  PayPalCardExpiryField,
+  PayPalCardFieldsProvider,
+  PayPalCardNumberField,
+  PayPalProvider,
+  usePayPalCardFieldsOneTimePaymentSession,
+  usePayPalOneTimePaymentSession,
+  usePayPalSubscriptionPaymentSession,
+} from '@paypal/react-paypal-js/sdk-v6'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import mereXEmblem from './assets/mere-x-emblem-transparent.png'
@@ -1481,7 +1490,7 @@ function ShareModal({ messages, onClose, onToast }: { messages: Message[]; onClo
   return <div className="modal-backdrop" onMouseDown={e => { if (e.currentTarget === e.target) onClose() }}><div className="share-modal" role="dialog" aria-modal="true" aria-label="Share conversation"><div className="modal-head"><div><h2>Share conversation</h2><p>Control who can view this chat.</p></div><IconButton label="Close" onClick={onClose}><X size={18} /></IconButton></div><div className="share-preview"><div><MessageCircle size={17} /><span><b>{messages.find(message => message.role === 'user')?.content.slice(0, 45) || 'New conversation'}</b><small>{messages.length} messages · Mere Apex 4.0</small></span></div><CheckCircle2 size={17} /></div><div className="share-row"><span><b>Anyone with the link</b><small>View-only access. Your name stays private.</small></span><Toggle label="Public link" active={publicLink} onChange={() => setPublicLink(!publicLink)} /></div><button className="primary-button full" disabled={!publicLink || sharing || !messages.length} onClick={() => void share()}><Link2 size={16} />{sharing ? 'Creating link...' : 'Copy link'}</button></div></div>
 }
 
-function SharedConversationPage({ shareId, navigate }: { shareId: string; navigate: (route: PublicRoute) => void }) {
+function SharedConversationPage({ shareId, navigate, user }: { shareId: string; navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const [shared, setShared] = useState<{ title: string; messages: Message[] } | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -1546,68 +1555,196 @@ function CheckoutSurface({ state, error, renews, onStart, disabled }: { state: '
   </div>
 }
 
-// A membership bought as a paid term. This is the path that works on every
-// merchant account, because it uses the ordinary payment capability.
-function EmbeddedTermCheckout({ plan, annual, quantity, onSuccess }: { plan: PlanTier; annual: boolean; quantity: number; onSuccess: (user: AuthUser, subscription: BillingSubscription) => void }) {
-  const [state, setState] = useState<'ready' | 'creating' | 'confirming' | 'success'>('ready')
-  const [error, setError] = useState('')
+// Card details are entered here, on Mere X, in PayPal's hosted fields. The
+// inputs are iframes owned by PayPal, so the numbers never touch this site or
+// its servers, but the person never leaves the page either.
+function CardPaymentForm({ plan, annual, quantity, currency, total, onPaid, onFailed, disabled }: {
+  plan: PlanTier
+  annual: boolean
+  quantity: number
+  currency: string
+  total: number
+  onPaid: (user: AuthUser, subscription: BillingSubscription) => void
+  onFailed: (message: string) => void
+  disabled: boolean
+}) {
+  const { submit } = usePayPalCardFieldsOneTimePaymentSession()
+  const [busy, setBusy] = useState(false)
+  const [name, setName] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [country, setCountry] = useState('US')
   const attemptId = useRef(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`)
-  const orderId = useRef('')
+
+  const pay = async (event: FormEvent) => {
+    event.preventDefault()
+    if (busy || disabled) return
+    setBusy(true)
+    try {
+      const created = await fetch('/api/billing/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: plan.name.toLowerCase(), annual, quantity, method: 'card', requestId: attemptId.current }),
+      })
+      const order = await created.json() as { orderId?: string; error?: string }
+      if (!created.ok || !order.orderId) throw new Error(order.error || 'The payment could not be started.')
+
+      // PayPal validates the card, runs any 3-D Secure step, and only then is
+      // the money captured on our side.
+      await submit(order.orderId, { billingAddress: { postalCode: postalCode.trim() || undefined, countryCode: country } })
+
+      const captured = await fetch(`/api/billing/orders/${encodeURIComponent(order.orderId)}/capture`, { method: 'POST' })
+      const result = await captured.json() as { user?: AuthUser; subscription?: BillingSubscription; error?: string }
+      if (!captured.ok || !result.user || !result.subscription) throw new Error(result.error || 'The payment could not be confirmed.')
+      onPaid(result.user, result.subscription)
+    } catch (error) {
+      onFailed(error instanceof Error ? error.message : 'The card payment could not be completed.')
+    } finally { setBusy(false) }
+  }
+
+  return <form className="card-payment-form" onSubmit={pay}>
+    <label className="card-field"><span>Name on card</span>
+      <input value={name} onChange={event => setName(event.target.value)} autoComplete="cc-name" placeholder="As printed on the card" />
+    </label>
+    <label className="card-field"><span>Card number</span>
+      <PayPalCardNumberField placeholder="1234 5678 9012 3456" containerClassName="card-field-frame" />
+    </label>
+    <div className="card-field-row">
+      <label className="card-field"><span>Expiry</span>
+        <PayPalCardExpiryField placeholder="MM / YY" containerClassName="card-field-frame" />
+      </label>
+      <label className="card-field"><span>Security code</span>
+        <PayPalCardCvvField placeholder="CVC" containerClassName="card-field-frame" />
+      </label>
+    </div>
+    <div className="card-field-row">
+      <label className="card-field"><span>Postal code</span>
+        <input value={postalCode} onChange={event => setPostalCode(event.target.value)} autoComplete="postal-code" placeholder="Postal code" />
+      </label>
+      <label className="card-field"><span>Country</span>
+        <select value={country} onChange={event => setCountry(event.target.value)} aria-label="Card country">
+          {['US', 'GB', 'GE', 'DE', 'FR', 'ES', 'IT', 'NL', 'PL', 'CA', 'AU', 'AE', 'TR', 'UA'].map(code => <option key={code} value={code}>{code}</option>)}
+        </select>
+      </label>
+    </div>
+    <button className="payment-primary-action" disabled={busy || disabled}>
+      <Lock size={16} />{busy ? 'Processing payment…' : `Pay $${total.toFixed(2)} ${currency}`}<ArrowRight size={16} />
+    </button>
+  </form>
+}
+
+// A membership bought as a paid term. Card details are collected here on Mere X;
+// PayPal stays available for anyone who would rather pay that way.
+function EmbeddedTermCheckout({ plan, annual, quantity, currency, total, onSuccess }: {
+  plan: PlanTier
+  annual: boolean
+  quantity: number
+  currency: string
+  total: number
+  onSuccess: (user: AuthUser, subscription: BillingSubscription) => void
+}) {
+  const [error, setError] = useState('')
+  const [paid, setPaid] = useState(false)
+  const [walletBusy, setWalletBusy] = useState(false)
+  const [cardAvailable, setCardAvailable] = useState<boolean | null>(null)
+  const cardRegionRef = useRef<HTMLDivElement>(null)
+  const walletAttempt = useRef(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`)
+
+  // Card fields need advanced card processing on the merchant account. Rather
+  // than guess, watch whether PayPal actually renders its inputs and fall back
+  // to the wallet if it does not.
+  useEffect(() => {
+    const node = cardRegionRef.current
+    if (!node) return
+    const check = () => { if (node.querySelector('iframe')) { setCardAvailable(true); return true } return false }
+    if (check()) return
+    const observer = new MutationObserver(() => { if (check()) observer.disconnect() })
+    observer.observe(node, { childList: true, subtree: true })
+    const timer = window.setTimeout(() => { if (!node.querySelector('iframe')) setCardAvailable(false) }, 6000)
+    return () => { observer.disconnect(); window.clearTimeout(timer) }
+  }, [])
 
   const createOrder = async () => {
-    setState('creating'); setError('')
+    setError('')
     const response = await fetch('/api/billing/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan: plan.name.toLowerCase(), annual, quantity, requestId: attemptId.current }),
+      body: JSON.stringify({ plan: plan.name.toLowerCase(), annual, quantity, method: 'paypal', requestId: walletAttempt.current }),
     })
     const result = await response.json() as { orderId?: string; error?: string }
     if (!response.ok || !result.orderId) {
-      setState('ready')
-      // Show what actually went wrong rather than a generic retry prompt.
       setError(result.error || 'Secure checkout is unavailable right now.')
       throw new Error(result.error || 'Secure checkout is unavailable right now.')
     }
-    orderId.current = result.orderId
     return { orderId: result.orderId }
   }
 
-  const capture = async (approvedId?: string) => {
-    const id = approvedId || orderId.current
-    if (!id) throw new Error('The payment could not be verified.')
-    setState('confirming'); setError('')
-    const response = await fetch(`/api/billing/orders/${encodeURIComponent(id)}/capture`, { method: 'POST' })
+  const capture = async (orderId?: string) => {
+    if (!orderId) throw new Error('The payment could not be verified.')
+    const response = await fetch(`/api/billing/orders/${encodeURIComponent(orderId)}/capture`, { method: 'POST' })
     const result = await response.json() as { user?: AuthUser; subscription?: BillingSubscription; error?: string }
-    if (!response.ok || !result.user || !result.subscription) throw new Error(result.error || 'The payment is still being confirmed.')
-    setState('success')
+    if (!response.ok || !result.user || !result.subscription) throw new Error(result.error || 'The payment could not be confirmed.')
+    setPaid(true)
     onSuccess(result.user, result.subscription)
   }
 
-  const session = usePayPalOneTimePaymentSession({
+  const wallet = usePayPalOneTimePaymentSession({
     createOrder,
     onApprove: async data => {
+      setWalletBusy(true)
       try { await capture((data as { orderId?: string }).orderId) }
-      catch (cause) { setState('ready'); setError(cause instanceof Error ? cause.message : 'The payment could not be confirmed.') }
+      catch (cause) { setError(cause instanceof Error ? cause.message : 'The payment could not be confirmed.') }
+      finally { setWalletBusy(false) }
     },
-    onCancel: () => { setState('ready'); setError('Checkout was cancelled. Nothing was charged.') },
-    onError: () => { setState('ready'); setError('The payment could not be completed. Try another payment method.') },
+    onCancel: () => { setWalletBusy(false); setError('Checkout was cancelled. Nothing was charged.') },
+    onError: () => { setWalletBusy(false); setError('The payment could not be completed. Try another payment method.') },
     presentationMode: 'modal',
   })
 
   useEffect(() => {
-    if (!session.error) return
-    setState('ready')
-    setError(session.error instanceof Error ? session.error.message : 'The secure payment window could not be opened.')
-  }, [session.error])
+    if (!wallet.error) return
+    setWalletBusy(false)
+    setError(wallet.error instanceof Error ? wallet.error.message : 'The secure payment window could not be opened.')
+  }, [wallet.error])
 
-  if (state === 'success') return <div className="payment-success"><span><Check size={28} /></span><h3>Membership activated</h3><p>Your payment is confirmed and Mere {plan.name} is now active.</p></div>
-  return <CheckoutSurface
-    state={state}
-    error={error}
-    renews={false}
-    disabled={state !== 'ready' || session.isPending}
-    onStart={() => { void session.handleClick().catch(() => setState('ready')) }}
-  />
+  if (paid) return <div className="payment-success"><span><Check size={28} /></span><h3>Membership activated</h3><p>Your payment is confirmed and Mere {plan.name} is now active.</p></div>
+
+  return <div className="embedded-payment-method">
+    <div ref={cardRegionRef} className={`card-payment-region ${cardAvailable === false ? 'card-payment-unavailable' : ''}`}>
+      <div className="payment-method-head"><div><b>Pay by card</b><span>Your card details stay on this page</span></div><ShieldCheck size={20} /></div>
+      <div className="accepted-cards" aria-label="Accepted cards"><span>VISA</span><span>Mastercard</span><span>AMEX</span><span>Discover</span></div>
+      <PayPalCardFieldsProvider amount={{ value: total.toFixed(2), currencyCode: currency }}>
+        <CardPaymentForm
+          plan={plan}
+          annual={annual}
+          quantity={quantity}
+          currency={currency}
+          total={total}
+          disabled={walletBusy || cardAvailable === false}
+          onPaid={(user, subscription) => { setPaid(true); onSuccess(user, subscription) }}
+          onFailed={setError}
+        />
+      </PayPalCardFieldsProvider>
+      {cardAvailable === null && <div className="payment-progress"><RotateCcw className="spin" size={16} />Preparing the secure card form…</div>}
+      {cardAvailable === false && <p className="settings-inline-note card-payment-note">Card entry on this page is not available for this merchant account yet. You can still pay by card through PayPal below, which also accepts cards without a PayPal account.</p>}
+    </div>
+
+    <div className="payment-or"><span>or</span></div>
+
+    <button
+      type="button"
+      className="payment-wallet-action"
+      disabled={walletBusy || wallet.isPending}
+      aria-busy={walletBusy}
+      onClick={() => { setError(''); setWalletBusy(true); void wallet.handleClick().catch(() => setWalletBusy(false)) }}
+    >
+      <span className="payment-wallet-mark">PayPal</span>
+      {walletBusy ? 'Opening PayPal…' : 'Pay with PayPal'}
+      <ArrowRight size={16} />
+    </button>
+
+    {error && <div className="payment-inline-error" role="alert"><Info size={15} />{error}</div>}
+    <p className="payment-security-note"><Lock size={14} />Card details are entered in PayPal's encrypted fields and are never stored by Mere X.</p>
+  </div>
 }
 
 function EmbeddedSubscriptionCheckout({ plan, annual, quantity, onSuccess }: { plan: PlanTier; annual: boolean; quantity: number; onSuccess: (user: AuthUser, subscription: BillingSubscription) => void }) {
@@ -1725,10 +1862,10 @@ function PaymentModal({ plan, annual, onClose, onCompleted }: { plan: PlanTier; 
           </div>
           <button type="button" className="soft-button" onClick={onClose}>Close</button>
         </div>}
-        {config?.clientId && <PayPalProvider clientId={config.clientId} environment={config.environment} components={['paypal-payments']} pageType="checkout">
+        {config?.clientId && <PayPalProvider clientId={config.clientId} environment={config.environment} components={config.mode === 'subscription' ? ['paypal-payments'] : ['paypal-payments', 'card-fields']} pageType="checkout">
           {config.mode === 'subscription'
             ? <EmbeddedSubscriptionCheckout plan={plan} annual={annual} quantity={quantity} onSuccess={onCompleted} />
-            : <EmbeddedTermCheckout plan={plan} annual={annual} quantity={quantity} onSuccess={onCompleted} />}
+            : <EmbeddedTermCheckout plan={plan} annual={annual} quantity={quantity} currency={config.currency} total={total} onSuccess={onCompleted} />}
         </PayPalProvider>}
         {config?.clientId && <p className="payment-consent">{config.renews === false ? 'By continuing, you authorize a single payment for the term shown and agree to the Mere X Terms and Privacy Policy.' : 'By continuing, you authorize recurring charges according to the cycle shown and agree to the Mere X Terms and Privacy Policy.'}</p>}
       </div>
@@ -1757,7 +1894,7 @@ function PricingPage({ navigate, user, onUserUpdated }: { navigate: (route: Publ
     if (plan.name === 'Free') { navigate('app'); return }
     setNotice(''); setCheckoutPlan(plan)
   }
-  return <PublicShell navigate={navigate} current="pricing" className="pricing-page" user={user}>
+  return <PublicShell navigate={navigate} current="pricing" user={user} className="pricing-page">
     <section className="public-hero pricing-hero"><p className="landing-kicker">PLANS BUILT TO STAY SUSTAINABLE</p><h1>More capability.<br /><em>Less markup.</em></h1><p>Simple plans, one powerful model and no surprise usage charges. Upgrade, downgrade or cancel when you need to.</p><div className="billing-toggle"><button className={!annual ? 'active' : ''} onClick={() => setAnnual(false)}>Monthly</button><button className={annual ? 'active' : ''} onClick={() => setAnnual(true)}>Annual <span>Save up to 22%</span></button></div></section>
     {notice && <div className="pricing-action-notice"><Info size={16} />{notice}</div>}
     <section className="pricing-grid">{planTiers.map(plan => { const price = annual ? plan.annual : plan.monthly; const current = user?.plan === plan.name.toLowerCase(); return <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>{plan.featured && <span className="pricing-ribbon">RECOMMENDED</span>}<p>{plan.eyebrow}</p><h2>{plan.name}</h2><div className="plan-price">{price === null ? <strong>Custom</strong> : <><strong>${price}</strong><span>{price === 0 ? 'forever' : plan.name === 'Team' ? '/ seat / month' : '/ month'}</span></>}</div><small>{price && annual ? `$${price * 12}${plan.name === 'Team' ? ' per seat' : ''} billed annually` : price ? 'Billed monthly' : 'No credit card required'}</small><p className="plan-description">{plan.description}</p><button disabled={current} className={plan.featured ? 'primary-button' : 'soft-button'} onClick={() => void choose(plan)}>{current ? 'Current plan' : plan.action}<ArrowRight size={15} /></button><ul>{plan.features.map(feature => <li key={feature}><Check size={15} />{feature}</li>)}</ul></article> })}</section>
@@ -1770,17 +1907,17 @@ function PricingPage({ navigate, user, onUserUpdated }: { navigate: (route: Publ
       ['What happens after a very heavy stretch?', 'Mere X tells you plainly that access is refreshing and that it will be ready again shortly. Nothing is lost, nothing is charged unexpectedly, and a larger plan is always available if you need more headroom.'],
       ['Is Team content used for training?', 'No. Team and Enterprise workspace content is excluded from product training by default.'],
     ].map(([question, answer]) => <details key={question}><summary>{question}<Plus size={16} /></summary><p>{answer}</p></details>)}</div></section>
-    <section className="public-cta"><p className="landing-kicker">START CLEARLY</p><h2>Choose the plan that fits the work.</h2><p>Begin free. Upgrade only when Mere X becomes part of your real workflow.</p><button className="landing-cta large" onClick={() => navigate('signup')}>Create your account<ArrowRight size={16} /></button></section>
+    <section className="public-cta"><p className="landing-kicker">START CLEARLY</p><h2>Choose the plan that fits the work.</h2><p>Begin free. Upgrade only when Mere X becomes part of your real workflow.</p><button className="landing-cta large" onClick={() => navigate(user ? 'app' : 'signup')}>{user ? 'Open your workspace' : 'Create your account'}<ArrowRight size={16} /></button></section>
     {checkoutPlan && <PaymentModal plan={checkoutPlan} annual={annual} onClose={() => setCheckoutPlan(null)} onCompleted={(updatedUser) => { onUserUpdated(updatedUser); setNotice(`Mere ${checkoutPlan.name} is active. Payment confirmation is complete.`) }} />}
   </PublicShell>
 }
 
-function LegalPage({ route, navigate }: { route: LegalRoute; navigate: (route: PublicRoute) => void }) {
+function LegalPage({ route, navigate, user }: { route: LegalRoute; navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const document = legalDocuments[route]
-  return <PublicShell navigate={navigate} current={route} className="legal-page"><header className="document-hero"><p className="landing-kicker">{document.eyebrow}</p><h1>{document.title}</h1><p>{document.summary}</p><div><span>Effective August 20, 2026</span><span>Version 1.0</span></div></header><div className="document-layout"><aside><b>ON THIS PAGE</b>{document.sections.map(section => <a key={section.title} href={`#${section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>{section.title}</a>)}<button onClick={() => navigate('help')}><CircleHelp size={15} />Need help?</button></aside><article>{document.sections.map(section => <section id={section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')} key={section.title}><h2>{section.title}</h2>{section.paragraphs?.map(paragraph => <p key={paragraph}>{paragraph}</p>)}{section.bullets && <ul>{section.bullets.map(item => <li key={item}>{item}</li>)}</ul>}</section>)}<div className="document-contact"><Mail size={19} /><div><b>Questions about this document?</b><p>Contact legal@mere-x.app or visit the Help center.</p></div></div></article></div></PublicShell>
+  return <PublicShell navigate={navigate} current={route} user={user} className="legal-page"><header className="document-hero"><p className="landing-kicker">{document.eyebrow}</p><h1>{document.title}</h1><p>{document.summary}</p><div><span>Effective August 20, 2026</span><span>Version 1.0</span></div></header><div className="document-layout"><aside><b>ON THIS PAGE</b>{document.sections.map(section => <a key={section.title} href={`#${section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>{section.title}</a>)}<button onClick={() => navigate('help')}><CircleHelp size={15} />Need help?</button></aside><article>{document.sections.map(section => <section id={section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')} key={section.title}><h2>{section.title}</h2>{section.paragraphs?.map(paragraph => <p key={paragraph}>{paragraph}</p>)}{section.bullets && <ul>{section.bullets.map(item => <li key={item}>{item}</li>)}</ul>}</section>)}<div className="document-contact"><Mail size={19} /><div><b>Questions about this document?</b><p>Contact legal@mere-x.app or visit the Help center.</p></div></div></article></div></PublicShell>
 }
 
-function SecurityPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
+function SecurityPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const controls = [
     { icon: Lock, title: 'Credentials stay server-side', text: 'Protected credentials are read from server environment variables and are never embedded in the browser bundle.', state: 'CURRENT' },
     { icon: Database, title: 'Account workspace storage', text: 'Signed-in chats, Projects, Agents and preferences are persisted in the application database with owner-scoped access.', state: 'CURRENT' },
@@ -1789,10 +1926,10 @@ function SecurityPage({ navigate }: { navigate: (route: PublicRoute) => void }) 
     { icon: Server, title: 'Abuse and usage protection', text: 'Request throttling, adaptive access controls, upload safeguards and isolated workflow execution are active in the application layer.', state: 'CURRENT' },
     { icon: FileText, title: 'Independent assurance', text: 'Compliance claims will only be published after the relevant controls have been implemented and independently assessed.', state: 'COMMITMENT' },
   ]
-  return <PublicShell navigate={navigate} current="security" className="security-page"><section className="public-hero"><p className="landing-kicker">SECURITY AT MERE X</p><h1>Trust is a system,<br /><em>not a slogan.</em></h1><p>A transparent view of the safeguards active today and the controls still required for a public production launch.</p></section><section className="security-disclosure"><Info size={19} /><div><b>Development disclosure</b><p>Authentication, durable account sync, signed billing events and usage protection are active. Production TLS, managed backups, verified email delivery, payment credentials and independent compliance assurance still depend on deployment configuration.</p></div></section><section className="security-grid">{controls.map(({ icon: Icon, title, text, state }) => <article key={title}><span><Icon size={20} /></span><em>{state}</em><h2>{title}</h2><p>{text}</p></article>)}</section><section className="security-principles"><div className="public-section-head"><p className="landing-kicker">DESIGN PRINCIPLES</p><h2>How production security will be evaluated.</h2></div><ol><li><span>01</span><div><b>Least privilege</b><p>People and services receive only the access required for their task.</p></div></li><li><span>02</span><div><b>Data minimization</b><p>Collect less, retain for defined periods and make deletion understandable.</p></div></li><li><span>03</span><div><b>Layered defenses</b><p>Authentication, authorization, rate limits, monitoring and recovery work together.</p></div></li><li><span>04</span><div><b>Honest assurance</b><p>No certification or encryption claim is published before it is actually true.</p></div></li></ol></section><section className="public-cta"><p className="landing-kicker">REPORT A CONCERN</p><h2>Security feedback is welcome.</h2><p>Send responsible vulnerability reports to security@mere-x.app. A formal disclosure program will be published before production launch.</p><button className="landing-secondary" onClick={() => navigate('help')}>Contact support<ArrowRight size={15} /></button></section></PublicShell>
+  return <PublicShell navigate={navigate} current="security" user={user} className="security-page"><section className="public-hero"><p className="landing-kicker">SECURITY AT MERE X</p><h1>Trust is a system,<br /><em>not a slogan.</em></h1><p>A transparent view of the safeguards active today and the controls still required for a public production launch.</p></section><section className="security-disclosure"><Info size={19} /><div><b>Development disclosure</b><p>Authentication, durable account sync, signed billing events and usage protection are active. Production TLS, managed backups, verified email delivery, payment credentials and independent compliance assurance still depend on deployment configuration.</p></div></section><section className="security-grid">{controls.map(({ icon: Icon, title, text, state }) => <article key={title}><span><Icon size={20} /></span><em>{state}</em><h2>{title}</h2><p>{text}</p></article>)}</section><section className="security-principles"><div className="public-section-head"><p className="landing-kicker">DESIGN PRINCIPLES</p><h2>How production security will be evaluated.</h2></div><ol><li><span>01</span><div><b>Least privilege</b><p>People and services receive only the access required for their task.</p></div></li><li><span>02</span><div><b>Data minimization</b><p>Collect less, retain for defined periods and make deletion understandable.</p></div></li><li><span>03</span><div><b>Layered defenses</b><p>Authentication, authorization, rate limits, monitoring and recovery work together.</p></div></li><li><span>04</span><div><b>Honest assurance</b><p>No certification or encryption claim is published before it is actually true.</p></div></li></ol></section><section className="public-cta"><p className="landing-kicker">REPORT A CONCERN</p><h2>Security feedback is welcome.</h2><p>Send responsible vulnerability reports to security@mere-x.app. A formal disclosure program will be published before production launch.</p><button className="landing-secondary" onClick={() => navigate('help')}>Contact support<ArrowRight size={15} /></button></section></PublicShell>
 }
 
-function HelpPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
+function HelpPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const [query, setQuery] = useState('')
   const articles = [
     ['Getting started', 'Create an account, begin a chat and understand the Mere Apex workspace.', 'signup'],
@@ -1802,33 +1939,33 @@ function HelpPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
     ['Privacy and data', 'Review storage, exports, deletion, memory and product-improvement controls.', 'privacy'],
     ['Safety and security', 'Understand safeguards, account protection and responsible use.', 'security'],
   ].filter(article => `${article[0]} ${article[1]}`.toLowerCase().includes(query.toLowerCase()))
-  return <PublicShell navigate={navigate} current="help" className="help-page"><section className="help-hero"><p className="landing-kicker">MERE X HELP CENTER</p><h1>What do you need?</h1><div className="help-search"><Search size={20} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search setup, billing, privacy, Projects..." autoFocus /></div></section><section className="help-grid">{articles.map(([title, text, route]) => <button key={title} onClick={() => navigate(route as PublicRoute)}><span><LifeBuoy size={19} /></span><h2>{title}</h2><p>{text}</p><ArrowRight size={16} /></button>)}</section><section className="help-contact"><div><p className="landing-kicker">STILL NEED HELP?</p><h2>Talk to the right team.</h2><p>General support: support@mere-x.app<br />Privacy: privacy@mere-x.app<br />Security: security@mere-x.app</p></div><button className="landing-secondary" onClick={() => window.location.href = 'mailto:support@mere-x.app'}><Mail size={16} />Email support</button></section></PublicShell>
+  return <PublicShell navigate={navigate} current="help" user={user} className="help-page"><section className="help-hero"><p className="landing-kicker">MERE X HELP CENTER</p><h1>What do you need?</h1><div className="help-search"><Search size={20} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search setup, billing, privacy, Projects..." autoFocus /></div></section><section className="help-grid">{articles.map(([title, text, route]) => <button key={title} onClick={() => navigate(route as PublicRoute)}><span><LifeBuoy size={19} /></span><h2>{title}</h2><p>{text}</p><ArrowRight size={16} /></button>)}</section><section className="help-contact"><div><p className="landing-kicker">STILL NEED HELP?</p><h2>Talk to the right team.</h2><p>General support: support@mere-x.app<br />Privacy: privacy@mere-x.app<br />Security: security@mere-x.app</p></div><button className="landing-secondary" onClick={() => window.location.href = 'mailto:support@mere-x.app'}><Mail size={16} />Email support</button></section></PublicShell>
 }
 
-function StatusPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
+function StatusPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const [apiState, setApiState] = useState<'checking' | 'operational' | 'degraded'>('checking')
   const [checkedAt, setCheckedAt] = useState('')
   useEffect(() => { const controller = new AbortController(); fetch('/api/health', { signal: controller.signal }).then(response => { setApiState(response.ok ? 'operational' : 'degraded'); setCheckedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) }).catch(() => { setApiState('degraded'); setCheckedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) }); return () => controller.abort() }, [])
   const components = [{ name: 'Web application', state: 'operational' }, { name: 'Mere Apex conversations', state: apiState }, { name: 'Research and Workflows', state: apiState }, { name: 'Image, voice and video', state: apiState }, { name: 'Account workspace storage', state: apiState }]
-  return <PublicShell navigate={navigate} current="status" className="status-page"><section className="status-hero"><span className={`status-orb ${apiState}`} /><p className="landing-kicker">LIVE PREVIEW STATUS</p><h1>{apiState === 'checking' ? 'Checking systems…' : apiState === 'operational' ? 'All checked systems operational.' : 'Some systems are degraded.'}</h1><p>This page checks the local Mere X API health endpoint. Production incident history and external monitoring will be added with deployment.</p></section><section className="status-card"><header><b>Components</b><span>{checkedAt ? `Checked ${checkedAt}` : 'Checking now'}</span></header>{components.map(component => <div key={component.name}><span>{component.name}</span><b className={component.state}><i />{component.state === 'checking' ? 'Checking' : component.state === 'operational' ? 'Operational' : 'Degraded'}</b></div>)}</section><section className="status-history"><div className="public-section-head"><p className="landing-kicker">INCIDENT HISTORY</p><h2>No recorded production incidents.</h2></div><p>Mere X is currently a development preview. A public incident timeline will begin when production monitoring is enabled.</p></section></PublicShell>
+  return <PublicShell navigate={navigate} current="status" user={user} className="status-page"><section className="status-hero"><span className={`status-orb ${apiState}`} /><p className="landing-kicker">LIVE PREVIEW STATUS</p><h1>{apiState === 'checking' ? 'Checking systems…' : apiState === 'operational' ? 'All checked systems operational.' : 'Some systems are degraded.'}</h1><p>This page checks the local Mere X API health endpoint. Production incident history and external monitoring will be added with deployment.</p></section><section className="status-card"><header><b>Components</b><span>{checkedAt ? `Checked ${checkedAt}` : 'Checking now'}</span></header>{components.map(component => <div key={component.name}><span>{component.name}</span><b className={component.state}><i />{component.state === 'checking' ? 'Checking' : component.state === 'operational' ? 'Operational' : 'Degraded'}</b></div>)}</section><section className="status-history"><div className="public-section-head"><p className="landing-kicker">INCIDENT HISTORY</p><h2>No recorded production incidents.</h2></div><p>Mere X is currently a development preview. A public incident timeline will begin when production monitoring is enabled.</p></section></PublicShell>
 }
 
-function ReleaseNotesPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
+function ReleaseNotesPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const releases = [
     { version: 'Preview 0.6', date: 'August 21, 2026', title: 'A more expressive Mere X', items: ['Rebuilt monochrome landing experience with responsive motion and a live product workflow preview', 'Dedicated Mere Apex 4.0 documentation with eleven complete capability guides', 'Reworked chat surface with cleaner message hierarchy, softer composer and fewer visual dividers', 'Documentation search, keyboard shortcut and active section navigation', 'Responsive desktop and mobile layouts with reduced-motion accessibility'] },
     { version: 'Preview 0.5', date: 'August 21, 2026', title: 'From chat to complete workflows', items: ['Stateful Mere Apex conversations with combined research and code tools', 'Deep Research, protected computer workspace, autonomous agents and persistent workflow history', 'Live Voice with temporary browser credentials', 'Video Studio and 1K, 2K and 4K image controls', 'Account sync, durable files and shares, adaptive access controls and account security'] },
     { version: 'Preview 0.4', date: 'August 20, 2026', title: 'A complete workspace foundation', items: ['Unified readable typography across desktop and mobile', 'Direct image editing from the composer', 'Office and PDF analysis with downloadable Word, Excel, PowerPoint, PDF and Markdown output', 'Plans described in plain language, with access that refreshes while you work', 'Projects, Library, custom Agents and complete public product pages'] },
     { version: 'Preview 0.3', date: 'August 18, 2026', title: 'Context that stays connected', items: ['Project and Agent context in conversations', 'Persistent local chat history and search', 'Share links and Library continuation flows'] },
   ]
-  return <PublicShell navigate={navigate} current="release-notes" className="release-page"><section className="public-hero"><p className="landing-kicker">RELEASE NOTES</p><h1>Mere X is taking shape.</h1><p>A transparent record of the product foundation, improvements and changes.</p></section><section className="release-list">{releases.map(release => <article key={release.version}><aside><span>{release.version}</span><small>{release.date}</small></aside><div><h2>{release.title}</h2><ul>{release.items.map(item => <li key={item}><Check size={15} />{item}</li>)}</ul></div></article>)}</section></PublicShell>
+  return <PublicShell navigate={navigate} current="release-notes" user={user} className="release-page"><section className="public-hero"><p className="landing-kicker">RELEASE NOTES</p><h1>Mere X is taking shape.</h1><p>A transparent record of the product foundation, improvements and changes.</p></section><section className="release-list">{releases.map(release => <article key={release.version}><aside><span>{release.version}</span><small>{release.date}</small></aside><div><h2>{release.title}</h2><ul>{release.items.map(item => <li key={item}><Check size={15} />{item}</li>)}</ul></div></article>)}</section></PublicShell>
 }
 
-function DownloadPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
+function DownloadPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const platforms = [{ name: 'Web', detail: 'Available now in your browser', state: 'OPEN', icon: Globe2 }, { name: 'Windows', detail: 'Desktop application', state: 'COMING SOON', icon: Square }, { name: 'macOS', detail: 'Desktop application', state: 'COMING SOON', icon: Square }, { name: 'iOS & Android', detail: 'Mobile applications', state: 'PLANNED', icon: Square }]
-  return <PublicShell navigate={navigate} current="download" className="download-page"><section className="public-hero"><p className="landing-kicker">MERE X EVERYWHERE</p><h1>Your workspace,<br /><em>wherever you think.</em></h1><p>The web application is available in this preview. Native apps will be released only when secure account sync and update delivery are ready.</p></section><section className="download-grid">{platforms.map(({ name, detail, state, icon: Icon }) => <article key={name}><span><Icon size={22} /></span><em>{state}</em><h2>{name}</h2><p>{detail}</p>{state === 'OPEN' ? <button className="primary-button" onClick={() => navigate('app')}>Open Mere X<ArrowRight size={15} /></button> : <button className="soft-button" onClick={() => navigate('signup')}>Join the waitlist</button>}</article>)}</section></PublicShell>
+  return <PublicShell navigate={navigate} current="download" user={user} className="download-page"><section className="public-hero"><p className="landing-kicker">MERE X EVERYWHERE</p><h1>Your workspace,<br /><em>wherever you think.</em></h1><p>The web application is available in this preview. Native apps will be released only when secure account sync and update delivery are ready.</p></section><section className="download-grid">{platforms.map(({ name, detail, state, icon: Icon }) => <article key={name}><span><Icon size={22} /></span><em>{state}</em><h2>{name}</h2><p>{detail}</p>{state === 'OPEN' ? <button className="primary-button" onClick={() => navigate('app')}>Open Mere X<ArrowRight size={15} /></button> : <button className="soft-button" onClick={() => navigate('signup')}>Join the waitlist</button>}</article>)}</section></PublicShell>
 }
 
-function ApexDocsPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
+function ApexDocsPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const [query, setQuery] = useState('')
   const [activeSection, setActiveSection] = useState('overview')
   const searchRef = useRef<HTMLInputElement>(null)
@@ -1866,7 +2003,7 @@ function ApexDocsPage({ navigate }: { navigate: (route: PublicRoute) => void }) 
     articles.forEach(article => observer.observe(article))
     return () => observer.disconnect()
   }, [normalizedQuery])
-  return <PublicShell navigate={navigate} current="apex" className="apex-docs-page">
+  return <PublicShell navigate={navigate} current="apex" user={user} className="apex-docs-page">
     <section className="apex-doc-hero">
       <div className="apex-doc-grid" />
       <div className="apex-doc-orb" aria-hidden="true"><i /><i /><span><BrandMark compact /></span><b /></div>
@@ -1895,7 +2032,7 @@ function ApexDocsPage({ navigate }: { navigate: (route: PublicRoute) => void }) 
   </PublicShell>
 }
 
-function LandingPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
+function LandingPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const pageRef = useRef<HTMLDivElement>(null)
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
   useEffect(() => {
@@ -1911,7 +2048,9 @@ function LandingPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
     <nav className="landing-nav">
       <button className="landing-brand" onClick={() => pageRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}><BrandMark /></button>
       <div className="landing-links"><button onClick={() => scrollTo('capabilities')}>Capabilities</button><button onClick={() => navigate('apex')}>Mere Apex</button><button onClick={() => navigate('pricing')}>Pricing</button><button onClick={() => navigate('security')}>Security</button></div>
-      <div className="landing-auth"><button className="landing-signin" onClick={() => navigate('signin')}>Sign in</button><button className="landing-cta" onClick={() => navigate('signup')}>Get started<ArrowRight size={14} /></button></div>
+      <div className="landing-auth">{user
+        ? <button className="public-account-return" onClick={() => navigate('app')} aria-label="Return to your Mere X workspace"><Avatar profile={user} /><span><b>{user.name}</b><small>Mere {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}</small></span><ArrowRight size={15} /></button>
+        : <><button className="landing-signin" onClick={() => navigate('signin')}>Sign in</button><button className="landing-cta" onClick={() => navigate('signup')}>Get started<ArrowRight size={14} /></button></>}</div>
     </nav>
 
     <main>
@@ -1921,7 +2060,7 @@ function LandingPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
         <div className="landing-status hero-enter"><span />MERE APEX 4.0 · AVAILABLE NOW</div>
         <h1 className="hero-enter hero-enter-2">Make the complex<br /><em>feel inevitable.</em></h1>
         <p className="hero-enter hero-enter-3">A single intelligence for the distance between an ambitious idea and finished, exceptional work.</p>
-        <div className="hero-actions hero-enter hero-enter-4"><button className="landing-cta large" onClick={() => navigate('signup')}>Start creating<ArrowRight size={16} /></button><button className="landing-secondary" onClick={() => navigate('apex')}>Explore Mere Apex 4.0<ArrowRight size={15} /></button></div>
+        <div className="hero-actions hero-enter hero-enter-4"><button className="landing-cta large" onClick={() => navigate(user ? 'app' : 'signup')}>{user ? 'Open your workspace' : 'Start creating'}<ArrowRight size={16} /></button><button className="landing-secondary" onClick={() => navigate('apex')}>Explore Mere Apex 4.0<ArrowRight size={15} /></button></div>
         <div className="hero-float-card float-research"><Globe2 size={15} /><span><b>Deep research</b><small>Sources connected</small></span><Check size={13} /></div>
         <div className="hero-float-card float-files"><FileText size={15} /><span><b>Final brief.docx</b><small>Ready to download</small></span><ArrowUp size={13} /></div>
         <div className="landing-product-frame product-frame-v2 hero-enter hero-enter-5">
@@ -2571,18 +2710,18 @@ export default function App() {
   if (publicRoute === 'app' && !sessionResolved) return <div className="workspace-gate"><BrandMark /><span className="workspace-gate-pulse" /><h1>Securing your session</h1><p>Connecting to your private Mere X workspace…</p></div>
   if (publicRoute === 'app' && !sessionUser) return <AuthPage mode="signin" navigate={navigatePublic} onAuthenticated={authenticated} />
   if (publicRoute === 'app' && !workspaceLoaded) return <div className="workspace-gate"><BrandMark /><span className="workspace-gate-pulse" /><h1>{workspaceError ? 'Workspace unavailable' : 'Loading your workspace'}</h1><p>{workspaceError || 'Reading this account’s private data from Mere X storage…'}</p>{workspaceError && <button className="primary-button" onClick={() => window.location.reload()}>Try again<RotateCcw size={15} /></button>}</div>
-  if (publicRoute === 'landing') return <LandingPage navigate={navigatePublic} />
+  if (publicRoute === 'landing') return <LandingPage navigate={navigatePublic} user={sessionUser} />
   if (publicRoute === 'signin' || publicRoute === 'signup') return <AuthPage mode={publicRoute} navigate={navigatePublic} onAuthenticated={authenticated} />
   if (publicRoute === 'reset-password') return <ResetPasswordPage navigate={navigatePublic} />
-  if (publicRoute === 'shared') return <SharedConversationPage shareId={window.location.hash.replace('#/shared/', '')} navigate={navigatePublic} />
-  if (publicRoute === 'apex') return <ApexDocsPage navigate={navigatePublic} />
+  if (publicRoute === 'shared') return <SharedConversationPage shareId={window.location.hash.replace('#/shared/', '')} navigate={navigatePublic} user={sessionUser} />
+  if (publicRoute === 'apex') return <ApexDocsPage navigate={navigatePublic} user={sessionUser} />
   if (publicRoute === 'pricing') return <PricingPage navigate={navigatePublic} user={sessionUser} onUserUpdated={user => { setSessionUser(user); setProfile({ name: user.name, email: user.email, avatar: user.avatar }) }} />
-  if (publicRoute === 'privacy' || publicRoute === 'terms' || publicRoute === 'acceptable-use' || publicRoute === 'cookies') return <LegalPage route={publicRoute} navigate={navigatePublic} />
-  if (publicRoute === 'security') return <SecurityPage navigate={navigatePublic} />
-  if (publicRoute === 'help') return <HelpPage navigate={navigatePublic} />
-  if (publicRoute === 'status') return <StatusPage navigate={navigatePublic} />
-  if (publicRoute === 'release-notes') return <ReleaseNotesPage navigate={navigatePublic} />
-  if (publicRoute === 'download') return <DownloadPage navigate={navigatePublic} />
+  if (publicRoute === 'privacy' || publicRoute === 'terms' || publicRoute === 'acceptable-use' || publicRoute === 'cookies') return <LegalPage route={publicRoute} navigate={navigatePublic} user={sessionUser} />
+  if (publicRoute === 'security') return <SecurityPage navigate={navigatePublic} user={sessionUser} />
+  if (publicRoute === 'help') return <HelpPage navigate={navigatePublic} user={sessionUser} />
+  if (publicRoute === 'status') return <StatusPage navigate={navigatePublic} user={sessionUser} />
+  if (publicRoute === 'release-notes') return <ReleaseNotesPage navigate={navigatePublic} user={sessionUser} />
+  if (publicRoute === 'download') return <DownloadPage navigate={navigatePublic} user={sessionUser} />
   return <div className="app">
     <Sidebar page={page} setPage={navigate} collapsed={collapsed} setCollapsed={setCollapsed} onSearch={() => setSearchOpen(true)} onNewChat={newChat} onOpenChat={openChat} onOpenSettings={openSettings} onOpenPublic={navigatePublic} onSignOut={() => signOut()} onSwitchAccount={() => signOut('signin')} conversations={conversations} activeConversationId={activeConversationId} profile={profile} plan={sessionUser?.plan || 'free'} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
     <div className="main-area">

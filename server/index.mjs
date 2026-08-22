@@ -990,6 +990,7 @@ app.post('/api/billing/orders', requireUser, requireSameOrigin, async (req, res)
       planKey: plan,
       billingCycle,
       quantity: membershipQuantity(plan, req.body?.quantity),
+      method: req.body?.method === 'card' ? 'card' : 'paypal',
       requestId: req.body?.requestId,
     })
     res.status(201).json(order)

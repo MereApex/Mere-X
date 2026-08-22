@@ -321,7 +321,7 @@ export function membershipQuantity(planKey, quantity) {
   return planKey === 'team' ? Math.max(2, Math.min(250, Number(quantity) || 2)) : 1
 }
 
-export async function createMembershipOrder({ req, user, planKey, billingCycle, quantity = 1, requestId = randomUUID() }) {
+export async function createMembershipOrder({ req, user, planKey, billingCycle, quantity = 1, method = 'paypal', requestId = randomUUID() }) {
   assertTransactionReady()
   const safeQuantity = membershipQuantity(planKey, quantity)
   const { total, definition } = membershipAmount(planKey, billingCycle, safeQuantity)
@@ -338,18 +338,22 @@ export async function createMembershipOrder({ req, user, planKey, billingCycle, 
         description: `${paymentCatalog[planKey].label} — ${billingCycle === 'annual' ? '12 months' : '1 month'}${planKey === 'team' ? ` · ${safeQuantity} seats` : ''}`.slice(0, 127),
         amount: { currency_code: paypalCurrency(), value: total },
       }],
-      payment_source: {
-        paypal: {
-          experience_context: {
-            brand_name: 'Mere X',
-            locale: 'en-US',
-            shipping_preference: 'NO_SHIPPING',
-            user_action: 'PAY_NOW',
-            return_url: `${baseUrl}/#/pricing?checkout=approved`,
-            cancel_url: `${baseUrl}/#/pricing?checkout=cancelled`,
+      // The card flow is completed in our own fields, so it needs no redirect
+      // context. Only the PayPal flow leaves the page and comes back.
+      ...(method === 'card' ? {} : {
+        payment_source: {
+          paypal: {
+            experience_context: {
+              brand_name: 'Mere X',
+              locale: 'en-US',
+              shipping_preference: 'NO_SHIPPING',
+              user_action: 'PAY_NOW',
+              return_url: `${baseUrl}/#/pricing?checkout=approved`,
+              cancel_url: `${baseUrl}/#/pricing?checkout=cancelled`,
+            },
           },
         },
-      },
+      }),
     },
   })
   if (!order?.id) throw new Error('The payment could not be started.')
@@ -379,6 +383,8 @@ export async function captureMembershipOrder(user, orderId) {
     throw Object.assign(new Error('Payment approval is still pending.'), { statusCode: 409 })
   }
   const capture = captured?.purchase_units?.[0]?.payments?.captures?.[0]
+  const declined = String(capture?.status || '').toUpperCase() === 'DECLINED'
+  if (declined) throw Object.assign(new Error('That card was declined. Try another card or pay with PayPal.'), { statusCode: 422 })
   const paid = capture?.amount?.value
   const paidCurrency = capture?.amount?.currency_code
   // Never grant access for less than the plan costs.
