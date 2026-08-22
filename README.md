@@ -15,7 +15,7 @@ The web app runs on `http://127.0.0.1:5173` and the private API proxy runs on po
 
 Copy `.env.example` to `.env.local`, then set `MERE_API_KEY`, `DATABASE_URL`, and the integration variables needed for your environment. Secrets are read only by the Node server and must never be placed in `VITE_*` variables or committed to Git.
 
-Available features include stateful streaming chat, adaptive reasoning, grounded research with citations, Project knowledge search, multimodal file analysis, Office/PDF creation, image generation and editing, Live Voice, Deep Research, protected computer workflows, autonomous agents and video generation.
+Available features include stateful streaming chat, adaptive reasoning, grounded research with citations, Project knowledge search, multimodal file analysis, Office/PDF creation, image generation and editing, Live Voice, Deep Research, protected computer workflows and autonomous agents.
 
 Account data, sessions, password resets, complete workspace state, durable share links, protected binary files, background jobs, knowledge mappings, billing events, audit events and rolling usage controls are persisted in MySQL. Migrations are versioned, serialized with a database lock and run before every production deployment.
 

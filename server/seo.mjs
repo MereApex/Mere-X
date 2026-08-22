@@ -17,7 +17,7 @@ export const DEFAULT_ORIGIN = 'https://merex.ai'
 export const pageSeo = {
   '/': {
     title: 'Mere X — One intelligence for serious work',
-    description: 'Mere X turns an ambitious idea into finished work: research with real sources, documents, images, video and autonomous workflows in one private workspace.',
+    description: 'Mere X turns an ambitious idea into finished work: research with real sources, documents, images and autonomous workflows in one private workspace.',
   },
   '/apex': {
     title: 'Mere Apex 4.0 — The model behind Mere X',
@@ -25,7 +25,7 @@ export const pageSeo = {
   },
   '/pricing': {
     title: 'Mere X pricing — Free, Plus, Pro and Team',
-    description: 'Simple plans for Mere X with one powerful model and no surprise usage charges. Start free, upgrade for agents, computer workflows and video.',
+    description: 'Simple plans for Mere X with one powerful model and no surprise usage charges. Start free, upgrade for agents and computer workflows.',
   },
   '/security': {
     title: 'Security at Mere X',
@@ -52,7 +52,7 @@ export const pageSeo = {
   '/acceptable-use': { title: 'Acceptable Use Policy — Mere X', description: 'What Mere X may and may not be used for, and the limits that protect people, systems and trust.' },
   '/cookies': { title: 'Cookie Policy — Mere X', description: 'The cookies Mere X sets, what each one is for, how long it lasts, and how to change or clear them from your browser at any time.' },
   '/signin': { title: 'Sign in to Mere X', description: 'Continue to your Mere X conversations, projects and library.', index: false },
-  '/signup': { title: 'Create your Mere X account', description: 'Start with Mere X: research, documents, images, video and agents in one private workspace.' },
+  '/signup': { title: 'Create your Mere X account', description: 'Start with Mere X: research, documents, images and agents in one private workspace.' },
   '/reset-password': { title: 'Reset your Mere X password', description: 'Choose a new password for your Mere X account.', index: false },
   '/app': { title: 'Your Mere X workspace', description: 'Your private Mere X workspace.', index: false },
   '/shared': { title: 'Shared conversation — Mere X', description: 'A conversation shared from Mere X, in view-only form.', index: false },

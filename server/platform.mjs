@@ -6,7 +6,7 @@ export const GUEST_COOKIE = 'mere_guest'
 
 const everydayCapabilities = ['chat', 'research', 'export', 'file', 'voice']
 const creativeCapabilities = [...everydayCapabilities, 'image']
-const allCapabilities = [...creativeCapabilities, 'deepResearch', 'agent', 'computer', 'video']
+const allCapabilities = [...creativeCapabilities, 'deepResearch', 'agent', 'computer']
 
 export const plans = {
   guest: { id: 'guest', label: 'Preview', includes: everydayCapabilities, windowUnits: 60, heavyDailyUnits: 28, mediaMonthlyUnits: 14, agenticMonthlyUnits: 0, monthlyCostCap: 0.15 },
@@ -26,7 +26,6 @@ export const usageWeights = {
   deepResearch: 50,
   agent: 100,
   computer: 120,
-  video: 200,
   voice: 2,
 }
 
@@ -39,12 +38,11 @@ const conservativeCostUsd = {
   deepResearch: 0.7,
   agent: 1.1,
   computer: 1.25,
-  video: 1.3,
   voice: 0.08,
 }
 
-const heavyKinds = new Set(['image', 'deepResearch', 'agent', 'computer', 'video'])
-const mediaKinds = new Set(['image', 'video'])
+const heavyKinds = new Set(['image', 'deepResearch', 'agent', 'computer'])
+const mediaKinds = new Set(['image'])
 const agenticKinds = new Set(['deepResearch', 'agent', 'computer'])
 
 function unitsForKinds(summary, kinds) {
@@ -60,7 +58,6 @@ const capabilityLabels = {
   deepResearch: 'Deep Research',
   agent: 'Autonomous Agent',
   computer: 'Computer Workspace',
-  video: 'Video Studio',
   voice: 'Live voice',
 }
 
@@ -219,7 +216,7 @@ export async function reserveUsage(req, res, kind, multiplier = 1, metadata = nu
       : heavyKinds.has(kind) && heavyUsed + units > plan.heavyDailyUnits
         ? { scope: 'daily', resetAt: timestamp + 24 * 60 * 60 * 1000, message: `${label} has been used heavily today and is paused while your access refreshes.` }
         : mediaKinds.has(kind) && mediaUsed + units > plan.mediaMonthlyUnits
-          ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Image and video creation is paused on Mere ${plan.label} until your access refreshes.` }
+          ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Image creation is paused on Mere ${plan.label} until your access refreshes.` }
           : agenticKinds.has(kind) && agenticUsed + units > plan.agenticMonthlyUnits
             ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Research and agent workflows are paused on Mere ${plan.label} until your access refreshes.` }
             : monthly.costUsd + estimatedCost > plan.monthlyCostCap

@@ -31,9 +31,6 @@ try {
   await evaluate(`location.hash='/workflows'`)
   await waitFor(`Boolean(document.querySelector('.workflows-page'))`)
   const desktop = await evaluate(`(() => { const cards=[...document.querySelectorAll('.workflow-picker > button')]; const stage=document.querySelector('.workflow-stage').getBoundingClientRect(); return {cards:cards.map(card=>card.querySelector('b')?.textContent), active:document.querySelector('.workflow-picker > button.active b')?.textContent, stageWidth:stage.width, overflow:document.documentElement.scrollWidth>innerWidth} })()`)
-  await evaluate(`[...document.querySelectorAll('.workflow-picker > button')].find(card => card.textContent.includes('Video Studio')).click()`)
-  await waitFor(`document.querySelector('.workflow-form h2')?.textContent === 'Video Studio'`)
-  const video = await evaluate(`(() => { const controls=[...document.querySelectorAll('.workflow-options select')]; return {frame:controls[0]?.value,quality:controls[1]?.value,controls:controls.length} })()`)
   const capture = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false }); await writeFile('mere-x-workflows-qa.png', Buffer.from(capture.data, 'base64'))
   await command('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true })
   await sleep(220)
@@ -43,6 +40,6 @@ try {
   await evaluate(`document.querySelector('[aria-label="Live voice conversation"]').click()`)
   await waitFor(`Boolean(document.querySelector('.voice-shell'))`)
   const voice = await evaluate(`({open:Boolean(document.querySelector('.voice-shell')),temporary:document.querySelector('.voice-shell footer span')?.textContent,overflow:document.documentElement.scrollWidth>innerWidth})`)
-  if (desktop.cards.length !== 4 || video.frame !== '16:9' || video.quality !== '720p' || !voice.open || desktop.overflow || mobile.overflow || voice.overflow || runtimeErrors.length) throw new Error(`Workflow UI validation failed: ${runtimeErrors.join(' | ')}`)
-  console.log(JSON.stringify({ ok: true, desktop, video, mobile, voice, runtimeErrors }, null, 2))
+  if (desktop.cards.length !== 3 || !voice.open || desktop.overflow || mobile.overflow || voice.overflow || runtimeErrors.length) throw new Error(`Workflow UI validation failed: ${runtimeErrors.join(' | ')}`)
+  console.log(JSON.stringify({ ok: true, desktop, mobile, voice, runtimeErrors }, null, 2))
 } catch (error) { const diagnostic = await evaluate(`(async()=>({hash:location.hash,root:document.querySelector('#root')?.innerHTML.slice(0,800)||'',session:await fetch('/api/auth/session').then(response=>response.json()).catch(reason=>({error:String(reason)}))}))()`).catch(() => null); console.error(JSON.stringify({ ok: false, error: error.message, diagnostic, runtimeErrors }, null, 2)); process.exitCode = 1 } finally { socket.close() }

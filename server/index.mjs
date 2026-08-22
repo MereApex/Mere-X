@@ -1,5 +1,5 @@
 import { openSync as openFont } from 'fontkit'
-import { GenerateVideosOperation, GoogleGenAI } from '@google/genai'
+import { GoogleGenAI } from '@google/genai'
 import { OAuth2Client } from 'google-auth-library'
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx'
 import dotenv from 'dotenv'
@@ -1051,30 +1051,11 @@ app.get('/api/files/:id', async (req, res) => {
   if (!file) return res.status(404).json({ error: 'File not found.' })
   res.setHeader('Content-Type', file.mimeType)
   // Media the workspace renders in place must not arrive as a download.
-  const renderInline = /^(image|video|audio)\//.test(file.mimeType) || file.mimeType === 'application/pdf'
+  const renderInline = /^(image|audio)\//.test(file.mimeType) || file.mimeType === 'application/pdf'
   res.setHeader('Content-Disposition', `${renderInline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`)
   res.setHeader('Cache-Control', 'private, max-age=604800, immutable')
   res.send(file.buffer)
 })
-
-// Turn the provider's operation error into something a person can act on,
-// without leaking anything about how the request is routed.
-function videoFailureMessage(error) {
-  const detail = String(error?.message || error?.status || JSON.stringify(error || {})).toLowerCase()
-  if (detail.includes('safety') || detail.includes('policy') || detail.includes('blocked') || detail.includes('prohibited')) {
-    return 'This description could not be turned into a video safely. Try describing the scene differently.'
-  }
-  if (detail.includes('person') || detail.includes('people') || detail.includes('face') || detail.includes('celebrit')) {
-    return 'Videos of recognisable people cannot be created here. Try a scene without people.'
-  }
-  if (detail.includes('quota') || detail.includes('exhaust') || detail.includes('resource')) {
-    return 'The video service is at capacity right now. Please try again shortly.'
-  }
-  if (detail.includes('invalid') || detail.includes('argument')) {
-    return 'This video request could not be processed. Try a shorter description or a different frame.'
-  }
-  return 'The video could not be completed. Try describing the scene differently or try again shortly.'
-}
 
 async function startManagedJob(req, res, { type, agent, environment, agentConfig, usageKind }) {
   if (!apiKey) return res.status(503).json({ error: 'Mere X intelligence is not configured.' })
@@ -1160,145 +1141,18 @@ app.post('/api/live/token', requireUser, async (req, res) => {
   }
 })
 
-// One generation is capped at eight seconds by the model, so a longer clip is
-// built by continuing the shot: each extension carries the previous video
-// forward and adds roughly another seven seconds.
-const VIDEO_BASE_SECONDS = 8
-const VIDEO_EXTENSION_SECONDS = 7
-const VIDEO_MAX_SEGMENTS = 4
-
-function videoSegmentsFor(seconds) {
-  const target = Number(seconds)
-  if (!Number.isFinite(target) || target <= VIDEO_BASE_SECONDS) return 1
-  const extra = Math.ceil((target - VIDEO_BASE_SECONDS) / VIDEO_EXTENSION_SECONDS)
-  return Math.min(VIDEO_MAX_SEGMENTS, 1 + Math.max(0, extra))
-}
-
-function videoSecondsFor(segments) {
-  return VIDEO_BASE_SECONDS + (Math.max(1, segments) - 1) * VIDEO_EXTENSION_SECONDS
-}
-
-app.post('/api/video', requireUser, async (req, res) => {
-  const ai = client()
-  if (!ai) return res.status(503).json({ error: 'Mere X intelligence is not configured.' })
-  const prompt = String(req.body?.prompt || '').trim()
-  const aspectRatio = ['16:9', '9:16'].includes(req.body?.aspectRatio) ? req.body.aspectRatio : '16:9'
-  const resolution = ['720p', '1080p'].includes(req.body?.resolution) ? req.body.resolution : '720p'
-  const segments = videoSegmentsFor(req.body?.durationSeconds)
-  if (!prompt) return res.status(400).json({ error: 'Describe the video you want to create.' })
-  // A longer clip is several generations, and costs accordingly.
-  if (!await reserveUsage(req, res, 'video', (resolution === '1080p' ? 2 : 1) * segments, { aspectRatio, resolution, segments })) return
-  const job = await createJob({
-    ownerId: req.identity.user.id,
-    type: 'video',
-    payload: { prompt: prompt.slice(0, 4000), aspectRatio, resolution, segments, targetSeconds: videoSecondsFor(segments) },
-  })
-  try {
-    const plan = String(req.identity.user.plan || 'free')
-    const model = process.env.MERE_VIDEO_MODEL || (['pro', 'enterprise'].includes(plan) ? 'veo-3.1-generate-preview' : 'veo-3.1-lite-generate-preview')
-    const operation = await ai.models.generateVideos({
-      model,
-      prompt: prompt.slice(0, 4000),
-      // Only the options this model actually accepts. generateAudio is enterprise
-      // only and enhancePrompt is not supported here; sending either failed the
-      // whole request, which is why every video came back as unavailable.
-      config: { numberOfVideos: 1, aspectRatio, resolution, durationSeconds: 8 },
-    })
-    if (!operation.name) throw new Error('Video task did not start')
-    const updated = await updateJob(job.id, {
-      status: operation.done ? 'processing' : 'running',
-      result: { operationName: operation.name, model, segments, segmentsDone: 0, targetSeconds: videoSecondsFor(segments) },
-    })
-    res.status(202).json({ job: updated })
-  } catch (error) {
-    console.error('[video]', { status: error?.status || error?.code, message: String(error?.message || error).slice(0, 500) })
-    const safe = publicError(error)
-    await updateJob(job.id, { status: 'failed', error: safe.message })
-    res.status(safe.status).json({ error: safe.message, jobId: job.id })
-  }
-})
+// Video generation was removed from Mere X. Runs recorded before that are not
+// resurfaced, so nothing in the workspace points at a capability it no longer has.
+const retiredJobTypes = new Set(['video'])
 
 app.get('/api/jobs', requireUser, async (req, res) => {
-  res.json({ jobs: await listJobs({ ownerId: req.identity.user.id }, Number(req.query.limit || 20)) })
+  const jobs = await listJobs({ ownerId: req.identity.user.id }, Number(req.query.limit || 20))
+  res.json({ jobs: jobs.filter(job => !retiredJobTypes.has(job.type)) })
 })
 
 app.get('/api/jobs/:id', async (req, res) => {
   const job = await getJob(req.params.id, { ownerId: req.identity.user.id })
   if (!job) return res.status(404).json({ error: 'Task not found.' })
-  if (job.type === 'video') {
-    const operationName = job.result?.operationName
-    if (!apiKey || !operationName || ['completed', 'failed', 'cancelled'].includes(job.status)) return res.json({ job })
-    try {
-      const ai = client()
-      // The SDK polls through a real operation object, not a bare name: a plain
-      // object has none of the methods it calls while parsing the response.
-      const pending = new GenerateVideosOperation()
-      pending.name = operationName
-      const operation = await ai.operations.getVideosOperation({ operation: pending })
-      if (!operation.done) return res.json({ job: await updateJob(job.id, { status: 'running', result: { operationName } }) })
-      if (operation.error) {
-        // The provider says why. Throwing that away left people with a dead end,
-        // so the reason is logged and a usable version of it is shown.
-        console.error('[video-failed]', { operationName, error: JSON.stringify(operation.error).slice(0, 500) })
-        const failed = await updateJob(job.id, { status: 'failed', error: videoFailureMessage(operation.error), result: { operationName } })
-        return res.json({ job: failed })
-      }
-      const plannedSegments = Number(job.result?.segments) || 1
-      const segmentsDone = Number(job.result?.segmentsDone) || 0
-      const generated = operation.response?.generatedVideos?.[0]
-      // A request that finishes with nothing to show was filtered rather than
-      // broken, and telling someone it "could not be completed" hides that.
-      if (!generated) {
-        const reason = operation.response?.raiMediaFilteredReasons?.[0]
-        console.error('[video-empty]', { operationName, filtered: operation.response?.raiMediaFilteredCount, reason })
-        const failed = await updateJob(job.id, {
-          status: 'failed',
-          error: reason
-            ? `This video was not created: ${String(reason).slice(0, 200)}`
-            : 'Mere X could not create a video from this description. Try describing the scene differently.',
-          result: { operationName },
-        })
-        return res.json({ job: failed })
-      }
-      const video = generated?.video
-      // More of the shot still to film: hand this clip back to the model and let
-      // it continue from where it ends.
-      if (video && segmentsDone + 1 < plannedSegments) {
-        try {
-          const next = await ai.models.generateVideos({
-            model: job.result?.model || process.env.MERE_VIDEO_MODEL || 'veo-3.1-generate-preview',
-            source: { prompt: `${String(job.payload?.prompt || '').slice(0, 3800)}\n\nContinue this shot smoothly from where it ends.`, video },
-            config: { numberOfVideos: 1, aspectRatio: job.payload?.aspectRatio || '16:9', resolution: job.payload?.resolution || '720p' },
-          })
-          if (next.name) {
-            const continued = await updateJob(job.id, {
-              status: 'running',
-              result: { ...job.result, operationName: next.name, segmentsDone: segmentsDone + 1 },
-            })
-            return res.json({ job: continued })
-          }
-        } catch (error) {
-          // Keeping the footage already filmed beats losing the whole run.
-          console.error('[video-extend]', { jobId: job.id, message: String(error?.message || error).slice(0, 300) })
-        }
-      }
-      let buffer
-      if (video?.videoBytes) buffer = Buffer.from(video.videoBytes, 'base64')
-      else if (video?.uri) {
-        const response = await fetch(video.uri, { headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(240_000) })
-        if (!response.ok) throw new Error(`Generated video download failed (${response.status})`)
-        buffer = Buffer.from(await response.arrayBuffer())
-      }
-      if (!buffer?.length) throw new Error('The completed video did not contain downloadable media')
-      const file = await storeFile({ ownerId: req.identity.user.id, name: `mere-x-video-${job.id.slice(0, 8)}.mp4`, mimeType: video?.mimeType || 'video/mp4', buffer })
-      const completed = await updateJob(job.id, { status: 'completed', result: { ...job.result, operationName, file: { ...file, url: `/api/files/${file.id}` } } })
-      return res.json({ job: completed })
-    } catch (error) {
-      console.error('[video-status]', { status: error?.status || error?.code, message: String(error?.message || error).slice(0, 500) })
-      const safe = publicError(error)
-      return res.status(safe.status).json({ error: safe.message, job })
-    }
-  }
   const interactionId = job.result?.interactionId
   if (!apiKey || !interactionId || ['completed', 'failed', 'cancelled'].includes(job.status)) return res.json({ job })
   try {

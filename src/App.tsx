@@ -66,7 +66,6 @@ import {
   Trash2,
   User,
   Users,
-  Video,
   Volume2,
   WandSparkles,
   X,
@@ -110,7 +109,7 @@ type ConversationRecord = { id: string; title: string; messages: Message[]; upda
 type SearchRecord = { id: string; title: string; kind: 'Conversation' | 'Project' | 'Library' | 'Agent' }
 type SubmitOptions = { reasoning: boolean; research: boolean; imageMode: boolean; outputFormat?: ExportFormat | null; imageAspectRatio?: string; imageSize?: string }
 type ProjectRecord = { id: string; name: string; description: string; chatCount: number; fileCount: number; updated: string; knowledgeStore?: string }
-type LibraryRecord = { id: string; title: string; type: 'Document' | 'Code' | 'Image' | 'Canvas' | 'Video'; date: string; preview?: string; content?: string }
+type LibraryRecord = { id: string; title: string; type: 'Document' | 'Code' | 'Image' | 'Canvas'; date: string; preview?: string; content?: string }
 type AgentRecord = { id: string; name: string; desc: string; instructions: string; tag: string; builtIn?: boolean }
 type Preferences = { memory: boolean; training: boolean; about: string; responseStyle: string; language: string; reasoning: string; voice: string }
 type SettingsControls = { notifications: boolean; email: boolean; autoClean: boolean; safeMode: boolean; voiceInput: boolean; chatHistory: boolean }
@@ -126,10 +125,8 @@ type ManagedJob = {
   id: string
   type: string
   status: 'queued' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled'
-  payload?: { prompt?: string; aspectRatio?: string; resolution?: string; segments?: number; targetSeconds?: number }
-  // A longer clip is filmed as several continuing takes, and the run reports
-  // which take it is on.
-  result?: { text?: string; sources?: Source[]; file?: { name: string; url: string; mimeType: string; size: number }; remoteStatus?: string; segments?: number; segmentsDone?: number; targetSeconds?: number }
+  payload?: { prompt?: string }
+  result?: { text?: string; sources?: Source[]; remoteStatus?: string }
   error?: string | null
   createdAt?: number
   updatedAt?: number
@@ -195,6 +192,9 @@ function Avatar({ profile, className = '', size }: { profile: { name: string; av
 const defaultConversations: ConversationRecord[] = []
 const defaultProjects: ProjectRecord[] = []
 const defaultLibrary: LibraryRecord[] = []
+// The kinds the Library still knows how to open. Anything else is left over from
+// a retired capability and is dropped when the workspace loads.
+const libraryTypes: LibraryRecord['type'][] = ['Document', 'Code', 'Image', 'Canvas']
 
 const agents = [
   { name: 'Research analyst', desc: 'Finds, verifies and synthesizes information into clear briefs.', tag: 'Research', icon: Search },
@@ -318,7 +318,7 @@ type PlanTier = {
 
 const planTiers: PlanTier[] = [
   { name: 'Free', eyebrow: 'START', monthly: 0, annual: 0, description: 'A serious starting point for everyday questions and focused work.', action: 'Start free', features: ['Everyday access to Mere Apex 4.0', 'Research, image creation and Deep Research', 'Document and image understanding', 'Personal Projects and custom Agents', 'Files, voice and web access'] },
-  { name: 'Plus', eyebrow: 'MOST POPULAR', monthly: 18, annual: 15, description: 'For people who use Mere X throughout the week to create and decide.', featured: true, action: 'Choose Plus', features: ['Generous access for work throughout the week', 'Autonomous Agents, Computer Workspace and Video Studio', 'Create Word, Excel, PowerPoint and PDF files', 'Expanded Projects, Agents and context', 'Larger document uploads', 'Priority access at busy times'] },
+  { name: 'Plus', eyebrow: 'MOST POPULAR', monthly: 18, annual: 15, description: 'For people who use Mere X throughout the week to create and decide.', featured: true, action: 'Choose Plus', features: ['Generous access for work throughout the week', 'Autonomous Agents and Computer Workspace', 'Create Word, Excel, PowerPoint and PDF files', 'Expanded Projects, Agents and context', 'Larger document uploads', 'Priority access at busy times'] },
   { name: 'Pro', eyebrow: 'POWER USERS', monthly: 44, annual: 38, description: 'For demanding research, technical work and high-output creative workflows.', action: 'Choose Pro', features: ['The most access available to one person', 'Advanced research and visual workflows', 'Maximum document context and file size', 'Unlimited Projects and custom Agents', 'Fastest response queue', 'Early access to new capabilities'] },
   { name: 'Team', eyebrow: '2+ PEOPLE', monthly: 23, annual: 18, description: 'A private collaborative workspace with predictable cost per person.', action: 'Create a team', features: ['Generous access for everyone on the team', 'Shared documents, Projects and team Agents', 'Advanced research and image tools', 'Central billing, roles and access controls', 'Workspace-level access visibility', 'Team content excluded from product training'] },
   { name: 'Enterprise', eyebrow: 'CUSTOM', monthly: null, annual: null, description: 'Security, controls and support designed around a larger organization.', action: 'Contact sales', features: ['Flexible usage and volume pricing', 'SSO, SCIM and domain controls', 'Audit logs and custom retention', 'Data residency options', 'Priority support and service agreements', 'Custom legal and procurement terms'] },
@@ -435,9 +435,9 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
   )
 }
 
-// Anything Mere X creates can be opened here at full size: images and video
-// alike, without leaving the workspace or downloading first.
-function MediaViewer({ media, onClose }: { media: { url: string; title: string; kind: 'image' | 'video'; download?: string } | null; onClose: () => void }) {
+// Anything Mere X creates can be opened here at full size, without leaving the
+// workspace or downloading first.
+function MediaViewer({ media, onClose }: { media: { url: string; title: string; download?: string } | null; onClose: () => void }) {
   useEffect(() => {
     if (!media) return
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
@@ -445,7 +445,7 @@ function MediaViewer({ media, onClose }: { media: { url: string; title: string; 
     return () => window.removeEventListener('keydown', close)
   }, [media, onClose])
   if (!media) return null
-  const name = media.download || `${safeMediaName(media.title)}.${media.kind === 'video' ? 'mp4' : 'png'}`
+  const name = media.download || `${safeMediaName(media.title)}.png`
   return <div className="media-viewer" role="dialog" aria-modal="true" aria-label={media.title} onMouseDown={event => { if (event.currentTarget === event.target) onClose() }}>
     <div className="media-viewer-bar">
       <b>{media.title}</b>
@@ -455,9 +455,7 @@ function MediaViewer({ media, onClose }: { media: { url: string; title: string; 
       </div>
     </div>
     <div className="media-viewer-stage" onMouseDown={event => { if (event.currentTarget === event.target) onClose() }}>
-      {media.kind === 'video'
-        ? <video src={media.url} controls autoPlay playsInline preload="metadata" />
-        : <img src={media.url} alt={media.title} />}
+      <img src={media.url} alt={media.title} />
     </div>
   </div>
 }
@@ -636,7 +634,7 @@ function Composer({ value, setValue, onSubmit, onStop, attachments, setAttachmen
     recognition.start()
   }
   return <form className="composer" onSubmit={submit}>
-    <input ref={fileInputRef} className="file-input" type="file" multiple accept="image/*,audio/*,video/*,.pdf,.txt,.md,.csv,.json,.js,.ts,.tsx,.py,.docx,.xlsx,.pptx,.rtf,.html,.xml" onChange={e => void addFiles(e.target.files)} />
+    <input ref={fileInputRef} className="file-input" type="file" multiple accept="image/*,audio/*,.pdf,.txt,.md,.csv,.json,.js,.ts,.tsx,.py,.docx,.xlsx,.pptx,.rtf,.html,.xml" onChange={e => void addFiles(e.target.files)} />
     <input ref={imageInputRef} className="file-input" type="file" accept="image/*" onChange={e => void addFiles(e.target.files, true)} />
     {!!attachments.length && <div className="attachment-strip">{attachments.map((file, index) => <span key={`${file.name}-${index}`}><File size={13} /><b>{file.name}</b><small>{fileSizeLabel(file.size)}</small><button type="button" aria-label={`Remove ${file.name}`} onClick={() => setAttachments(current => current.filter((_, i) => i !== index))}><X size={12} /></button></span>)}</div>}
     {documentFormat && <div className="output-mode-banner"><FileText size={15} /><span><b>Create a downloadable file</b><small>The response will include a finished file.</small></span><div>{exportFormats.map(format => <button type="button" key={format.id} className={documentFormat === format.id ? 'active' : ''} onClick={() => { setDocumentFormat(format.id); setImageMode(false) }}>{format.detail}</button>)}</div><IconButton label="Cancel file creation" onClick={() => setDocumentFormat(null)}><X size={13} /></IconButton></div>}
@@ -698,7 +696,7 @@ function EmptyChat({ value, setValue, onSubmit, attachments, setAttachments, ima
   </div>
 }
 
-function ChatMessage({ message, onToast, onRegenerate, onOpenMedia }: { message: Message; onToast: (s: string) => void; onRegenerate?: () => void; onOpenMedia?: (media: { url: string; title: string; kind: 'image' | 'video' }) => void }) {
+function ChatMessage({ message, onToast, onRegenerate, onOpenMedia }: { message: Message; onToast: (s: string) => void; onRegenerate?: () => void; onOpenMedia?: (media: { url: string; title: string }) => void }) {
   const [feedback, setFeedback] = useState<'up' | 'down' | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState<ExportFormat | null>(null)
@@ -744,7 +742,7 @@ function ChatMessage({ message, onToast, onRegenerate, onOpenMedia }: { message:
         <p>This gives Mere X a premium foundation that can grow into research, creation, collaboration, and advanced workflows without changing its core identity.</p>
       </> : <div className={`markdown-response ${message.error ? 'error-response' : ''}`}><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div>}
       {!!message.images?.length && <div className="generated-images">{message.images.map((src, index) => <figure key={index}>
-        <button type="button" className="media-open" onClick={() => onOpenMedia?.({ url: src, title: message.content.replace(/[#*_`]/g, '').slice(0, 60) || 'Generated image', kind: 'image' })} aria-label="Open the full size image">
+        <button type="button" className="media-open" onClick={() => onOpenMedia?.({ url: src, title: message.content.replace(/[#*_`]/g, '').slice(0, 60) || 'Generated image' })} aria-label="Open the full size image">
           <img src={src} alt={`Generated result ${index + 1}`} />
           <span className="media-open-hint"><Maximize2 size={15} />Open</span>
         </button>
@@ -774,7 +772,7 @@ function ChatPage({ messages, setMessages, onToast, onLiveVoice, agent, project,
   preferences: Preferences
   voiceEnabled: boolean
   onArtifact: (artifact: LibraryRecord) => void
-  onOpenMedia: (media: { url: string; title: string; kind: 'image' | 'video' }) => void
+  onOpenMedia: (media: { url: string; title: string }) => void
 }) {
   const [value, setValue] = useState('')
   const [thinking, setThinking] = useState(false)
@@ -966,7 +964,7 @@ function ProjectsPage({ projects, setProjects, onToast, onOpen, onRemoved }: {
   </div>
 }
 
-function LibraryPage({ items, setItems, onToast, onContinue, onRemoved, onOpenMedia }: { items: LibraryRecord[]; setItems: Dispatch<SetStateAction<LibraryRecord[]>>; onToast: (s: string) => void; onContinue: (item: LibraryRecord) => void; onRemoved: (id: string) => void; onOpenMedia: (media: { url: string; title: string; kind: 'image' | 'video' }) => void }) {
+function LibraryPage({ items, setItems, onToast, onContinue, onRemoved, onOpenMedia }: { items: LibraryRecord[]; setItems: Dispatch<SetStateAction<LibraryRecord[]>>; onToast: (s: string) => void; onContinue: (item: LibraryRecord) => void; onRemoved: (id: string) => void; onOpenMedia: (media: { url: string; title: string }) => void }) {
   const [filter, setFilter] = useState('All')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<LibraryRecord | null>(null)
@@ -974,11 +972,11 @@ function LibraryPage({ items, setItems, onToast, onContinue, onRemoved, onOpenMe
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const shown = items.filter(item => (filter === 'All' || item.type === filter) && item.title.toLowerCase().includes(query.toLowerCase()))
-  const iconFor = (type: LibraryRecord['type']) => type === 'Code' ? FileCode2 : type === 'Image' ? Image : type === 'Video' ? Video : type === 'Canvas' ? LayoutGrid : FileText
-  // A saved image or clip opens in the viewer; anything else opens as a document.
+  const iconFor = (type: LibraryRecord['type']) => type === 'Code' ? FileCode2 : type === 'Image' ? Image : type === 'Canvas' ? LayoutGrid : FileText
+  // A saved image opens in the viewer; anything else opens as a document.
   const openItem = (item: LibraryRecord) => {
-    if (item.preview && (item.type === 'Image' || item.type === 'Video')) {
-      onOpenMedia({ url: item.preview, title: item.title, kind: item.type === 'Video' ? 'video' : 'image' })
+    if (item.preview && item.type === 'Image') {
+      onOpenMedia({ url: item.preview, title: item.title })
       return
     }
     setSelected(item)
@@ -996,12 +994,12 @@ function LibraryPage({ items, setItems, onToast, onContinue, onRemoved, onOpenMe
   }
   return <div className="page-shell">
     <PageHeading eyebrow="YOUR OUTPUTS" title="Library" description="Everything you create with Mere X, organized and ready to continue." action={<div className="heading-actions"><button className="soft-button" onClick={exportLibrary}><Download size={16} />Export</button><button className="primary-button" onClick={() => setCreating(true)}><Plus size={16} />New document</button></div>} />
-    <div className="library-toolbar"><div className="segmented">{['All', 'Document', 'Code', 'Image', 'Video', 'Canvas'].map(item => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><div className="inline-search"><Search size={16} /><input aria-label="Search library" placeholder="Search library" value={query} onChange={event => setQuery(event.target.value)} /></div></div>
+    <div className="library-toolbar"><div className="segmented">{['All', 'Document', 'Code', 'Image', 'Canvas'].map(item => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><div className="inline-search"><Search size={16} /><input aria-label="Search library" placeholder="Search library" value={query} onChange={event => setQuery(event.target.value)} /></div></div>
     <div className="library-grid">
       {shown.map(item => { const Icon = iconFor(item.type); return <article className="library-card" key={item.id}>
         <div className={`library-preview preview-${item.type.toLowerCase()}`}>
-          {item.preview && item.type === 'Video' ? <video className="artifact-preview-image" src={item.preview} muted playsInline preload="metadata" /> : item.preview ? <img className="artifact-preview-image" src={item.preview} alt="" /> : item.type === 'Code' ? <><span className="code-line wide" /><span className="code-line" /><span className="code-line mid" /><span className="code-line tiny" /></> : item.type === 'Image' ? <div className="abstract-art"><i /><i /><i /></div> : <><span className="doc-kicker" /><span className="doc-title" /><span className="doc-line" /><span className="doc-line short" /><span className="doc-line" /><span className="doc-line mid" /></>}
-          <button onClick={() => openItem(item)} aria-label={`Open ${item.title}`}>{item.type === 'Video' ? <Maximize2 size={16} /> : <ExternalLink size={16} />}</button>
+          {item.preview ? <img className="artifact-preview-image" src={item.preview} alt="" /> : item.type === 'Code' ? <><span className="code-line wide" /><span className="code-line" /><span className="code-line mid" /><span className="code-line tiny" /></> : item.type === 'Image' ? <div className="abstract-art"><i /><i /><i /></div> : <><span className="doc-kicker" /><span className="doc-title" /><span className="doc-line" /><span className="doc-line short" /><span className="doc-line" /><span className="doc-line mid" /></>}
+          <button onClick={() => openItem(item)} aria-label={`Open ${item.title}`}><ExternalLink size={16} /></button>
         </div>
         <div className="library-info"><span className="library-type"><Icon size={15} />{item.type}</span><h3>{item.title}</h3><p>{item.date}</p></div><IconButton label={`Delete ${item.title}`} onClick={() => { if (!window.confirm(`Delete ${item.title} from your Library? This cannot be undone.`)) return; onRemoved(item.id); setItems(current => current.filter(record => record.id !== item.id)); onToast('Library item deleted') }}><Trash2 size={15} /></IconButton>
         {item.date.toLowerCase().includes('just now') && <span className="new-tag">NEW</span>}
@@ -1013,7 +1011,7 @@ function LibraryPage({ items, setItems, onToast, onContinue, onRemoved, onOpenMe
   </div>
 }
 
-type WorkflowKind = 'deep-research' | 'computer-workspace' | 'managed-agent' | 'video'
+type WorkflowKind = 'deep-research' | 'computer-workspace' | 'managed-agent'
 
 function encodePcm16(input: Float32Array, inputRate: number, outputRate = 16000) {
   const ratio = inputRate / outputRate
@@ -1132,17 +1130,12 @@ const workflowCapability: Record<WorkflowKind, string> = {
   'deep-research': 'deepResearch',
   'computer-workspace': 'computer',
   'managed-agent': 'agent',
-  video: 'video',
 }
 
-function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast, onArtifact, onOpenMedia }: { authenticated: boolean; plan: string; onSignIn: () => void; onUpgrade: () => void; onToast: (text: string) => void; onArtifact: (artifact: LibraryRecord) => void; onOpenMedia: (media: { url: string; title: string; kind: 'image' | 'video' }) => void }) {
+function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast }: { authenticated: boolean; plan: string; onSignIn: () => void; onUpgrade: () => void; onToast: (text: string) => void }) {
   const [kind, setKind] = useState<WorkflowKind>('deep-research')
   const [capabilities, setCapabilities] = useState<Record<string, PlanCapability> | null>(null)
   const [prompt, setPrompt] = useState('')
-  const [aspectRatio, setAspectRatio] = useState('16:9')
-  const [resolution, setResolution] = useState('720p')
-  // The model films eight seconds at a time; longer clips continue the same shot.
-  const [durationSeconds, setDurationSeconds] = useState(8)
   const [job, setJob] = useState<ManagedJob | null>(null)
   const [recentJobs, setRecentJobs] = useState<ManagedJob[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -1150,7 +1143,6 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast, onAr
     { id: 'deep-research', title: 'Deep Research', eyebrow: 'REPORT', description: 'Investigate a complex topic across many sources and return a structured, cited report.', icon: Globe2, placeholder: 'Research the market, compare the strongest evidence and produce an executive report…' },
     { id: 'computer-workspace', title: 'Computer Workspace', eyebrow: 'SANDBOX', description: 'Complete a multi-step browser and computer task inside a protected remote workspace.', icon: Monitor, placeholder: 'Open the provided public resources, collect the relevant facts and organize the result…' },
     { id: 'managed-agent', title: 'Autonomous Agent', eyebrow: 'MULTI-STEP', description: 'Give Mere Apex an outcome and let it plan, execute and verify the full task.', icon: Bot, placeholder: 'Create a complete launch plan with research, risks, schedule and finished deliverables…' },
-    { id: 'video', title: 'Video Studio', eyebrow: 'UP TO 30 SECONDS', description: 'Create a polished video clip with motion and a cinematic visual direction.', icon: Video, placeholder: 'A monochrome architectural film, slow camera movement, soft natural light…' },
   ]
   const active = workflows.find(item => item.id === kind) || workflows[0]
   const activeStatus = job && !['completed', 'failed', 'cancelled'].includes(job.status)
@@ -1175,25 +1167,12 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast, onAr
         if (result.job) {
           setJob(result.job)
           setRecentJobs(current => [result.job!, ...current.filter(item => item.id !== result.job!.id)])
-          // Keep the finished clip in the Library so it can be watched again
-          // later instead of living only on this screen.
-          const file = result.job.result?.file
-          if (result.job.status === 'completed' && file?.url) {
-            onArtifact({
-              id: `video-${result.job.id}`,
-              title: String(result.job.payload?.prompt || 'Generated video').replace(/[#*_`]/g, '').slice(0, 64) || 'Generated video',
-              type: 'Video',
-              date: 'Just now',
-              preview: file.url,
-              content: String(result.job.payload?.prompt || ''),
-            })
-          }
         }
         if (!response.ok && result.error) onToast(result.error)
       }).catch(() => undefined)
     }, 3500)
     return () => window.clearInterval(timer)
-  }, [job?.id, activeStatus, onToast, onArtifact])
+  }, [job?.id, activeStatus, onToast])
 
   const run = async (event: FormEvent) => {
     event.preventDefault()
@@ -1201,9 +1180,9 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast, onAr
     if (needsExpandedPlan) { onUpgrade(); return }
     if (!prompt.trim() || submitting || activeStatus) return
     setSubmitting(true); setJob(null)
-    const endpoint = kind === 'deep-research' ? '/api/research/deep' : kind === 'computer-workspace' ? '/api/tools/computer' : kind === 'managed-agent' ? '/api/agents/run' : '/api/video'
+    const endpoint = kind === 'deep-research' ? '/api/research/deep' : kind === 'computer-workspace' ? '/api/tools/computer' : '/api/agents/run'
     try {
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: prompt.trim(), aspectRatio, resolution, durationSeconds }) })
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: prompt.trim() }) })
       const result = await response.json() as { job?: ManagedJob; error?: string; code?: string; usage?: UsageSummary; resetAt?: number }
       if (result.usage?.capabilities) setCapabilities(result.usage.capabilities)
       if (response.status === 403 && result.code === 'plan-upgrade-required') {
@@ -1229,17 +1208,14 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast, onAr
       <form className="workflow-form" onSubmit={run}>
         <div className="workflow-form-head"><span><ActiveIcon size={21} /></span><div><small>{active.eyebrow}</small><h2>{active.title}</h2></div><em className={job?.status || 'ready'}><i />{statusLabel}</em></div>
         <label><span>Describe the finished outcome</span><textarea value={prompt} onChange={event => setPrompt(event.target.value)} placeholder={active.placeholder} disabled={Boolean(activeStatus)} /></label>
-        {kind === 'video' && <div className="workflow-options"><label><span>Frame</span><select value={aspectRatio} onChange={event => setAspectRatio(event.target.value)}><option value="16:9">Landscape · 16:9</option><option value="9:16">Portrait · 9:16</option></select></label><label><span>Quality</span><select value={resolution} onChange={event => setResolution(event.target.value)}><option value="720p">Standard · 720p</option><option value="1080p">High · 1080p</option></select></label><label><span>Length</span><select value={durationSeconds} onChange={event => setDurationSeconds(Number(event.target.value))} aria-label="Video length"><option value={8}>Short · 8 seconds</option><option value={15}>Medium · about 15 seconds</option><option value={22}>Long · about 22 seconds</option><option value={29}>Extended · about 30 seconds</option></select></label></div>}
         <div className="workflow-run-row"><p><ShieldCheck size={15} />Tasks run in an isolated Mere X workspace. Sensitive actions are never performed silently.</p><button className="primary-button" disabled={!needsExpandedPlan && (!prompt.trim() || submitting || Boolean(activeStatus))}>{needsExpandedPlan ? <><CreditCard size={15} />Compare plans</> : submitting || activeStatus ? <><RotateCcw className="spin" size={15} />Working…</> : <><Zap size={15} />Run workflow</>}</button></div>
       </form>
       <section className={`workflow-result ${job ? 'has-job' : ''}`}>
         {!job && <div className="workflow-result-empty"><BrandGlyph /><b>The finished work appears here.</b><p>You can leave this page while a task runs and return to its status from Workflows.</p></div>}
-        {job && <><header><div><span>RUN / {job.id.slice(0, 8).toUpperCase()}</span><b>{statusLabel}</b></div><em>{job.status.toUpperCase()}</em></header>{activeStatus && <div className="workflow-progress"><span /><span /><span /><p>{job.type === 'video' && Number(job.result?.segments) > 1
-          ? `Filming part ${Math.min(Number(job.result?.segments), (Number(job.result?.segmentsDone) || 0) + 1)} of ${job.result?.segments}. Longer clips are filmed in continuing takes…`
-          : 'Planning, executing and checking the result…'}</p></div>}{job.error && <div className="workflow-error"><CircleHelp size={18} /><span><b>Workflow stopped</b><p>{job.error}</p></span></div>}{job.result?.text && <div className="workflow-output"><ReactMarkdown remarkPlugins={[remarkGfm]}>{job.result.text}</ReactMarkdown></div>}{job.result?.sources?.length ? <div className="workflow-sources"><b>Sources</b>{job.result.sources.map((source, index) => <a key={`${source.uri}-${index}`} href={source.uri} target="_blank" rel="noreferrer"><span>{index + 1}</span>{source.title}<ExternalLink size={13} /></a>)}</div> : null}{job.result?.file && <div className="workflow-video"><video controls preload="metadata" src={job.result.file.url} /><div className="workflow-video-actions"><button type="button" className="soft-button" onClick={() => onOpenMedia({ url: job.result!.file!.url, title: String(job.payload?.prompt || 'Generated video').slice(0, 60), kind: 'video' })}><Maximize2 size={15} />Open full size</button><a className="primary-button" href={job.result.file.url} download={job.result.file.name}><Download size={15} />Download video</a></div></div>}{job.status === 'completed' && !job.result?.text && !job.result?.file && <div className="workflow-complete"><CheckCircle2 size={20} /><span><b>Workflow completed</b><p>The task finished successfully.</p></span></div>}</>}
+        {job && <><header><div><span>RUN / {job.id.slice(0, 8).toUpperCase()}</span><b>{statusLabel}</b></div><em>{job.status.toUpperCase()}</em></header>{activeStatus && <div className="workflow-progress"><span /><span /><span /><p>Planning, executing and checking the result…</p></div>}{job.error && <div className="workflow-error"><CircleHelp size={18} /><span><b>Workflow stopped</b><p>{job.error}</p></span></div>}{job.result?.text && <div className="workflow-output"><ReactMarkdown remarkPlugins={[remarkGfm]}>{job.result.text}</ReactMarkdown></div>}{job.result?.sources?.length ? <div className="workflow-sources"><b>Sources</b>{job.result.sources.map((source, index) => <a key={`${source.uri}-${index}`} href={source.uri} target="_blank" rel="noreferrer"><span>{index + 1}</span>{source.title}<ExternalLink size={13} /></a>)}</div> : null}{job.status === 'completed' && !job.result?.text && <div className="workflow-complete"><CheckCircle2 size={20} /><span><b>Workflow completed</b><p>The task finished successfully.</p></span></div>}</>}
       </section>
     </div>
-    {!!recentJobs.length && <section className="workflow-history"><div className="content-title"><h3>Recent runs</h3><span className="content-meta">ACCOUNT WORKSPACE</span></div><div>{recentJobs.map(item => { const definition = workflows.find(workflow => workflow.id === item.type) || workflows[2]; const Icon = definition.icon; return <button key={item.id} className={job?.id === item.id ? 'active' : ''} onClick={() => { setKind((['deep-research', 'computer-workspace', 'managed-agent', 'video'].includes(item.type) ? item.type : 'managed-agent') as WorkflowKind); setPrompt(item.payload?.prompt || ''); setJob(item) }}><span><Icon size={16} /></span><div><b>{definition.title}</b><p>{item.payload?.prompt || 'Workflow run'}</p></div><em className={item.status}>{item.status}</em><ChevronRight size={15} /></button> })}</div></section>}
+    {!!recentJobs.length && <section className="workflow-history"><div className="content-title"><h3>Recent runs</h3><span className="content-meta">ACCOUNT WORKSPACE</span></div><div>{recentJobs.map(item => { const definition = workflows.find(workflow => workflow.id === item.type) || workflows[2]; const Icon = definition.icon; return <button key={item.id} className={job?.id === item.id ? 'active' : ''} onClick={() => { setKind((['deep-research', 'computer-workspace', 'managed-agent'].includes(item.type) ? item.type : 'managed-agent') as WorkflowKind); setPrompt(item.payload?.prompt || ''); setJob(item) }}><span><Icon size={16} /></span><div><b>{definition.title}</b><p>{item.payload?.prompt || 'Workflow run'}</p></div><em className={item.status}>{item.status}</em><ChevronRight size={15} /></button> })}</div></section>}
   </div>
 }
 
@@ -1592,10 +1568,10 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
     if (tab === 'personalization') return <><PageHeading title="Personalization" description="Shape how Mere X understands you and responds." /><SettingsSection title="Memory"><SettingRow icon={<BookOpen size={17} />} title="Reference saved memories" desc="Use details you explicitly ask Mere X to remember"><Toggle label="Reference saved memories" active={preferences.memory} onChange={() => updatePreference('memory', !preferences.memory)} /></SettingRow></SettingsSection><SettingsSection title="Custom instructions"><label className="instruction-label">What should Mere X know about you?</label><textarea className="instruction-box" value={preferences.about} onChange={event => updatePreference('about', event.target.value)} placeholder="Your role, goals and working context..." /><label className="instruction-label">How should Mere X respond?</label><textarea className="instruction-box" value={preferences.responseStyle} onChange={event => updatePreference('responseStyle', event.target.value)} placeholder="Tone, structure and level of detail..." /><button className="primary-button" onClick={() => onToast('Personalization saved and active')}>Save changes</button></SettingsSection></>
     if (tab === 'plugins') return <><PageHeading title="Connections" description="Bring approved tools and knowledge into your Mere X workflow." /><SettingsSection title="Available connections"><SettingRow icon={<Code2 size={17} />} title="Code repositories" desc="Repository access with scoped permissions"><button className="soft-button" onClick={() => onToast('Connection credentials are required before this source can be enabled')}>Configure</button></SettingRow><SettingRow icon={<FileText size={17} />} title="Cloud documents" desc="Connect document storage with secure delegated access"><button className="soft-button" onClick={() => onToast('Connection credentials are required before this source can be enabled')}>Configure</button></SettingRow><SettingRow icon={<Globe2 size={17} />} title="Web research" desc="Research public pages with sources"><span className="connected-state"><Check size={13} />Active</span></SettingRow></SettingsSection></>
     if (tab === 'voice') return <><PageHeading title="Voice" description="Configure listening, spoken responses and accessibility." /><SettingsSection title="Voice experience"><SettingRow icon={<Mic size={17} />} title="Voice input" desc="Dictate prompts from the composer"><Toggle label="Voice input" active={controls.voiceInput ?? true} onChange={() => updateControl('voiceInput', !(controls.voiceInput ?? true))} /></SettingRow><SettingRow icon={<Volume2 size={17} />} title="Response voice" desc="Voice used when reading answers aloud"><select aria-label="Voice" value={preferences.voice} onChange={event => updatePreference('voice', event.target.value)}><option>Nova</option><option>Atlas</option></select></SettingRow><SettingRow icon={<Headphones size={17} />} title="Test voice" desc="Play a short preview with your current selection"><button className="soft-button" onClick={playVoicePreview}>Play preview</button></SettingRow></SettingsSection></>
-    if (tab === 'billing') return <><PageHeading title="Plan & billing" description="Manage your plan, usage, renewal and payment history." /><div className="billing-hero"><div><span>CURRENT PLAN</span><h2>Mere {planLabel}</h2><p>Mere Apex 4.0 with access that keeps refreshing while you work.</p></div><button className="primary-button" onClick={onOpenPricing}>Compare plans<Sparkles size={15} /></button></div><SettingsSection title="Your access"><SettingRow icon={<Clock3 size={17} />} title="Everyday work" desc={accessNote}><span className="usage-value">{windowLabel}</span></SettingRow><SettingRow icon={<Globe2 size={17} />} title="Advanced tools" desc="Research, image creation, agents, computer work and video"><span className="usage-value">{toolsLabel}</span></SettingRow><SettingRow icon={<FileText size={17} />} title="File workflows" desc="Analyze files and create downloadable Office or PDF documents"><span className="usage-value">Included</span></SettingRow></SettingsSection><BillingManagement user={user} onOpenPricing={onOpenPricing} onToast={onToast} /></>
+    if (tab === 'billing') return <><PageHeading title="Plan & billing" description="Manage your plan, usage, renewal and payment history." /><div className="billing-hero"><div><span>CURRENT PLAN</span><h2>Mere {planLabel}</h2><p>Mere Apex 4.0 with access that keeps refreshing while you work.</p></div><button className="primary-button" onClick={onOpenPricing}>Compare plans<Sparkles size={15} /></button></div><SettingsSection title="Your access"><SettingRow icon={<Clock3 size={17} />} title="Everyday work" desc={accessNote}><span className="usage-value">{windowLabel}</span></SettingRow><SettingRow icon={<Globe2 size={17} />} title="Advanced tools" desc="Research, image creation, agents and computer work"><span className="usage-value">{toolsLabel}</span></SettingRow><SettingRow icon={<FileText size={17} />} title="File workflows" desc="Analyze files and create downloadable Office or PDF documents"><span className="usage-value">Included</span></SettingRow></SettingsSection><BillingManagement user={user} onOpenPricing={onOpenPricing} onToast={onToast} /></>
     if (tab === 'data') return <><PageHeading title="Data controls" description="Control conversation history, exports and product improvement." /><SettingsSection title="Privacy"><SettingRow icon={<ShieldCheck size={17} />} title="Improve Mere X for everyone" desc="Allow de-identified conversations to improve the platform"><Toggle label="Improve Mere X" active={preferences.training} onChange={() => updatePreference('training', !preferences.training)} /></SettingRow><SettingRow icon={<Clock3 size={17} />} title="Chat history" desc="Save new conversations in your history"><Toggle label="Chat history" active={controls.chatHistory ?? true} onChange={() => updateControl('chatHistory', !(controls.chatHistory ?? true))} /></SettingRow></SettingsSection><SettingsSection title="Your data"><button className="danger-row" onClick={exportData}><span><Download size={17} /><span><b>Export workspace data</b><small>Download your conversations and preferences</small></span></span><ChevronRight size={15} /></button><button className="danger-row" onClick={() => { if (window.confirm('Delete every saved conversation? This cannot be undone.')) onDeleteChats() }}><span><Trash2 size={17} /><span><b>Delete all chats</b><small>Permanently clear conversation history</small></span></span><ChevronRight size={15} /></button></SettingsSection></>
     if (tab === 'cloud') return <><PageHeading title="Cloud sync" description="Keep your private Mere X workspace consistent across devices." /><SettingsSection title="Synchronization"><SettingRow icon={<Database size={17} />} title="Account database" desc="Projects, chats, agents and preferences are stored under your unique account ID"><span className="connected-state"><Check size={13} />Active</span></SettingRow><SettingRow icon={<RotateCcw size={17} />} title="Cross-device sync" desc="Opening Mere X on another signed-in device loads the same account workspace"><span className="connected-state"><Check size={13} />Active</span></SettingRow></SettingsSection></>
-    if (tab === 'storage') return <><PageHeading title="Storage" description="Review the durable storage assigned to this account." /><div className="storage-meter"><div><span>ACCOUNT STORAGE</span><b>{storage ? storageLabel : 'Loading…'}</b></div><i><span style={{ width: `${Math.min(100, Math.max(2, storageBytes / 50000))}%` }} /></i><p>No chats, projects, agents or preferences are stored in browser local storage. Workspace data and files are isolated by your account ID in the Mere X database.</p></div><SettingsSection title="Account usage"><SettingRow icon={<FileText size={17} />} title="Stored files" desc="Files available only to this signed-in account"><span className="usage-value">{storage?.files ?? '—'}</span></SettingRow><SettingRow icon={<Zap size={17} />} title="Saved workflow runs" desc="Agent, research, computer and video runs tied to this account"><span className="usage-value">{storage?.jobs ?? '—'}</span></SettingRow><SettingRow icon={<Database size={17} />} title="Project knowledge stores" desc="Private knowledge indexes mapped to this account"><span className="usage-value">{storage?.knowledgeStores ?? '—'}</span></SettingRow><button className="manage-button" onClick={() => void refreshStorage()}>Refresh storage<ChevronRight size={15} /></button></SettingsSection></>
+    if (tab === 'storage') return <><PageHeading title="Storage" description="Review the durable storage assigned to this account." /><div className="storage-meter"><div><span>ACCOUNT STORAGE</span><b>{storage ? storageLabel : 'Loading…'}</b></div><i><span style={{ width: `${Math.min(100, Math.max(2, storageBytes / 50000))}%` }} /></i><p>No chats, projects, agents or preferences are stored in browser local storage. Workspace data and files are isolated by your account ID in the Mere X database.</p></div><SettingsSection title="Account usage"><SettingRow icon={<FileText size={17} />} title="Stored files" desc="Files available only to this signed-in account"><span className="usage-value">{storage?.files ?? '—'}</span></SettingRow><SettingRow icon={<Zap size={17} />} title="Saved workflow runs" desc="Agent, research and computer runs tied to this account"><span className="usage-value">{storage?.jobs ?? '—'}</span></SettingRow><SettingRow icon={<Database size={17} />} title="Project knowledge stores" desc="Private knowledge indexes mapped to this account"><span className="usage-value">{storage?.knowledgeStores ?? '—'}</span></SettingRow><button className="manage-button" onClick={() => void refreshStorage()}>Refresh storage<ChevronRight size={15} /></button></SettingsSection></>
     if (tab === 'safety') return <><PageHeading title="Safety" description="Set safeguards for generated and researched content." /><SettingsSection title="Content"><SettingRow icon={<ShieldCheck size={17} />} title="Enhanced safety" desc="Apply stricter safeguards to sensitive topics"><Toggle label="Enhanced safety" active={controls.safeMode ?? true} onChange={() => updateControl('safeMode', !(controls.safeMode ?? true))} /></SettingRow><SettingRow icon={<CircleHelp size={17} />} title="Safety guidance" desc="Read Mere X help and responsible-use guidance"><button className="soft-button" onClick={onOpenHelp}>Open guide</button></SettingRow></SettingsSection></>
     if (tab === 'security') return <><PageHeading title="Security and login" description="Protect your account and review active access." /><SettingsSection title={passwordAccount ? 'Password' : 'Create a password'}><form className="security-form" onSubmit={updatePassword}>{passwordChallengeId ? <><label><span>Email confirmation code</span><input className="verification-code-input" value={passwordCode} onChange={event => setPasswordCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" autoFocus /></label><span className="settings-inline-note">Enter the 6-digit code sent to your account email.</span></> : <>{passwordAccount ? <label><span>Current password</span><input type="password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" /></label> : <span className="settings-inline-note">This account signs in with Google. Choose a password to also sign in with your email address; we confirm it with a code sent to {profile.email || 'your account email'}.</span>}<label><span>{passwordAccount ? 'New password' : 'Password'}</span><input type="password" value={nextPassword} onChange={event => setNextPassword(event.target.value)} autoComplete="new-password" placeholder="At least 8 characters" /></label></>}<button className="soft-button" disabled={accountBusy || (passwordChallengeId ? passwordCode.length !== 6 : (passwordAccount && !currentPassword) || nextPassword.length < 8)}>{passwordChallengeId ? (passwordAccount ? 'Confirm password change' : 'Confirm new password') : 'Send confirmation code'}</button>{passwordChallengeId && <button type="button" className="settings-text-button" onClick={() => { setPasswordChallengeId(''); setPasswordCode('') }}>Cancel</button>}</form></SettingsSection><SettingsSection title="Connected sign-in"><SettingRow icon={<ShieldCheck size={17} />} title="Google" desc={identities.find(identity => identity.provider === 'google')?.email || 'Not connected to this account'}><span className={identities.some(identity => identity.provider === 'google') ? 'connected-state' : 'feature-status'}>{identities.some(identity => identity.provider === 'google') ? <><Check size={13} />Connected</> : 'NOT CONNECTED'}</span></SettingRow></SettingsSection><SettingsSection title="Sessions">{sessions.map(session => <div className="session-row" key={session.id}><span className="device-icon"><Square size={15} /></span><span><b>{session.current ? 'This browser' : 'Signed-in browser'}</b><small>Started {new Date(session.createdAt).toLocaleDateString()} · Expires {new Date(session.expiresAt).toLocaleDateString()}</small></span><em>{session.current ? 'THIS DEVICE' : 'ACTIVE'}</em></div>)}{!sessions.length && <span className="settings-inline-note">{user ? 'Loading active sessions…' : 'Sign in to manage sessions.'}</span>}{user && <button className="manage-button" disabled={accountBusy || sessions.filter(session => !session.current).length === 0} onClick={() => void revokeOtherSessions()}>Sign out of all other devices<ChevronRight size={15} /></button>}</SettingsSection><SettingsSection title="Additional protection"><SettingRow icon={<ShieldCheck size={17} />} title="Two-step verification" desc="Requires verified message delivery before it can protect sign-in"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow><SettingRow icon={<Lock size={17} />} title="Passkey" desc="Device-bound passwordless sign-in is prepared for a production domain"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow></SettingsSection></>
     if (tab === 'account') return <><PageHeading title="Account" description="Manage your profile, workspace identity and access." /><SettingsSection title="Profile"><AccountProfileEditor profile={profile} setProfile={setProfile} user={user} onUserUpdated={onUserUpdated} onToast={onToast} /></SettingsSection><SettingsSection title="Plan"><div className="plan-card"><div><span>PERSONAL</span><h3>Mere {planLabel}</h3><p>Mere Apex 4.0 and the full workspace, with access that refreshes as you work.</p></div><button className="soft-button" onClick={() => setTab('billing')}>Manage plan</button></div></SettingsSection><SettingsSection title="Delete account"><form className="delete-account-form" onSubmit={removeAccount}><div><b>Permanently delete this account</b><p>Your synchronized workspace, sessions and stored files will be removed. Shared links may remain without your identity until they expire.</p></div>{passwordAccount ? <label><span>Confirm with your password</span><input type="password" value={deletePassword} onChange={event => setDeletePassword(event.target.value)} autoComplete="current-password" /></label> : <label><span>Type {profile.email || 'your account email'} to confirm</span><input type="email" value={deleteEmail} onChange={event => setDeleteEmail(event.target.value)} autoComplete="off" placeholder={profile.email} /></label>}<button disabled={accountBusy || !(passwordAccount ? deletePassword : deleteEmail.trim())}>Delete account</button></form></SettingsSection><button className="logout-button" onClick={onSignOut}><LogOut size={16} />Log out</button></>
@@ -2042,14 +2018,14 @@ function StatusPage({ navigate, user }: { navigate: (route: PublicRoute) => void
   const [apiState, setApiState] = useState<'checking' | 'operational' | 'degraded'>('checking')
   const [checkedAt, setCheckedAt] = useState('')
   useEffect(() => { const controller = new AbortController(); fetch('/api/health', { signal: controller.signal }).then(response => { setApiState(response.ok ? 'operational' : 'degraded'); setCheckedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) }).catch(() => { setApiState('degraded'); setCheckedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) }); return () => controller.abort() }, [])
-  const components = [{ name: 'Web application', state: 'operational' }, { name: 'Mere Apex conversations', state: apiState }, { name: 'Research and Workflows', state: apiState }, { name: 'Image, voice and video', state: apiState }, { name: 'Account workspace storage', state: apiState }]
+  const components = [{ name: 'Web application', state: 'operational' }, { name: 'Mere Apex conversations', state: apiState }, { name: 'Research and Workflows', state: apiState }, { name: 'Image and voice', state: apiState }, { name: 'Account workspace storage', state: apiState }]
   return <PublicShell navigate={navigate} current="status" user={user} className="status-page"><section className="status-hero"><span className={`status-orb ${apiState}`} /><p className="landing-kicker">LIVE SERVICE STATUS</p><h1>{apiState === 'checking' ? 'Checking systems…' : apiState === 'operational' ? 'All checked systems operational.' : 'Some systems are degraded.'}</h1><p>A live check of the services behind Mere X. Anything degraded appears here first.</p></section><section className="status-card"><header><b>Components</b><span>{checkedAt ? `Checked ${checkedAt}` : 'Checking now'}</span></header>{components.map(component => <div key={component.name}><span>{component.name}</span><b className={component.state}><i />{component.state === 'checking' ? 'Checking' : component.state === 'operational' ? 'Operational' : 'Degraded'}</b></div>)}</section><section className="status-history"><div className="public-section-head"><p className="landing-kicker">INCIDENT HISTORY</p><h2>No recorded production incidents.</h2></div><p>Mere X is currently a development preview. A public incident timeline will begin when production monitoring is enabled.</p></section></PublicShell>
 }
 
 function ReleaseNotesPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const releases = [
     { version: 'Preview 0.6', date: 'August 21, 2026', title: 'A more expressive Mere X', items: ['Rebuilt monochrome landing experience with responsive motion and a live product workflow preview', 'Dedicated Mere Apex 4.0 documentation with eleven complete capability guides', 'Reworked chat surface with cleaner message hierarchy, softer composer and fewer visual dividers', 'Documentation search, keyboard shortcut and active section navigation', 'Responsive desktop and mobile layouts with reduced-motion accessibility'] },
-    { version: 'Preview 0.5', date: 'August 21, 2026', title: 'From chat to complete workflows', items: ['Stateful Mere Apex conversations with combined research and code tools', 'Deep Research, protected computer workspace, autonomous agents and persistent workflow history', 'Live Voice with temporary browser credentials', 'Video Studio and 1K, 2K and 4K image controls', 'Account sync, durable files and shares, adaptive access controls and account security'] },
+    { version: 'Preview 0.5', date: 'August 21, 2026', title: 'From chat to complete workflows', items: ['Stateful Mere Apex conversations with combined research and code tools', 'Deep Research, protected computer workspace, autonomous agents and persistent workflow history', 'Live Voice with temporary browser credentials', '1K, 2K and 4K image controls', 'Account sync, durable files and shares, adaptive access controls and account security'] },
     { version: 'Preview 0.4', date: 'August 20, 2026', title: 'A complete workspace foundation', items: ['Unified readable typography across desktop and mobile', 'Direct image editing from the composer', 'Office and PDF analysis with downloadable Word, Excel, PowerPoint, PDF and Markdown output', 'Plans described in plain language, with access that refreshes while you work', 'Projects, Library, custom Agents and complete public product pages'] },
     { version: 'Preview 0.3', date: 'August 18, 2026', title: 'Context that stays connected', items: ['Project and Agent context in conversations', 'Persistent local chat history and search', 'Share links and Library continuation flows'] },
   ]
@@ -2069,12 +2045,12 @@ function ApexDocsPage({ navigate, user }: { navigate: (route: PublicRoute) => vo
     { id: 'overview', label: 'Overview', icon: Sparkles, title: 'One intelligence, one continuous workspace.', summary: 'Mere Apex 4.0 is the intelligence layer across Mere X. It selects the right working mode for the request without asking you to manage a model list.', points: ['Understands long, multi-part instructions and keeps the objective in view', 'Moves between writing, reasoning, research, code and creation in one conversation', 'Uses available tools only when they materially improve the result', 'Explains uncertainty and separates sourced findings from its own analysis'] },
     { id: 'reasoning', label: 'Reasoning', icon: SlidersHorizontal, title: 'Reasoning that adapts to the work.', summary: 'Adaptive reasoning gives quick requests a direct response and gives complex requests more time to plan, compare, calculate and verify.', points: ['Use Adaptive for everyday work and mixed conversations', 'Use Always on for strategy, difficult analysis, code architecture and complex decisions', 'Ask for assumptions, tradeoffs or a verification pass when accuracy matters', 'A response can be revised in place without losing the thread context'] },
     { id: 'research', label: 'Research', icon: Globe2, title: 'Research with a visible evidence trail.', summary: 'Mere Apex can search current information, inspect relevant pages and synthesize findings into a clear answer with sources.', points: ['Research mode is best for current, niche or source-sensitive questions', 'Deep Research handles wider investigations as a managed background workflow', 'Source links stay attached to the answer so important claims can be checked', 'Ask for a brief, comparison table, timeline or decision memo as the final format'] },
-    { id: 'files', label: 'Files & documents', icon: FileText, title: 'Read, transform and create real deliverables.', summary: 'Add documents, spreadsheets, presentations, PDFs, images, audio, video or code directly to a conversation.', points: ['Analyze and compare multiple uploaded files in the same request', 'Extract decisions, tables, risks, action items and structured data', 'Create downloadable Word, Excel, PowerPoint, PDF and Markdown deliverables', 'Project knowledge keeps selected reference files available across related chats'] },
-    { id: 'media', label: 'Image & video', icon: Image, title: 'A visual studio inside the conversation.', summary: 'Create new visuals, edit an uploaded image and turn a creative direction into a generated video without leaving the workspace.', points: ['Choose portrait, landscape, square and cinematic aspect ratios', 'Generate image output at 1K, 2K or 4K where available', 'Describe exact edits while preserving the parts of an image that should remain unchanged', 'Video Studio supports horizontal or vertical scenes with audio and downloadable output'] },
+    { id: 'files', label: 'Files & documents', icon: FileText, title: 'Read, transform and create real deliverables.', summary: 'Add documents, spreadsheets, presentations, PDFs, images, audio or code directly to a conversation.', points: ['Analyze and compare multiple uploaded files in the same request', 'Extract decisions, tables, risks, action items and structured data', 'Create downloadable Word, Excel, PowerPoint, PDF and Markdown deliverables', 'Project knowledge keeps selected reference files available across related chats'] },
+    { id: 'media', label: 'Images', icon: Image, title: 'A visual studio inside the conversation.', summary: 'Create new visuals and edit an uploaded image without leaving the workspace.', points: ['Choose portrait, landscape, square and cinematic aspect ratios', 'Generate image output at 1K, 2K or 4K where available', 'Describe exact edits while preserving the parts of an image that should remain unchanged', 'Keep the brief, references and every iteration together in one thread'] },
     { id: 'voice', label: 'Live Voice', icon: Mic, title: 'A conversation that can keep pace.', summary: 'Live Voice provides a low-latency spoken session with interruption handling and an on-screen transcript.', points: ['Start from the microphone control in a chat', 'Interrupt naturally when you want to change direction', 'Temporary protected credentials are used for each live session', 'Dictation remains available when you only want speech-to-text input'] },
     { id: 'projects', label: 'Projects & memory', icon: FolderKanban, title: 'Context organized around the outcome.', summary: 'Projects combine instructions, conversations and reference files into a persistent working context.', points: ['Keep a launch, client, study or product initiative separate', 'Add project-specific instructions for tone, audience and constraints', 'Index source files into project knowledge for grounded answers', 'Continue related artifacts from Library without rebuilding context'] },
     { id: 'agents', label: 'Agents & computer', icon: Bot, title: 'Delegate complete multi-step outcomes.', summary: 'Custom Agents carry a reusable role and set of instructions. Managed workflows can plan, research and complete longer tasks.', points: ['Create focused agents for research, writing, engineering or analysis', 'Autonomous Agent plans and verifies multi-stage work', 'Computer Workspace handles protected browser-style tasks in a managed workflow', 'Recent workflow history keeps results, sources and generated files available'] },
-    { id: 'limits', label: 'Access', icon: Clock3, title: 'Access that refreshes while you work.', summary: 'Mere X adapts to the work rather than counting it. A short answer and a long research workflow are not treated as the same thing, so everyday use keeps going.', points: ['Plan & billing shows whether your access is ready in plain language', 'Advanced research, image, agent, computer and video work draw on a protected allowance', 'Larger plans expand headroom and workflow priority', 'Mere X says so before access pauses; there are never surprise usage charges'] },
+    { id: 'limits', label: 'Access', icon: Clock3, title: 'Access that refreshes while you work.', summary: 'Mere X adapts to the work rather than counting it. A short answer and a long research workflow are not treated as the same thing, so everyday use keeps going.', points: ['Plan & billing shows whether your access is ready in plain language', 'Advanced research, image, agent and computer work draw on a protected allowance', 'Larger plans expand headroom and workflow priority', 'Mere X says so before access pauses; there are never surprise usage charges'] },
     { id: 'trust', label: 'Privacy & safety', icon: ShieldCheck, title: 'Control and transparency are product features.', summary: 'Account controls, protected sessions, content boundaries and explicit sharing are built into the platform experience.', points: ['Conversations are private unless you deliberately create a share link', 'You can review active sessions, change your password and remove account data', 'Training preference, memory and chat history controls live in Settings', 'Important decisions should still be reviewed by a qualified human'] },
     { id: 'prompting', label: 'Get better results', icon: WandSparkles, title: 'Give the outcome, context and finish line.', summary: 'Mere Apex works best when it knows what success looks like. A useful prompt does not need special syntax.', points: ['State the outcome: what should exist when the work is finished?', 'Add context: audience, source material, current state and constraints', 'Define quality: tone, depth, format and what must be verified', 'Iterate directly: keep what works and name the exact change you want'] },
   ]
@@ -2118,7 +2094,7 @@ function ApexDocsPage({ navigate, user }: { navigate: (route: PublicRoute) => vo
         {!visibleSections.length && <div className="apex-doc-empty"><Search size={24} /><h2>No matching documentation.</h2><p>Try a broader term such as files, research, voice or limits.</p><button className="landing-secondary" onClick={() => setQuery('')}>Clear search</button></div>}
         <section className="apex-doc-faq"><div><p className="landing-kicker">COMMON QUESTIONS</p><h2>What to know<br />before you begin.</h2></div><div>{[
           ['Do I need to choose a model?', 'No. Mere Apex 4.0 is the single intelligence across Mere X and adapts its working mode to the request.'],
-          ['Can it work with my documents?', 'Yes. Add common documents, spreadsheets, presentations, PDFs, images, audio, video or code and describe the result you want.'],
+          ['Can it work with my documents?', 'Yes. Add common documents, spreadsheets, presentations, PDFs, images, audio or code and describe the result you want.'],
           ['Can I verify research?', 'Yes. Research responses can include source links beside the findings they support.'],
           ['Does it remember every chat?', 'Only the context available in the active conversation or project, subject to your memory and history controls.'],
         ].map(([question, answer]) => <details key={question}><summary>{question}<Plus size={16} /></summary><p>{answer}</p></details>)}</div></section>
@@ -2183,7 +2159,7 @@ function LandingPage({ navigate, user }: { navigate: (route: PublicRoute) => voi
           <article className="capability-card capability-card-featured"><div className="capability-card-head"><span>01 / REASONING</span><Sparkles size={20} /></div><h3>Think beyond the obvious answer.</h3><p>Break down difficult questions, test alternatives and keep the final recommendation connected to evidence.</p><div className="reasoning-visual"><span>UNDERSTAND</span><span>COMPARE</span><span>VERIFY</span><strong><BrandGlyph /></strong><i /><i /></div></article>
           <article className="capability-card"><div className="capability-card-head"><span>02 / RESEARCH</span><Globe2 size={19} /></div><h3>Find signal in the noise.</h3><p>Current research, cited sources and deep investigations that end in a useful decision.</p><div className="research-lines"><i /><i /><i /><i /></div></article>
           <article className="capability-card"><div className="capability-card-head"><span>03 / FILES</span><FileText size={19} /></div><h3>From raw file to final deliverable.</h3><p>Analyze source material and create documents, sheets, decks and PDFs you can actually use.</p><div className="file-stack"><span>PDF</span><span>DOCX</span><span>XLSX</span></div></article>
-          <article className="capability-card capability-card-wide"><div><div className="capability-card-head"><span>04 / CREATE</span><WandSparkles size={19} /></div><h3>Words, images, voice and video — one creative thread.</h3><p>Keep the brief, references, iterations and final output together from first direction to export.</p></div><div className="media-wave"><span /><i /><i /><i /><i /><i /></div></article>
+          <article className="capability-card capability-card-wide"><div><div className="capability-card-head"><span>04 / CREATE</span><WandSparkles size={19} /></div><h3>Words, images and voice — one creative thread.</h3><p>Keep the brief, references, iterations and final output together from first direction to export.</p></div><div className="media-wave"><span /><i /><i /><i /><i /><i /></div></article>
           <article className="capability-card"><div className="capability-card-head"><span>05 / ACT</span><Bot size={19} /></div><h3>Delegate the whole outcome.</h3><p>Agents, computer workflows and persistent projects for work that needs more than one step.</p><div className="agent-steps"><span><Check size={12} />Plan</span><span><Check size={12} />Execute</span><span><i />Verify</span></div></article>
         </div>
       </section>
@@ -2417,7 +2393,7 @@ export default function App() {
   const [infoOpen, setInfoOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [liveVoiceOpen, setLiveVoiceOpen] = useState(false)
-  const [viewerMedia, setViewerMedia] = useState<{ url: string; title: string; kind: 'image' | 'video'; download?: string } | null>(null)
+  const [viewerMedia, setViewerMedia] = useState<{ url: string; title: string; download?: string } | null>(null)
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
   const [toast, setToast] = useState('')
   const [projects, setProjects] = useState<ProjectRecord[]>(defaultProjects)
@@ -2565,7 +2541,7 @@ export default function App() {
       removedRef.current = new Set(Array.isArray(data.removed) ? data.removed : [])
       const present = <T extends { id: string }>(records: unknown) => Array.isArray(records) ? (records as T[]).filter(record => !removedRef.current.has(record.id)) : []
       setProjects(present<ProjectRecord>(data.projects))
-      setLibrary(present<LibraryRecord>(data.library))
+      setLibrary(present<LibraryRecord>(data.library).filter(record => libraryTypes.includes(record.type)))
       setAgentRecords(Array.isArray(data.agents) ? present<AgentRecord>(data.agents) : defaultAgents)
       setConversations(present<ConversationRecord>(data.conversations))
       setPreferences({ ...defaultPreferences, ...(data.preferences || {}) })
@@ -2873,7 +2849,7 @@ export default function App() {
         {page === 'projects' && <ProjectsPage projects={projects} setProjects={setProjects} onToast={notify} onOpen={openProject} onRemoved={id => removedRef.current.add(id)} />}
         {page === 'library' && <LibraryPage items={library} setItems={setLibrary} onToast={notify} onContinue={continueArtifact} onRemoved={id => removedRef.current.add(id)} onOpenMedia={setViewerMedia} />}
         {page === 'agents' && <AgentsPage records={agentRecords} setRecords={setAgentRecords} onToast={notify} onOpen={openAgent} />}
-        {page === 'workflows' && <WorkflowsPage authenticated={Boolean(sessionUser)} plan={sessionUser?.plan || 'guest'} onSignIn={() => navigatePublic('signin')} onUpgrade={() => navigatePublic('pricing')} onToast={notify} onArtifact={addArtifact} onOpenMedia={setViewerMedia} />}
+        {page === 'workflows' && <WorkflowsPage authenticated={Boolean(sessionUser)} plan={sessionUser?.plan || 'guest'} onSignIn={() => navigatePublic('signin')} onUpgrade={() => navigatePublic('pricing')} onToast={notify} />}
         {page === 'settings' && <SettingsPage onToast={notify} compact={collapsed} setCompact={setCollapsed} preferences={preferences} setPreferences={setPreferences} controls={settingsControls} setControls={setSettingsControls} profile={profile} user={sessionUser} identities={identities} onUserUpdated={setSessionUser} setProfile={setProfile} onDeleteChats={deleteAllChats} onSignOut={() => signOut()} onOpenPricing={() => navigatePublic('pricing')} onOpenHelp={() => navigatePublic('help')} />}
       </div>
     </div>
