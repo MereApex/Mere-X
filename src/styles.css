@@ -935,6 +935,11 @@ kbd { display: inline-flex; height: 20px; align-items: center; padding: 0 5px; b
 .public-hero { display: flex; min-height: 550px; align-items: center; flex-direction: column; justify-content: center; padding: 110px 24px 90px; text-align: center; background: radial-gradient(circle at 50% 45%, #171717, #080808 58%); }
 .public-hero h1 { margin: 24px 0 25px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(55px, 7vw, 98px); font-weight: 400; letter-spacing: -4px; line-height: .98; }
 .public-hero h1 em, .public-section-head h2 em { color: #8d8d8a; font-weight: 400; font-style: normal; }
+/* Display headings use <em> for a second colour, not for emphasis, so they
+   stay upright. Prose the model writes is the exception: there an em really
+   is emphasis and should look like it. */
+h1 em, h2 em, h3 em, h4 em { font-style: normal; }
+.markdown-response :is(h1, h2, h3, h4) em { font-style: italic; }
 .public-hero > p:last-child { width: min(660px, 100%); margin: 0; color: #92928f; font-size: var(--type-chat); line-height: 1.75; }
 .public-section-head { display: grid; grid-template-columns: .55fr 1.45fr; align-items: start; gap: 50px; }
 .public-section-head h2 { max-width: 710px; margin: 0; font-family: Georgia, serif; font-size: clamp(38px, 4vw, 58px); font-weight: 400; letter-spacing: -2px; line-height: 1.05; }
