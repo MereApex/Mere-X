@@ -78,6 +78,7 @@ import {
   PayPalCardExpiryField,
   PayPalCardFieldsProvider,
   PayPalCardNumberField,
+  PayPalGuestPaymentButton,
   PayPalProvider,
   usePayPalCardFieldsOneTimePaymentSession,
   usePayPalOneTimePaymentSession,
@@ -1663,12 +1664,12 @@ function EmbeddedTermCheckout({ plan, annual, quantity, currency, total, onSucce
     return () => { observer.disconnect(); window.clearTimeout(timer) }
   }, [])
 
-  const createOrder = async () => {
+  const startOrder = async (method: 'card' | 'paypal') => {
     setError('')
     const response = await fetch('/api/billing/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan: plan.name.toLowerCase(), annual, quantity, method: 'paypal', requestId: walletAttempt.current }),
+      body: JSON.stringify({ plan: plan.name.toLowerCase(), annual, quantity, method, requestId: `${walletAttempt.current}-${method}` }),
     })
     const result = await response.json() as { orderId?: string; error?: string }
     if (!response.ok || !result.orderId) {
@@ -1676,6 +1677,12 @@ function EmbeddedTermCheckout({ plan, annual, quantity, currency, total, onSucce
       throw new Error(result.error || 'Secure checkout is unavailable right now.')
     }
     return { orderId: result.orderId }
+  }
+  const createOrder = () => startOrder('paypal')
+  const createCardOrder = () => startOrder('card')
+  const completeCardOrder = async (orderId?: string) => {
+    try { await capture(orderId) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'The card payment could not be confirmed.') }
   }
 
   const capture = async (orderId?: string) => {
@@ -1725,7 +1732,17 @@ function EmbeddedTermCheckout({ plan, annual, quantity, currency, total, onSucce
         />
       </PayPalCardFieldsProvider>
       {cardAvailable === null && <div className="payment-progress"><RotateCcw className="spin" size={16} />Preparing the secure card form…</div>}
-      {cardAvailable === false && <p className="settings-inline-note card-payment-note">Card entry on this page is not available for this merchant account yet. You can still pay by card through PayPal below, which also accepts cards without a PayPal account.</p>}
+      {cardAvailable === false && <div className="guest-card-checkout">
+        {/* Guest checkout opens PayPal's card form directly. No PayPal account,
+            no sign-in: just the card. */}
+        <PayPalGuestPaymentButton
+          createOrder={createCardOrder}
+          onApprove={async data => { await completeCardOrder((data as { orderId?: string }).orderId) }}
+          onCancel={() => setError('Checkout was cancelled. Nothing was charged.')}
+          onError={() => setError('The card payment could not be started. Try again or use PayPal below.')}
+        />
+        <p className="settings-inline-note card-payment-note">Enter your card on the secure form above. No PayPal account is needed.</p>
+      </div>}
     </div>
 
     <div className="payment-or"><span>or</span></div>
@@ -1862,7 +1879,7 @@ function PaymentModal({ plan, annual, onClose, onCompleted }: { plan: PlanTier; 
           </div>
           <button type="button" className="soft-button" onClick={onClose}>Close</button>
         </div>}
-        {config?.clientId && <PayPalProvider clientId={config.clientId} environment={config.environment} components={config.mode === 'subscription' ? ['paypal-payments'] : ['paypal-payments', 'card-fields']} pageType="checkout">
+        {config?.clientId && <PayPalProvider clientId={config.clientId} environment={config.environment} components={config.mode === 'subscription' ? ['paypal-payments'] : ['paypal-payments', 'paypal-guest-payments', 'card-fields']} pageType="checkout">
           {config.mode === 'subscription'
             ? <EmbeddedSubscriptionCheckout plan={plan} annual={annual} quantity={quantity} onSuccess={onCompleted} />
             : <EmbeddedTermCheckout plan={plan} annual={annual} quantity={quantity} currency={config.currency} total={total} onSuccess={onCompleted} />}

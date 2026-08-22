@@ -613,6 +613,16 @@ kbd { display: inline-flex; height: 20px; align-items: center; padding: 0 5px; b
 .card-payment-note { padding: 0; }
 .card-payment-form .payment-primary-action { margin-top: 3px; }
 
+/* Guest checkout: PayPal's own card form, opened without asking anyone to sign
+   in to PayPal. The web component brings its own chrome, so only spacing and the
+   surrounding frame are set here. */
+.guest-card-checkout { display: flex; flex-direction: column; gap: 10px; }
+/* PayPal positions its guest form over the button, so the container needs its own
+   stacking context and an opaque backdrop or the checkout copy shows through it. */
+.guest-card-checkout paypal-basic-card-container { position: relative; z-index: 3; display: block; width: 100%; border-radius: 12px; background: #0d0d0d; }
+.guest-card-checkout paypal-basic-card-button { display: block; width: 100%; min-height: 48px; }
+.guest-card-checkout .card-payment-note { padding: 0; }
+
 /* The wallet is offered second, and it opens over this page rather than away from it. */
 .payment-or { display: flex; align-items: center; gap: 12px; color: #6e6e6b; font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 1.2px; }
 .payment-or::before, .payment-or::after { flex: 1; height: 1px; background: #262626; content: ''; }
@@ -972,7 +982,7 @@ kbd { display: inline-flex; height: 20px; align-items: center; padding: 0 5px; b
 .pricing-card li { display: flex; align-items: flex-start; gap: 8px; color: #b6b6b3; font-size: var(--type-caption); line-height: 1.45; }
 .pricing-card li svg { flex: 0 0 auto; margin-top: 1px; color: #888885; }
 .payment-modal-overlay { position: fixed; z-index: 240; inset: 0; display: flex; align-items: center; justify-content: center; padding: 28px; overflow-y: auto; overscroll-behavior: contain; background: #000d; backdrop-filter: blur(18px); animation: fade .18s ease; }
-.payment-modal { position: relative; display: grid; width: min(940px, 100%); min-height: min(610px, 100%); max-height: calc(100dvh - 56px); overflow: hidden; grid-template-columns: .9fr 1.1fr; border: 1px solid #393939; border-radius: 24px; color: #e8e8e5; background: #0d0d0d; box-shadow: 0 45px 150px #000, inset 0 1px #ffffff0b; animation: payment-rise .24s ease; }
+.payment-modal { position: relative; display: grid; width: min(940px, 100%); min-height: min(610px, 100%); max-height: calc(100dvh - 56px); overflow: hidden; grid-template-columns: .9fr 1.1fr; grid-template-rows: minmax(0, 1fr); border: 1px solid #393939; border-radius: 24px; color: #e8e8e5; background: #0d0d0d; box-shadow: 0 45px 150px #000, inset 0 1px #ffffff0b; animation: payment-rise .24s ease; }
 .payment-close { position: absolute; z-index: 4; top: 17px; right: 17px; display: flex; width: 36px; height: 36px; align-items: center; justify-content: center; border: 1px solid #303030; border-radius: 10px; color: #92928f; background: #171717; transition: .18s ease; }
 .payment-close:hover { color: #f2f2ef; border-color: #4b4b4b; transform: translateY(-1px); }
 .payment-summary, .payment-checkout { min-width: 0; padding: 42px 40px; }
