@@ -1018,7 +1018,7 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast }: { 
     { id: 'deep-research', title: 'Deep Research', eyebrow: 'REPORT', description: 'Investigate a complex topic across many sources and return a structured, cited report.', icon: Globe2, placeholder: 'Research the market, compare the strongest evidence and produce an executive report…' },
     { id: 'computer-workspace', title: 'Computer Workspace', eyebrow: 'SANDBOX', description: 'Complete a multi-step browser and computer task inside a protected remote workspace.', icon: Monitor, placeholder: 'Open the provided public resources, collect the relevant facts and organize the result…' },
     { id: 'managed-agent', title: 'Autonomous Agent', eyebrow: 'MULTI-STEP', description: 'Give Mere Apex an outcome and let it plan, execute and verify the full task.', icon: Bot, placeholder: 'Create a complete launch plan with research, risks, schedule and finished deliverables…' },
-    { id: 'video', title: 'Video Studio', eyebrow: '8 SECONDS', description: 'Create a polished video clip with motion, sound and a cinematic visual direction.', icon: Video, placeholder: 'A monochrome architectural film, slow camera movement, soft natural light…' },
+    { id: 'video', title: 'Video Studio', eyebrow: '8 SECONDS', description: 'Create a polished video clip with motion and a cinematic visual direction.', icon: Video, placeholder: 'A monochrome architectural film, slow camera movement, soft natural light…' },
   ]
   const active = workflows.find(item => item.id === kind) || workflows[0]
   const activeStatus = job && !['completed', 'failed', 'cancelled'].includes(job.status)

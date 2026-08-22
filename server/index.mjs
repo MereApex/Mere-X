@@ -1052,6 +1052,25 @@ app.get('/api/files/:id', async (req, res) => {
   res.send(file.buffer)
 })
 
+// Turn the provider's operation error into something a person can act on,
+// without leaking anything about how the request is routed.
+function videoFailureMessage(error) {
+  const detail = String(error?.message || error?.status || JSON.stringify(error || {})).toLowerCase()
+  if (detail.includes('safety') || detail.includes('policy') || detail.includes('blocked') || detail.includes('prohibited')) {
+    return 'This description could not be turned into a video safely. Try describing the scene differently.'
+  }
+  if (detail.includes('person') || detail.includes('people') || detail.includes('face') || detail.includes('celebrit')) {
+    return 'Videos of recognisable people cannot be created here. Try a scene without people.'
+  }
+  if (detail.includes('quota') || detail.includes('exhaust') || detail.includes('resource')) {
+    return 'The video service is at capacity right now. Please try again shortly.'
+  }
+  if (detail.includes('invalid') || detail.includes('argument')) {
+    return 'This video request could not be processed. Try a shorter description or a different frame.'
+  }
+  return 'The video could not be completed. Try describing the scene differently or try again shortly.'
+}
+
 async function startManagedJob(req, res, { type, agent, environment, agentConfig, usageKind }) {
   if (!apiKey) return res.status(503).json({ error: 'Mere X intelligence is not configured.' })
   const prompt = String(req.body?.prompt || '').trim()
@@ -1190,15 +1209,32 @@ app.get('/api/jobs/:id', async (req, res) => {
       const operation = await ai.operations.getVideosOperation({ operation: pending })
       if (!operation.done) return res.json({ job: await updateJob(job.id, { status: 'running', result: { operationName } }) })
       if (operation.error) {
-        const failed = await updateJob(job.id, { status: 'failed', error: 'The video could not be completed.', result: { operationName } })
+        // The provider says why. Throwing that away left people with a dead end,
+        // so the reason is logged and a usable version of it is shown.
+        console.error('[video-failed]', { operationName, error: JSON.stringify(operation.error).slice(0, 500) })
+        const failed = await updateJob(job.id, { status: 'failed', error: videoFailureMessage(operation.error), result: { operationName } })
         return res.json({ job: failed })
       }
       const generated = operation.response?.generatedVideos?.[0]
+      // A request that finishes with nothing to show was filtered rather than
+      // broken, and telling someone it "could not be completed" hides that.
+      if (!generated) {
+        const reason = operation.response?.raiMediaFilteredReasons?.[0]
+        console.error('[video-empty]', { operationName, filtered: operation.response?.raiMediaFilteredCount, reason })
+        const failed = await updateJob(job.id, {
+          status: 'failed',
+          error: reason
+            ? `This video was not created: ${String(reason).slice(0, 200)}`
+            : 'Mere X could not create a video from this description. Try describing the scene differently.',
+          result: { operationName },
+        })
+        return res.json({ job: failed })
+      }
       const video = generated?.video
       let buffer
       if (video?.videoBytes) buffer = Buffer.from(video.videoBytes, 'base64')
       else if (video?.uri) {
-        const response = await fetch(video.uri, { headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(120_000) })
+        const response = await fetch(video.uri, { headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(240_000) })
         if (!response.ok) throw new Error(`Generated video download failed (${response.status})`)
         buffer = Buffer.from(await response.arrayBuffer())
       }
