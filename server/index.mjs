@@ -1,5 +1,5 @@
 import { openSync as openFont } from 'fontkit'
-import { GoogleGenAI } from '@google/genai'
+import { GenerateVideosOperation, GoogleGenAI } from '@google/genai'
 import { OAuth2Client } from 'google-auth-library'
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx'
 import dotenv from 'dotenv'
@@ -1155,7 +1155,10 @@ app.post('/api/video', requireUser, async (req, res) => {
     const operation = await ai.models.generateVideos({
       model,
       prompt: prompt.slice(0, 4000),
-      config: { numberOfVideos: 1, aspectRatio, resolution, durationSeconds: 8, generateAudio: true, enhancePrompt: true },
+      // Only the options this model actually accepts. generateAudio is enterprise
+      // only and enhancePrompt is not supported here; sending either failed the
+      // whole request, which is why every video came back as unavailable.
+      config: { numberOfVideos: 1, aspectRatio, resolution, durationSeconds: 8 },
     })
     if (!operation.name) throw new Error('Video task did not start')
     const updated = await updateJob(job.id, { status: operation.done ? 'processing' : 'running', result: { operationName: operation.name } })
@@ -1180,7 +1183,11 @@ app.get('/api/jobs/:id', async (req, res) => {
     if (!apiKey || !operationName || ['completed', 'failed', 'cancelled'].includes(job.status)) return res.json({ job })
     try {
       const ai = client()
-      const operation = await ai.operations.getVideosOperation({ operation: { name: operationName } })
+      // The SDK polls through a real operation object, not a bare name: a plain
+      // object has none of the methods it calls while parsing the response.
+      const pending = new GenerateVideosOperation()
+      pending.name = operationName
+      const operation = await ai.operations.getVideosOperation({ operation: pending })
       if (!operation.done) return res.json({ job: await updateJob(job.id, { status: 'running', result: { operationName } }) })
       if (operation.error) {
         const failed = await updateJob(job.id, { status: 'failed', error: 'The video could not be completed.', result: { operationName } })

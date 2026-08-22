@@ -138,6 +138,9 @@ type WorkspaceSnapshot = {
   profile?: UserProfile
   thread?: Message[]
   activeConversationId?: string | null
+  // Deleting something has to travel too. Without it, a second tab holding an
+  // older copy simply writes the deleted record back.
+  removed?: string[]
 }
 type AccountStorage = { workspaceBytes: number; fileBytes: number; jobBytes: number; totalBytes: number; files: number; jobs: number; knowledgeStores: number }
 
@@ -776,11 +779,12 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow?: string
   return <div className="page-heading"><div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1><p>{description}</p></div>{action}</div>
 }
 
-function ProjectsPage({ projects, setProjects, onToast, onOpen }: {
+function ProjectsPage({ projects, setProjects, onToast, onOpen, onRemoved }: {
   projects: ProjectRecord[]
   setProjects: Dispatch<SetStateAction<ProjectRecord[]>>
   onToast: (s: string) => void
   onOpen: (project: ProjectRecord) => void
+  onRemoved: (id: string) => void
 }) {
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -804,6 +808,7 @@ function ProjectsPage({ projects, setProjects, onToast, onOpen }: {
   }
   const removeProject = async (project: ProjectRecord) => {
     if (!window.confirm(`Delete ${project.name}? Its instructions and indexed knowledge are removed permanently. This cannot be undone.`)) return
+    onRemoved(project.id)
     setProjects(current => current.filter(record => record.id !== project.id))
     onToast(`${project.name} deleted`)
     // Release the indexed knowledge as well, or the account keeps paying for an
@@ -839,7 +844,7 @@ function ProjectsPage({ projects, setProjects, onToast, onOpen }: {
   </div>
 }
 
-function LibraryPage({ items, setItems, onToast, onContinue }: { items: LibraryRecord[]; setItems: Dispatch<SetStateAction<LibraryRecord[]>>; onToast: (s: string) => void; onContinue: (item: LibraryRecord) => void }) {
+function LibraryPage({ items, setItems, onToast, onContinue, onRemoved }: { items: LibraryRecord[]; setItems: Dispatch<SetStateAction<LibraryRecord[]>>; onToast: (s: string) => void; onContinue: (item: LibraryRecord) => void; onRemoved: (id: string) => void }) {
   const [filter, setFilter] = useState('All')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<LibraryRecord | null>(null)
@@ -868,7 +873,7 @@ function LibraryPage({ items, setItems, onToast, onContinue }: { items: LibraryR
           {item.preview ? <img className="artifact-preview-image" src={item.preview} alt="" /> : item.type === 'Code' ? <><span className="code-line wide" /><span className="code-line" /><span className="code-line mid" /><span className="code-line tiny" /></> : item.type === 'Image' ? <div className="abstract-art"><i /><i /><i /></div> : <><span className="doc-kicker" /><span className="doc-title" /><span className="doc-line" /><span className="doc-line short" /><span className="doc-line" /><span className="doc-line mid" /></>}
           <button onClick={() => setSelected(item)} aria-label={`Open ${item.title}`}><ExternalLink size={16} /></button>
         </div>
-        <div className="library-info"><span className="library-type"><Icon size={15} />{item.type}</span><h3>{item.title}</h3><p>{item.date}</p></div><IconButton label={`Delete ${item.title}`} onClick={() => { if (!window.confirm(`Delete ${item.title} from your Library? This cannot be undone.`)) return; setItems(current => current.filter(record => record.id !== item.id)); onToast('Library item deleted') }}><Trash2 size={15} /></IconButton>
+        <div className="library-info"><span className="library-type"><Icon size={15} />{item.type}</span><h3>{item.title}</h3><p>{item.date}</p></div><IconButton label={`Delete ${item.title}`} onClick={() => { if (!window.confirm(`Delete ${item.title} from your Library? This cannot be undone.`)) return; onRemoved(item.id); setItems(current => current.filter(record => record.id !== item.id)); onToast('Library item deleted') }}><Trash2 size={15} /></IconButton>
         {item.date.toLowerCase().includes('just now') && <span className="new-tag">NEW</span>}
       </article>})}
       {!shown.length && <div className="library-empty"><Search size={22} /><b>No library items found</b><span>Change the filter or create a new document.</span></div>}
@@ -2278,6 +2283,10 @@ export default function App() {
   const workspaceOwnerRef = useRef<string | null>(null)
   // Effects need to raise a toast without taking the toast state as a dependency.
   const notifyRef = useRef<(text: string) => void>(() => undefined)
+  // What was last written, so an unchanged snapshot is not sent again.
+  const lastSavedRef = useRef('')
+  // Records this browser deleted on purpose. A merge must not resurrect them.
+  const removedRef = useRef(new Set<string>())
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [activeAgent, setActiveAgent] = useState<AgentRecord | null>(null)
   const [activeProject, setActiveProject] = useState<ProjectRecord | null>(null)
@@ -2287,6 +2296,29 @@ export default function App() {
     // Remove legacy browser-persisted workspace records from earlier previews.
     // Account content is now loaded exclusively from authenticated database APIs.
     for (const key of Object.keys(localStorage)) if (key.startsWith('mere-x-')) localStorage.removeItem(key)
+  }, [])
+
+  // Two tabs on one account both write the whole workspace. When the second one
+  // loses the race, taking only the new version number and writing the old
+  // snapshot again silently threw away whatever the other tab had just added.
+  // Fold in anything this tab does not have instead, minus what it deleted.
+  const mergeRemoteWorkspace = useCallback((remote?: WorkspaceSnapshot) => {
+    if (!remote) return
+    // Deletions from either side win, so a record removed anywhere stays removed
+    // everywhere, and everything else is kept from both.
+    for (const id of remote.removed || []) removedRef.current.add(id)
+    const removed = removedRef.current
+    const fold = <T extends { id: string }>(mine: T[], theirs?: T[]) => {
+      const kept = mine.filter(item => !removed.has(item.id))
+      if (!theirs?.length) return kept.length === mine.length ? mine : kept
+      const known = new Set(kept.map(item => item.id))
+      const extra = theirs.filter(item => !known.has(item.id) && !removed.has(item.id))
+      return extra.length || kept.length !== mine.length ? [...kept, ...extra] : mine
+    }
+    setConversations(current => fold(current, remote.conversations))
+    setProjects(current => fold(current, remote.projects))
+    setLibrary(current => fold(current, remote.library))
+    setAgentRecords(current => fold(current, remote.agents))
   }, [])
 
   const readSession = useCallback(async (signal?: AbortSignal) => {
@@ -2349,6 +2381,8 @@ export default function App() {
     const controller = new AbortController()
     workspaceOwnerRef.current = null
     workspaceVersionRef.current = 0
+    lastSavedRef.current = ''
+    removedRef.current = new Set()
     setWorkspaceLoaded(false)
     setWorkspaceError('')
     setProjects([])
@@ -2372,10 +2406,12 @@ export default function App() {
       workspaceVersionRef.current = result.version
       workspaceOwnerRef.current = accountId
       const data = result.data || {}
-      setProjects(Array.isArray(data.projects) ? data.projects : [])
-      setLibrary(Array.isArray(data.library) ? data.library : [])
-      setAgentRecords(Array.isArray(data.agents) ? data.agents : defaultAgents)
-      setConversations(Array.isArray(data.conversations) ? data.conversations : [])
+      removedRef.current = new Set(Array.isArray(data.removed) ? data.removed : [])
+      const present = <T extends { id: string }>(records: unknown) => Array.isArray(records) ? (records as T[]).filter(record => !removedRef.current.has(record.id)) : []
+      setProjects(present<ProjectRecord>(data.projects))
+      setLibrary(present<LibraryRecord>(data.library))
+      setAgentRecords(Array.isArray(data.agents) ? present<AgentRecord>(data.agents) : defaultAgents)
+      setConversations(present<ConversationRecord>(data.conversations))
       setPreferences({ ...defaultPreferences, ...(data.preferences || {}) })
       setSettingsControls({ ...defaultSettingsControls, ...(data.settingsControls || {}) })
       setMessages(Array.isArray(data.thread) ? data.thread : [])
@@ -2411,7 +2447,14 @@ export default function App() {
         settingsControls,
         thread: settingsControls.chatHistory ?? true ? lightweightMessages(messages) : [],
         activeConversationId: settingsControls.chatHistory ?? true ? activeConversationId : null,
+        // Keep the most recent removals only; older ones can no longer be
+        // resurrected by any copy still in circulation.
+        removed: [...removedRef.current].slice(-300),
       }
+      const payload = JSON.stringify(snapshot)
+      // Nothing changed since the last write, so there is nothing to send. This
+      // also stops two tabs from trading conflicts back and forth forever.
+      if (payload === lastSavedRef.current) return
       void fetch('/api/workspace', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2420,8 +2463,12 @@ export default function App() {
         body: JSON.stringify({ version: workspaceVersionRef.current, userId: accountId, data: snapshot }),
       }).then(async response => {
         if (workspaceOwnerRef.current !== accountId) return
-        const result = await response.json().catch(() => ({})) as { version?: number; code?: string }
-        if (response.ok && typeof result.version === 'number') { workspaceVersionRef.current = result.version; return }
+        const result = await response.json().catch(() => ({})) as { version?: number; code?: string; data?: WorkspaceSnapshot }
+        if (response.ok && typeof result.version === 'number') {
+          workspaceVersionRef.current = result.version
+          lastSavedRef.current = payload
+          return
+        }
         if (response.status === 401) {
           workspaceOwnerRef.current = null
           setSessionUser(null)
@@ -2443,11 +2490,16 @@ export default function App() {
           notifyRef.current('Your workspace grew too large to sync. The oldest conversations were archived off this device so new work keeps saving.')
           return
         }
-        if (response.status === 409 && typeof result.version === 'number') workspaceVersionRef.current = result.version
+        if (response.status === 409 && typeof result.version === 'number') {
+          // Another tab wrote first. Adopt its version and fold its work into
+          // this tab, which schedules a save carrying both.
+          workspaceVersionRef.current = result.version
+          mergeRemoteWorkspace(result.data)
+        }
       }).catch(() => undefined)
     }, 900)
     return () => window.clearTimeout(timer)
-  }, [sessionUser?.id, workspaceLoaded, projects, library, agentRecords, conversations, preferences, settingsControls, messages, activeConversationId])
+  }, [sessionUser?.id, workspaceLoaded, projects, library, agentRecords, conversations, preferences, settingsControls, messages, activeConversationId, mergeRemoteWorkspace])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -2617,7 +2669,10 @@ export default function App() {
   const activeConversation = conversations.find(record => record.id === activeConversationId)
   const conversationTitle = activeConversation?.title || messages.find(message => message.role === 'user')?.content.slice(0, 52) || activeAgent?.name || activeProject?.name || 'New conversation'
   const deleteCurrentConversation = () => {
-    if (activeConversationId) setConversations(current => current.filter(record => record.id !== activeConversationId))
+    if (activeConversationId) {
+      removedRef.current.add(activeConversationId)
+      setConversations(current => current.filter(record => record.id !== activeConversationId))
+    }
     newChat(); notify('Conversation deleted')
   }
   const archiveCurrentConversation = () => {
@@ -2629,6 +2684,7 @@ export default function App() {
     notify(activeConversation?.favorite ? 'Removed from favorites' : 'Added to favorites')
   }
   const deleteAllChats = () => {
+    for (const record of conversations) removedRef.current.add(record.id)
     setMessages([]); setActiveConversationId(null); setConversations([]); notify('All conversations deleted')
   }
   if (publicRoute === 'app' && !sessionResolved) return <div className="workspace-gate"><BrandMark /><span className="workspace-gate-pulse" /><h1>Securing your session</h1><p>Connecting to your private Mere X workspace…</p></div>
@@ -2652,8 +2708,8 @@ export default function App() {
       <Topbar page={page} setMobileOpen={setMobileOpen} onShare={() => setShareOpen(true)} onInfo={() => setInfoOpen(!infoOpen)} onNotify={notify} />
       <div className="page-area">
         {page === 'chat' && <ChatPage messages={messages} setMessages={setMessages} onToast={notify} onLiveVoice={() => setLiveVoiceOpen(true)} agent={activeAgent} project={activeProject} preferences={preferences} voiceEnabled={settingsControls.voiceInput ?? true} onArtifact={addArtifact} />}
-        {page === 'projects' && <ProjectsPage projects={projects} setProjects={setProjects} onToast={notify} onOpen={openProject} />}
-        {page === 'library' && <LibraryPage items={library} setItems={setLibrary} onToast={notify} onContinue={continueArtifact} />}
+        {page === 'projects' && <ProjectsPage projects={projects} setProjects={setProjects} onToast={notify} onOpen={openProject} onRemoved={id => removedRef.current.add(id)} />}
+        {page === 'library' && <LibraryPage items={library} setItems={setLibrary} onToast={notify} onContinue={continueArtifact} onRemoved={id => removedRef.current.add(id)} />}
         {page === 'agents' && <AgentsPage records={agentRecords} setRecords={setAgentRecords} onToast={notify} onOpen={openAgent} />}
         {page === 'workflows' && <WorkflowsPage authenticated={Boolean(sessionUser)} plan={sessionUser?.plan || 'guest'} onSignIn={() => navigatePublic('signin')} onUpgrade={() => navigatePublic('pricing')} onToast={notify} />}
         {page === 'settings' && <SettingsPage onToast={notify} compact={collapsed} setCompact={setCollapsed} preferences={preferences} setPreferences={setPreferences} controls={settingsControls} setControls={setSettingsControls} profile={profile} user={sessionUser} identities={identities} onUserUpdated={setSessionUser} setProfile={setProfile} onDeleteChats={deleteAllChats} onSignOut={() => signOut()} onOpenPricing={() => navigatePublic('pricing')} onOpenHelp={() => navigatePublic('help')} />}
