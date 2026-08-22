@@ -79,6 +79,13 @@ export async function paypalDiagnostics() {
   try {
     await accessToken()
     result.reachable = true
+    const missing = missingScopes()
+    if (missing.length) {
+      result.featureEnabled = false
+      result.problems.push(`These credentials authenticate, but the PayPal app does not have Subscriptions enabled, so Mere X cannot create the membership plans. Open the PayPal Developer dashboard, select this ${environment} app, and tick "Subscriptions" under Features, then save.`)
+    } else {
+      result.featureEnabled = true
+    }
   } catch (error) {
     result.reachable = false
     result.status = Number(error?.statusCode) || undefined
@@ -130,6 +137,8 @@ function getClient() {
   return clientState
 }
 
+let grantedScopes = ''
+
 async function accessToken() {
   const state = getClient()
   try {
@@ -147,7 +156,21 @@ async function accessToken() {
     }
     throw error
   }
+  grantedScopes = String(accessTokenState.scope || '')
   return accessTokenState.accessToken
+}
+
+// A REST app only receives the scopes for the features enabled on it. Naming
+// the missing one turns a dead end into a single dashboard toggle.
+const REQUIRED_SCOPES = [
+  ['subscriptions', 'Subscriptions'],
+  ['billing-plans', 'Subscriptions (billing plans)'],
+  ['catalog-products', 'Subscriptions (catalog products)'],
+]
+
+function missingScopes() {
+  if (!grantedScopes) return []
+  return REQUIRED_SCOPES.filter(([scope]) => !grantedScopes.includes(scope)).map(([, label]) => label)
 }
 
 async function paypalRest(pathname, { method = 'GET', body, headers = {} } = {}) {
@@ -226,6 +249,17 @@ export function paymentError(error) {
   const debugId = error?.debugId || error?.result?.debugId || error?.headers?.['paypal-debug-id']
   if (issue === 'INSTRUMENT_DECLINED') return { status: 422, message: 'This payment method was declined. Choose another card or payment method.', debugId }
   if (issue === 'PAYMENT_DENIED') return { status: 422, message: 'The payment could not be approved. Choose another payment method.', debugId }
+  if (Number(error?.statusCode) === 403 || issue === 'NOT_AUTHORIZED' || /insufficient permissions/i.test(String(error?.message || ''))) {
+    const missing = missingScopes()
+    return {
+      status: 503,
+      message: 'Secure checkout is not available yet while membership billing is being switched on.',
+      debugId,
+      operatorHint: missing.length
+        ? `The PayPal app is missing: ${missing.join(', ')}. Enable Subscriptions on this app in the PayPal Developer dashboard.`
+        : 'PayPal refused this request as unauthorized. Confirm the app has Subscriptions enabled.',
+    }
+  }
   if (Number(error?.statusCode) === 401 || error?.credentialFailure) {
     const problems = paypalCredentialProblems()
     return {

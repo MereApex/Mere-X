@@ -4,13 +4,17 @@ import { getSession, recordUsage, usageSince } from './store.mjs'
 export const SESSION_COOKIE = 'mere_session'
 export const GUEST_COOKIE = 'mere_guest'
 
+const everydayCapabilities = ['chat', 'research', 'export', 'file', 'voice']
+const creativeCapabilities = [...everydayCapabilities, 'image']
+const allCapabilities = [...creativeCapabilities, 'deepResearch', 'agent', 'computer', 'video']
+
 export const plans = {
-  guest: { id: 'guest', label: 'Preview', windowUnits: 60, heavyDailyUnits: 28, mediaMonthlyUnits: 14, agenticMonthlyUnits: 0, monthlyCostCap: 0.15 },
-  free: { id: 'free', label: 'Free', windowUnits: 120, heavyDailyUnits: 70, mediaMonthlyUnits: 42, agenticMonthlyUnits: 50, monthlyCostCap: 0.75 },
-  plus: { id: 'plus', label: 'Plus', windowUnits: 720, heavyDailyUnits: 420, mediaMonthlyUnits: 700, agenticMonthlyUnits: 520, monthlyCostCap: 8.5 },
-  pro: { id: 'pro', label: 'Pro', windowUnits: 2600, heavyDailyUnits: 1800, mediaMonthlyUnits: 2100, agenticMonthlyUnits: 2200, monthlyCostCap: 24 },
-  team: { id: 'team', label: 'Team', windowUnits: 1200, heavyDailyUnits: 720, mediaMonthlyUnits: 800, agenticMonthlyUnits: 800, monthlyCostCap: 10 },
-  enterprise: { id: 'enterprise', label: 'Enterprise', windowUnits: 10000, heavyDailyUnits: 10000, mediaMonthlyUnits: 20000, agenticMonthlyUnits: 20000, monthlyCostCap: 500 },
+  guest: { id: 'guest', label: 'Preview', includes: everydayCapabilities, windowUnits: 60, heavyDailyUnits: 28, mediaMonthlyUnits: 14, agenticMonthlyUnits: 0, monthlyCostCap: 0.15 },
+  free: { id: 'free', label: 'Free', includes: [...creativeCapabilities, 'deepResearch'], windowUnits: 160, heavyDailyUnits: 120, mediaMonthlyUnits: 56, agenticMonthlyUnits: 200, monthlyCostCap: 2.6 },
+  plus: { id: 'plus', label: 'Plus', includes: allCapabilities, windowUnits: 720, heavyDailyUnits: 420, mediaMonthlyUnits: 700, agenticMonthlyUnits: 520, monthlyCostCap: 8.5 },
+  pro: { id: 'pro', label: 'Pro', includes: allCapabilities, windowUnits: 2600, heavyDailyUnits: 1800, mediaMonthlyUnits: 2100, agenticMonthlyUnits: 2200, monthlyCostCap: 24 },
+  team: { id: 'team', label: 'Team', includes: allCapabilities, windowUnits: 1200, heavyDailyUnits: 720, mediaMonthlyUnits: 800, agenticMonthlyUnits: 800, monthlyCostCap: 10 },
+  enterprise: { id: 'enterprise', label: 'Enterprise', includes: allCapabilities, windowUnits: 10000, heavyDailyUnits: 10000, mediaMonthlyUnits: 20000, agenticMonthlyUnits: 20000, monthlyCostCap: 500 },
 }
 
 export const usageWeights = {
@@ -66,6 +70,9 @@ const capabilityLabels = {
 // false: waiting never helps.
 export function planIncludes(planId, kind, multiplier = 1) {
   const plan = plans[planId] || plans.guest
+  if (!plan.includes.includes(kind)) return false
+  // A plan must also be able to afford one run of what it offers; a capability
+  // that is listed but never affordable would be a promise the product breaks.
   const units = (usageWeights[kind] || 1) * Math.max(0.25, Number(multiplier) || 1)
   const cost = (conservativeCostUsd[kind] || 0.01) * Math.max(0.25, Number(multiplier) || 1)
   if (units > plan.windowUnits) return false
@@ -185,7 +192,7 @@ export async function reserveUsage(req, res, kind, multiplier = 1, metadata = nu
   // A request the plan could never satisfy is a plan question, not a timing one.
   if (!planIncludes(planId, kind, multiplier)) {
     res.status(403).json({
-      error: `${label} is not included in Mere ${plan.label}. Upgrade to run it.`,
+      error: `${label} is part of the larger Mere plans. Upgrade to use it.`,
       code: 'plan-upgrade-required',
       capability: kind,
       plan: plan.id,
@@ -208,15 +215,15 @@ export async function reserveUsage(req, res, kind, multiplier = 1, metadata = nu
   // so the message is never "try again shortly" about a 30-day window.
   const exceeded =
     rolling.units + units > plan.windowUnits
-      ? { scope: 'window', resetAt: timestamp + 5 * 60 * 60 * 1000, message: `Your rolling 5-hour allowance is full. ${label} is available again after it refreshes.` }
+      ? { scope: 'window', resetAt: timestamp + 5 * 60 * 60 * 1000, message: `${label} is paused while your current access refreshes. It becomes available again shortly.` }
       : heavyKinds.has(kind) && heavyUsed + units > plan.heavyDailyUnits
-        ? { scope: 'daily', resetAt: timestamp + 24 * 60 * 60 * 1000, message: `Your daily allowance for advanced work is full. ${label} is available again within 24 hours.` }
+        ? { scope: 'daily', resetAt: timestamp + 24 * 60 * 60 * 1000, message: `${label} has been used heavily today and is paused while your access refreshes.` }
         : mediaKinds.has(kind) && mediaUsed + units > plan.mediaMonthlyUnits
-          ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Your monthly allowance for images and video is used up on Mere ${plan.label}.` }
+          ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Image and video creation is paused on Mere ${plan.label} until your access refreshes.` }
           : agenticKinds.has(kind) && agenticUsed + units > plan.agenticMonthlyUnits
-            ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Your monthly allowance for agent and research workflows is used up on Mere ${plan.label}.` }
+            ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Research and agent workflows are paused on Mere ${plan.label} until your access refreshes.` }
             : monthly.costUsd + estimatedCost > plan.monthlyCostCap
-              ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `Your monthly allowance on Mere ${plan.label} is used up. It refreshes as earlier usage ages out of the 30-day window.` }
+              ? { scope: 'monthly', resetAt: timestamp + 30 * 24 * 60 * 60 * 1000, message: `${label} is paused on Mere ${plan.label} while your access refreshes.` }
               : null
 
   if (exceeded) {

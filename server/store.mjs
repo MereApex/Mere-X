@@ -145,6 +145,25 @@ export async function deleteUser(userId) {
   await execute('DELETE FROM users WHERE id=?', [userId])
 }
 
+// A throttle that survives a restart and is shared by every instance, so the
+// limit is the same whether the app runs once or ten times.
+export async function consumeRateLimit(bucket, limit, windowMs) {
+  const key = String(bucket).slice(0, 191)
+  return withTransaction(async connection => {
+    const timestamp = now()
+    const [rows] = await connection.execute('SELECT hits,window_started_at FROM rate_limits WHERE bucket=? FOR UPDATE', [key])
+    const row = rows[0]
+    const expired = !row || Number(row.window_started_at) + windowMs <= timestamp
+    const startedAt = expired ? timestamp : Number(row.window_started_at)
+    const hits = expired ? 1 : Number(row.hits) + 1
+    if (hits > limit) return { allowed: false, retryAt: startedAt + windowMs }
+    await connection.execute(`INSERT INTO rate_limits (bucket,hits,window_started_at,expires_at) VALUES (?,?,?,?)
+      ON DUPLICATE KEY UPDATE hits=VALUES(hits),window_started_at=VALUES(window_started_at),expires_at=VALUES(expires_at)`,
+      [key, hits, startedAt, startedAt + windowMs])
+    return { allowed: true, retryAt: startedAt + windowMs }
+  })
+}
+
 export async function cleanupExpired() {
   const timestamp = now()
   await Promise.all([
@@ -154,6 +173,7 @@ export async function cleanupExpired() {
     execute('DELETE FROM shared_conversations WHERE expires_at IS NOT NULL AND expires_at<=?', [timestamp]),
     execute("DELETE FROM jobs WHERE owner_id IS NULL AND updated_at<? AND status IN ('completed','failed','cancelled')", [timestamp - 30 * 24 * 60 * 60 * 1000]),
     execute('DELETE FROM usage_events WHERE created_at<?', [timestamp - 400 * 24 * 60 * 60 * 1000]),
+    execute('DELETE FROM rate_limits WHERE expires_at<=?', [timestamp]),
   ])
   await expireEndedBillingAccess(timestamp)
 }
@@ -582,6 +602,13 @@ export async function getKnowledgeStore(ownerId, projectId) {
   const [rows] = await execute('SELECT * FROM knowledge_stores WHERE owner_id=? AND project_id=? LIMIT 1', [ownerId, String(projectId)])
   const row = rows[0]
   return row ? { projectId: row.project_id, storeName: row.store_name, displayName: row.display_name, updatedAt: Number(row.updated_at) } : null
+}
+
+export async function deleteKnowledgeStore(ownerId, projectId) {
+  const [rows] = await execute('SELECT store_name FROM knowledge_stores WHERE owner_id=? AND project_id=? LIMIT 1', [ownerId, String(projectId)])
+  const storeName = rows[0]?.store_name || null
+  if (storeName) await execute('DELETE FROM knowledge_stores WHERE owner_id=? AND project_id=?', [ownerId, String(projectId)])
+  return storeName
 }
 
 export async function saveKnowledgeStore(ownerId, projectId, storeName, displayName) {

@@ -507,7 +507,7 @@ kbd { display: inline-flex; height: 20px; align-items: center; padding: 0 5px; b
 .library-empty b { margin-top: 12px; color: #b8b8b5; font-size: var(--type-body); font-weight: 550; }
 .library-empty span { margin-top: 5px; color: #737370; font-size: var(--type-caption); }
 
-.agent-hero { display: flex; min-height: 295px; align-items: center; justify-content: space-between; overflow: hidden; padding: 40px 46px; border: 1px solid #292929; border-radius: 17px; background: #efefec; color: #111; }
+.agent-hero { position: relative; display: flex; min-height: 295px; align-items: center; justify-content: space-between; overflow: hidden; padding: 40px 46px; border: 1px solid #292929; border-radius: 17px; background: #efefec; color: #111; }
 .agent-hero > div:first-child { position: relative; z-index: 2; max-width: 550px; }
 .agent-hero > div:first-child > span { display: flex; align-items: center; gap: 7px; font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: 1.1px; }
 .agent-hero h2 { margin: 24px 0 10px; font-family: Georgia, "Times New Roman", serif; font-size: 34px; font-weight: 400; letter-spacing: -1.2px; line-height: 1.12; }

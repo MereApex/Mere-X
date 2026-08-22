@@ -284,6 +284,21 @@ const migrations = [
       'ALTER TABLE email_challenges ADD INDEX email_challenges_user (user_id, purpose)',
     ],
   },
+  {
+    version: 8,
+    name: 'shared_rate_limits',
+    statements: [
+      // Auth throttling lives in the database so it still holds when the app
+      // runs as more than one instance, and so it cannot grow the process heap.
+      `CREATE TABLE IF NOT EXISTS rate_limits (
+        bucket VARCHAR(191) NOT NULL PRIMARY KEY,
+        hits INT UNSIGNED NOT NULL,
+        window_started_at BIGINT UNSIGNED NOT NULL,
+        expires_at BIGINT UNSIGNED NOT NULL,
+        INDEX rate_limits_expiry (expires_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    ],
+  },
 ]
 
 // MySQL commits DDL implicitly, so a migration that fails halfway leaves the

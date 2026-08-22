@@ -1,3 +1,4 @@
+import { openSync as openFont } from 'fontkit'
 import { GoogleGenAI } from '@google/genai'
 import { OAuth2Client } from 'google-auth-library'
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx'
@@ -34,6 +35,8 @@ import {
   getShare,
   getJob,
   getKnowledgeStore,
+  deleteKnowledgeStore,
+  consumeRateLimit,
   getCurrentBillingSubscription,
   getStoredFile,
   getUser,
@@ -115,12 +118,42 @@ app.post('/api/billing/webhook', express.raw({ type: 'application/json', limit: 
     res.status(failure.status === 502 ? 500 : failure.status).json({ error: failure.message, supportId: failure.debugId })
   }
 })
+// Knowledge documents are the largest thing the product accepts, so that route
+// parses with its own ceiling. Everything else stays small on purpose.
+const KNOWLEDGE_MAX_BYTES = 25 * 1024 * 1024
+const KNOWLEDGE_MAX_BASE64 = Math.ceil(KNOWLEDGE_MAX_BYTES / 3) * 4 + 1024
+app.use('/api/knowledge', express.json({ limit: '36mb' }))
 app.use(express.json({ limit: '32mb' }))
+// Google Identity Services and the PayPal checkout both load and frame their own
+// origins, so the policy names exactly those and nothing else.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "form-action 'self'",
+  // Nobody may frame Mere X: the workspace holds a signed-in session.
+  "frame-ancestors 'none'",
+  "script-src 'self' 'unsafe-inline' https://accounts.google.com https://*.paypal.com https://*.paypalobjects.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com https://*.paypal.com https://*.paypalobjects.com",
+  "media-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://accounts.google.com https://*.paypal.com",
+  "frame-src https://accounts.google.com https://*.paypal.com",
+  "worker-src 'self' blob:",
+  "upgrade-insecure-requests",
+].join('; ')
+
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(self)')
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+  res.setHeader('Content-Security-Policy', contentSecurityPolicy)
+  res.setHeader('X-Frame-Options', 'DENY')
+  if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  }
   next()
 })
 app.use('/api', async (req, res, next) => {
@@ -129,6 +162,18 @@ app.use('/api', async (req, res, next) => {
 })
 
 const requestLog = new Map()
+// Without a sweep this map keeps one entry per visitor for the life of the
+// process, which is both a leak and something a caller could grow on purpose.
+const requestLogSweep = setInterval(() => {
+  const cutoff = Date.now() - 60_000
+  for (const [key, times] of requestLog) {
+    const recent = times.filter(time => time > cutoff)
+    if (recent.length) requestLog.set(key, recent)
+    else requestLog.delete(key)
+  }
+}, 60_000)
+requestLogSweep.unref()
+
 app.use('/api', (req, res, next) => {
   const now = Date.now()
   const key = req.identity?.subject || req.ip || 'local'
@@ -143,14 +188,17 @@ app.use('/api', (req, res, next) => {
   next()
 })
 
-const sensitiveRequestLog = new Map()
-function allowSensitiveRequest(key, limit, windowMs) {
-  const timestamp = Date.now()
-  const recent = (sensitiveRequestLog.get(key) || []).filter(item => timestamp - item < windowMs)
-  if (recent.length >= limit) return false
-  recent.push(timestamp)
-  sensitiveRequestLog.set(key, recent)
-  return true
+// Auth throttling is stored centrally so it holds across restarts and across
+// every running instance, and so it cannot grow this process's memory.
+async function allowSensitiveRequest(key, limit, windowMs) {
+  try {
+    const result = await consumeRateLimit(key, limit, windowMs)
+    return result.allowed
+  } catch (error) {
+    console.error('[rate-limit]', { message: String(error?.message || error).slice(0, 200) })
+    // Storage trouble must not turn into an open door on the auth endpoints.
+    return false
+  }
 }
 
 function requireSameOrigin(req, res, next) {
@@ -334,6 +382,18 @@ function cleanInlineMarkdown(value = '') {
     .trim()
 }
 
+// A citation arrives from a model or from someone else's shared conversation, so
+// only real web links are ever handed to the interface.
+function safeSource(source) {
+  const uri = String(source?.uri || '').trim()
+  if (!uri) return null
+  try {
+    const url = new URL(uri)
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
+    return { title: String(source?.title || url.hostname).slice(0, 200), uri: url.toString().slice(0, 2000) }
+  } catch { return null }
+}
+
 function safeFilename(value = 'mere-x-document') {
   const cleaned = String(value).replace(/[<>:"/\\|?*\u0000-\u001F]/g, '').trim().slice(0, 72)
   return cleaned || 'mere-x-document'
@@ -398,7 +458,11 @@ async function createXlsx(title, content) {
       worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF171717' } }
       worksheet.views = [{ state: 'frozen', ySplit: 1 }]
     }
-    worksheet.columns.forEach((column) => { column.width = Math.min(44, Math.max(14, ...rows.map((row) => String(row[column.number - 1] || '').length + 2))) })
+    // reduce rather than spread: a large table would blow the argument limit.
+    worksheet.columns.forEach((column) => {
+      const widest = rows.reduce((longest, row) => Math.max(longest, String(row[column.number - 1] || '').length + 2), 14)
+      column.width = Math.min(44, widest)
+    })
   })
   return Buffer.from(await workbook.xlsx.writeBuffer())
 }
@@ -432,7 +496,34 @@ async function createPptx(title, content) {
   return collectStream(stream, () => presentation.generate(stream))
 }
 
+let pdfFontState = null
+function pdfFont() {
+  if (!pdfFontState) pdfFontState = openFont(fontPath)
+  return pdfFontState
+}
+
+// The embedded PDF font covers Latin, Greek, Cyrillic, Georgian, Armenian,
+// Hebrew and Arabic, but not CJK or emoji. Those used to be written as blank
+// boxes with no warning, so they are removed and reported instead.
+function pdfSafeText(value = '') {
+  const font = pdfFont()
+  const dropped = new Set()
+  let output = ''
+  for (const character of String(value)) {
+    if (character === '\n' || character === '\t' || character === ' ') { output += character; continue }
+    const run = font.layout(character)
+    if (run.glyphs.some(glyph => glyph.id === 0)) { dropped.add(character); continue }
+    output += character
+  }
+  return { text: output, dropped: [...dropped] }
+}
+
 async function createPdf(title, content) {
+  const safeTitle = pdfSafeText(title)
+  const safeBody = pdfSafeText(content)
+  const dropped = [...new Set([...safeTitle.dropped, ...safeBody.dropped])]
+  title = safeTitle.text.trim() || 'Mere X document'
+  content = safeBody.text
   const document = new PDFDocument({ size: 'A4', margins: { top: 58, right: 58, bottom: 58, left: 58 }, info: { Title: title, Author: 'Mere X' } })
   const stream = new PassThrough()
   document.pipe(stream)
@@ -451,33 +542,35 @@ async function createPdf(title, content) {
     } else document.moveDown(0.35)
   }
   document.end()
-  return output
+  return { buffer: await output, dropped }
 }
 
 async function createExport(format, title, content) {
   if (format === 'docx') return { buffer: await createDocx(title, content), mimeType: officeMimeTypes.docx }
   if (format === 'xlsx') return { buffer: await createXlsx(title, content), mimeType: officeMimeTypes.xlsx }
   if (format === 'pptx') return { buffer: await createPptx(title, content), mimeType: officeMimeTypes.pptx }
-  if (format === 'pdf') return { buffer: await createPdf(title, content), mimeType: 'application/pdf' }
+  if (format === 'pdf') {
+    const pdf = await createPdf(title, content)
+    return { buffer: pdf.buffer, mimeType: 'application/pdf', dropped: pdf.dropped }
+  }
   if (format === 'md') return { buffer: Buffer.from(String(content), 'utf8'), mimeType: 'text/markdown; charset=utf-8' }
   throw Object.assign(new Error('Unsupported export format.'), { status: 400 })
 }
 
 function collectSources(metadata, sourceMap) {
   for (const chunk of metadata?.groundingChunks || []) {
-    const uri = chunk?.web?.uri
-    if (uri && !sourceMap.has(uri)) sourceMap.set(uri, { title: chunk.web.title || 'Source', uri })
+    const source = safeSource({ uri: chunk?.web?.uri, title: chunk?.web?.title || 'Source' })
+    if (source && !sourceMap.has(source.uri)) sourceMap.set(source.uri, source)
   }
 }
 
 function collectUrlSources(metadata, sourceMap) {
   for (const item of metadata?.urlMetadata || []) {
-    const uri = item?.retrievedUrl
-    if (!uri || sourceMap.has(uri)) continue
-    let title = 'Referenced page'
-    try { title = new URL(uri).hostname.replace(/^www\./, '') }
+    const source = safeSource({ uri: item?.retrievedUrl, title: 'Referenced page' })
+    if (!source || sourceMap.has(source.uri)) continue
+    try { source.title = new URL(source.uri).hostname.replace(/^www\./, '') }
     catch { /* Keep the neutral title for a malformed response URL. */ }
-    sourceMap.set(uri, { title, uri })
+    sourceMap.set(source.uri, source)
   }
 }
 
@@ -506,7 +599,7 @@ app.get('/api/auth/config', (_req, res) => {
 
 app.post('/api/auth/signup', requireSameOrigin, async (req, res) => {
   if (req.body?.challengeId && req.body?.code) {
-    if (!allowSensitiveRequest(`signup-verify:${req.ip}:${String(req.body.challengeId)}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
+    if (!await allowSensitiveRequest(`signup-verify:${req.ip}:${String(req.body.challengeId)}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
     try {
       const user = await consumeSignupChallenge({ id: req.body.challengeId, code: String(req.body.code).replace(/\D/g, '').slice(0, 6) })
       if (!user) return res.status(400).json({ error: 'The verification code is incorrect or expired.' })
@@ -524,7 +617,7 @@ app.post('/api/auth/signup', requireSameOrigin, async (req, res) => {
   if (!name || name.length > 100) return res.status(400).json({ error: 'Enter your name.' })
   if (!validateEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' })
   if (!validatePassword(password)) return res.status(400).json({ error: 'Use a password with at least 8 characters.' })
-  if (!allowSensitiveRequest(`signup-start:${req.ip}:${email.toLowerCase()}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification codes requested. Try again later.' })
+  if (!await allowSensitiveRequest(`signup-start:${req.ip}:${email.toLowerCase()}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification codes requested. Try again later.' })
   try {
     if (await findUserByEmail(email)) return res.status(409).json({ error: 'An account with this email already exists.' })
     const challenge = await createSignupChallenge({ email, password, name })
@@ -545,8 +638,8 @@ app.post('/api/auth/signin', requireSameOrigin, async (req, res) => {
   const email = String(req.body?.email || '').trim()
   const password = String(req.body?.password || '')
   if (!validateEmail(email) || !password) return res.status(400).json({ error: 'Enter your email address and password.' })
-  if (!allowSensitiveRequest(`signin:${req.ip}:${email.toLowerCase()}`, 10, 15 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-in attempts. Try again in a few minutes.' })
-  if (!allowSensitiveRequest(`signin-ip:${req.ip}`, 40, 15 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-in attempts. Try again in a few minutes.' })
+  if (!await allowSensitiveRequest(`signin:${req.ip}:${email.toLowerCase()}`, 10, 15 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-in attempts. Try again in a few minutes.' })
+  if (!await allowSensitiveRequest(`signin-ip:${req.ip}`, 40, 15 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-in attempts. Try again in a few minutes.' })
   const row = await findUserByEmail(email)
   const passwordMatches = verifyPassword(password, row ? row.password_hash : decoyPasswordHash)
   if (!row || !passwordMatches) {
@@ -564,7 +657,7 @@ app.post('/api/auth/google', requireSameOrigin, async (req, res) => {
   const credential = String(req.body?.credential || '')
   if (!clientId) return res.status(503).json({ error: 'Google sign-in is not configured.' })
   if (!credential || credential.length > 10_000) return res.status(400).json({ error: 'Google sign-in did not return a valid credential.' })
-  if (!allowSensitiveRequest(`google-auth:${req.ip}`, 12, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-in attempts. Try again later.' })
+  if (!await allowSensitiveRequest(`google-auth:${req.ip}`, 12, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-in attempts. Try again later.' })
   try {
     const ticket = await new OAuth2Client(clientId).verifyIdToken({ idToken: credential, audience: clientId })
     const payload = ticket.getPayload()
@@ -604,7 +697,7 @@ app.get('/api/auth/session', async (req, res) => {
 app.post('/api/auth/forgot-password', requireSameOrigin, async (req, res) => {
   const email = String(req.body?.email || '').trim()
   if (!validateEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' })
-  if (!allowSensitiveRequest(`password-reset:${req.ip}:${email.toLowerCase()}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many reset codes requested. Try again later.' })
+  if (!await allowSensitiveRequest(`password-reset:${req.ip}:${email.toLowerCase()}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many reset codes requested. Try again later.' })
   try {
     const row = await findUserByEmail(email)
     if (!row) return res.json({ ok: true, challengeId: randomUUID(), message: 'If the account exists, a 6-digit reset code was sent.' })
@@ -619,7 +712,7 @@ app.post('/api/auth/forgot-password', requireSameOrigin, async (req, res) => {
 
 app.post('/api/auth/reset-password', requireSameOrigin, async (req, res) => {
   if (!validatePassword(req.body?.password)) return res.status(400).json({ error: 'Use a password with at least 8 characters.' })
-  if (!allowSensitiveRequest(`password-reset-verify:${req.ip}:${String(req.body?.challengeId || '')}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
+  if (!await allowSensitiveRequest(`password-reset-verify:${req.ip}:${String(req.body?.challengeId || '')}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
   if (!await applyPasswordResetCode({ id: String(req.body?.challengeId || ''), code: String(req.body?.code || '').replace(/\D/g, '').slice(0, 6), password: req.body.password })) return res.status(400).json({ error: 'The reset code is incorrect or expired.' })
   res.json({ ok: true })
 })
@@ -659,7 +752,7 @@ app.patch('/api/account', requireUser, async (req, res) => {
 app.post('/api/account/email', requireUser, async (req, res) => {
   const userId = req.identity.user.id
   if (req.body?.challengeId && req.body?.code) {
-    if (!allowSensitiveRequest(`email-change-verify:${userId}:${String(req.body.challengeId)}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
+    if (!await allowSensitiveRequest(`email-change-verify:${userId}:${String(req.body.challengeId)}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
     const result = await applyEmailChangeCode({ id: String(req.body.challengeId), code: String(req.body.code).replace(/\D/g, '').slice(0, 6), userId })
     if (result.error === 'taken') return res.status(409).json({ error: 'This email address is already in use.' })
     if (result.error) return res.status(400).json({ error: 'The verification code is incorrect or expired.' })
@@ -667,7 +760,7 @@ app.post('/api/account/email', requireUser, async (req, res) => {
   }
   const email = String(req.body?.email || '').trim()
   if (!validateEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' })
-  if (!allowSensitiveRequest(`email-change:${userId}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification codes requested. Try again later.' })
+  if (!await allowSensitiveRequest(`email-change:${userId}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification codes requested. Try again later.' })
   const challenge = await createEmailChangeChallenge({ userId, email })
   if (challenge.error === 'taken') return res.status(409).json({ error: 'This email address is already in use.' })
   if (challenge.error === 'unchanged') return res.status(400).json({ error: 'This is already your account email address.' })
@@ -683,7 +776,7 @@ app.post('/api/account/email', requireUser, async (req, res) => {
 
 app.post('/api/account/password', requireUser, async (req, res) => {
   if (req.body?.challengeId && req.body?.code) {
-    if (!allowSensitiveRequest(`password-change-verify:${req.identity.user.id}:${String(req.body.challengeId)}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
+    if (!await allowSensitiveRequest(`password-change-verify:${req.identity.user.id}:${String(req.body.challengeId)}`, 8, 10 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification attempts. Request a new code.' })
     if (!await applyPasswordChangeCode({ id: req.body.challengeId, code: String(req.body.code).replace(/\D/g, '').slice(0, 6), userId: req.identity.user.id })) return res.status(400).json({ error: 'The verification code is incorrect or expired.' })
     await deleteOtherSessions(req.identity.user.id, req.identity.sessionToken)
     return res.json({ ok: true })
@@ -691,7 +784,7 @@ app.post('/api/account/password', requireUser, async (req, res) => {
   const currentPassword = String(req.body?.currentPassword || '')
   const password = String(req.body?.password || '')
   if (!validatePassword(password)) return res.status(400).json({ error: 'Use a password with at least 8 characters.' })
-  if (!allowSensitiveRequest(`password-change:${req.identity.user.id}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification codes requested. Try again later.' })
+  if (!await allowSensitiveRequest(`password-change:${req.identity.user.id}`, 4, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many verification codes requested. Try again later.' })
   const challenge = await createPasswordChangeChallenge({ userId: req.identity.user.id, currentPassword, password })
   if (!challenge) return res.status(401).json({ error: 'Current password is incorrect.' })
   try {
@@ -767,7 +860,7 @@ app.delete('/api/account/sessions', requireUser, async (req, res) => {
 app.delete('/api/account', requireUser, async (req, res) => {
   const row = await findUserByEmail(req.identity.user.email)
   if (!row || row.id !== req.identity.user.id) return res.status(401).json({ error: 'This account could not be verified.' })
-  if (!allowSensitiveRequest(`account-delete:${row.id}`, 6, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many attempts. Try again later.' })
+  if (!await allowSensitiveRequest(`account-delete:${row.id}`, 6, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many attempts. Try again later.' })
   // A Google-created account has no password its owner knows, so confirm the
   // deletion by typing the account email instead of locking them out entirely.
   if (Number(row.password_set ?? 1)) {
@@ -914,7 +1007,10 @@ app.get('/api/files/:id', async (req, res) => {
   const file = await getStoredFile(req.params.id, { ownerId: req.identity.user.id })
   if (!file) return res.status(404).json({ error: 'File not found.' })
   res.setHeader('Content-Type', file.mimeType)
-  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`)
+  // Media the workspace renders in place must not arrive as a download.
+  const renderInline = /^(image|video|audio)\//.test(file.mimeType) || file.mimeType === 'application/pdf'
+  res.setHeader('Content-Disposition', `${renderInline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`)
+  res.setHeader('Cache-Control', 'private, max-age=604800, immutable')
   res.send(file.buffer)
 })
 
@@ -1095,7 +1191,7 @@ app.post('/api/knowledge/index', requireUser, async (req, res) => {
   const mimeType = String(req.body?.mimeType || 'application/octet-stream').slice(0, 160)
   const data = String(req.body?.data || '')
   if (!projectId || !data) return res.status(400).json({ error: 'Choose a project and a document.' })
-  if (data.length > 134_000_000) return res.status(413).json({ error: 'Knowledge files can be up to 100 MB.' })
+  if (data.length > KNOWLEDGE_MAX_BASE64) return res.status(413).json({ error: 'Knowledge documents can be up to 25 MB.' })
   if (!await reserveUsage(req, res, 'file', Math.max(1, data.length / 12_000_000), { projectId, name, knowledge: true })) return
   try {
     let mapping = await getKnowledgeStore(req.identity.user.id, projectId)
@@ -1123,13 +1219,29 @@ app.post('/api/knowledge/index', requireUser, async (req, res) => {
   }
 })
 
+app.delete('/api/knowledge/:projectId', requireUser, async (req, res) => {
+  const projectId = String(req.params.projectId || '').trim().slice(0, 160)
+  if (!projectId) return res.status(400).json({ error: 'Choose a project.' })
+  const storeName = await deleteKnowledgeStore(req.identity.user.id, projectId)
+  if (!storeName) return res.json({ ok: true, released: false })
+  // Best effort: the local mapping is gone either way, so a provider hiccup can
+  // never leave the account pointing at an index it no longer owns.
+  try {
+    const ai = client()
+    if (ai) await ai.fileSearchStores.delete({ name: storeName, config: { force: true } })
+  } catch (error) {
+    console.error('[knowledge-delete]', { message: String(error?.message || error).slice(0, 300) })
+  }
+  res.json({ ok: true, released: true })
+})
+
 app.post('/api/share', async (req, res) => {
   const messages = Array.isArray(req.body?.messages) ? req.body.messages.slice(-80).map((message) => ({
     id: Number(message?.id || Date.now()),
     role: message?.role === 'assistant' ? 'assistant' : 'user',
     content: String(message?.content || '').slice(0, 120_000),
     attachments: Array.isArray(message?.attachments) ? message.attachments.slice(0, 8).map((name) => String(name).slice(0, 200)) : undefined,
-    sources: Array.isArray(message?.sources) ? message.sources.slice(0, 10) : undefined,
+    sources: Array.isArray(message?.sources) ? message.sources.slice(0, 10).map(safeSource).filter(Boolean) : undefined,
   })).filter((message) => message.content) : []
   if (!messages.length) return res.status(400).json({ error: 'There is no conversation to share yet.' })
   const id = await createShare({ ownerId: req.identity.user.id, title: String(req.body?.title || 'Shared Mere X conversation').slice(0, 120), messages })
@@ -1198,7 +1310,8 @@ app.post('/api/chat', async (req, res) => {
             const annotations = event.delta?.annotations || event.step?.content?.flatMap?.((content) => content.annotations || []) || []
             for (const annotation of annotations) {
               const uri = annotation.url || annotation.uri || annotation.document_uri
-              if (uri && !interactionSources.has(uri)) interactionSources.set(uri, { title: annotation.title || annotation.file_name || 'Source', uri })
+              const source = safeSource({ uri, title: annotation.title || annotation.file_name || 'Source' })
+              if (source && !interactionSources.has(source.uri)) interactionSources.set(source.uri, source)
             }
           },
         })
@@ -1265,9 +1378,14 @@ app.post('/api/export', async (req, res) => {
   if (!['docx', 'xlsx', 'pptx', 'pdf', 'md'].includes(format)) return res.status(400).json({ error: 'Choose Word, Excel, PowerPoint, PDF or Markdown.' })
   if (!await reserveUsage(req, res, 'export', Math.max(1, content.length / 80_000), { format })) return
   try {
-    const { buffer, mimeType } = await createExport(format, title, content)
+    const { buffer, mimeType, dropped } = await createExport(format, title, content)
     const name = `${safeFilename(title)}.${format}`
-    res.json({ name, mimeType, size: buffer.length, data: buffer.toString('base64') })
+    // Tell the caller when characters could not be drawn, rather than handing
+    // back a document with silent gaps in it.
+    const warning = dropped?.length
+      ? `${dropped.length} character${dropped.length === 1 ? '' : 's'} could not be embedded in the PDF font and were left out. Export as Word or Markdown to keep them.`
+      : undefined
+    res.json({ name, mimeType, size: buffer.length, data: buffer.toString('base64'), warning })
   } catch (error) {
     console.error('[export]', { message: String(error?.message || error).slice(0, 600) })
     const safe = publicError(error)
@@ -1300,11 +1418,24 @@ app.post('/api/image', async (req, res) => {
     }
     if (!response) throw lastError || new Error('No image route available')
     const output = { text: '', images: [] }
+    const generated = []
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.text) output.text += part.text
-      if (part.inlineData?.data) output.images.push(`data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`)
+      if (part.inlineData?.data) generated.push({ data: part.inlineData.data, mimeType: part.inlineData.mimeType || 'image/png' })
     }
-    if (!output.images.length) throw new Error('No image returned')
+    if (!generated.length) throw new Error('No image returned')
+    // Store the result instead of handing back bytes the browser can only keep
+    // in memory: a generated image has to still be there after a reload.
+    for (const [index, image] of generated.entries()) {
+      const extension = image.mimeType.includes('jpeg') ? 'jpg' : image.mimeType.includes('webp') ? 'webp' : 'png'
+      const stored = await storeFile({
+        ownerId: req.identity.user.id,
+        name: `${safeFilename(String(prompt).slice(0, 48))}${generated.length > 1 ? `-${index + 1}` : ''}.${extension}`,
+        mimeType: image.mimeType,
+        buffer: Buffer.from(image.data, 'base64'),
+      })
+      output.images.push(`/api/files/${stored.id}`)
+    }
     res.json(output)
   } catch (error) {
     console.error('[image]', { status: error?.status || error?.code, message: String(error?.message || error).slice(0, 600) })
@@ -1314,9 +1445,23 @@ app.post('/api/image', async (req, res) => {
 })
 
 app.use('/api', (error, _req, res, _next) => {
-  console.error('[api]', { code: error?.code, message: String(error?.message || error).slice(0, 500) })
+  console.error('[api]', { code: error?.code, type: error?.type, message: String(error?.message || error).slice(0, 500) })
   if (res.headersSent) return
-  res.status(500).json({ error: 'Mere X could not access persistent storage. Please try again.' })
+  // Reporting every failure as a storage failure sent people to look at the
+  // database when the real cause was the request itself.
+  if (error?.type === 'entity.too.large' || error?.status === 413) {
+    return res.status(413).json({ error: 'That upload is larger than Mere X accepts. Try a smaller file.' })
+  }
+  if (error?.type === 'entity.parse.failed' || error instanceof SyntaxError) {
+    return res.status(400).json({ error: 'The request could not be read. Refresh Mere X and try again.' })
+  }
+  if (error?.type === 'encoding.unsupported' || error?.status === 415) {
+    return res.status(415).json({ error: 'That content type is not supported.' })
+  }
+  if (String(error?.code || '').startsWith('ER_') || String(error?.code || '').startsWith('PROTOCOL_') || error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
+    return res.status(503).json({ error: 'Mere X could not access persistent storage. Please try again.' })
+  }
+  res.status(500).json({ error: 'Mere X could not complete that request. Please try again.' })
 })
 
 const distDir = path.resolve(currentDir, '..', 'dist')

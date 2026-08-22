@@ -16,9 +16,12 @@ console.log(JSON.stringify({
   credentialsAccepted: diagnostics.reachable,
   problems: diagnostics.problems,
   reason: diagnostics.reason,
+  // Point at the one thing that is actually blocking checkout.
   nextStep: ready
     ? 'Run "npm run paypal:setup" to publish the product, plans and webhook.'
-    : 'Open the PayPal Developer dashboard, open the app for this environment, and copy the complete Client ID and Secret into .env.local. PAYPAL_ENV must match the app (sandbox or live).',
+    : diagnostics.reachable
+      ? 'Enable the missing feature on this PayPal app, then run "npm run paypal:check" again followed by "npm run paypal:setup".'
+      : 'Open the PayPal Developer dashboard, open the app for this environment, and copy the complete Client ID and Secret into .env.local. PAYPAL_ENV must match the app (sandbox or live).',
 }, null, 2))
 
 if (!ready) process.exitCode = 1

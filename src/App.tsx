@@ -84,7 +84,7 @@ type PublicRoute = 'landing' | 'signin' | 'signup' | 'reset-password' | 'shared'
 type Source = { title: string; uri: string }
 type AttachmentData = { name: string; mimeType: string; data: string; size: number }
 type ExportFormat = 'docx' | 'xlsx' | 'pptx' | 'pdf' | 'md'
-type GeneratedFile = { name: string; mimeType: string; data: string; size: number; format: ExportFormat }
+type GeneratedFile = { name: string; mimeType: string; data: string; size: number; format: ExportFormat; warning?: string }
 type Message = {
   id: number
   role: 'user' | 'assistant'
@@ -224,10 +224,10 @@ type PlanTier = {
 }
 
 const planTiers: PlanTier[] = [
-  { name: 'Free', eyebrow: 'START', monthly: 0, annual: 0, description: 'A serious starting point for everyday questions and focused work.', action: 'Start free', features: ['Standard access in rolling 5-hour windows', 'Essential research and image tools', 'Document and image understanding', 'Personal Projects and custom Agents', 'Files, voice and web access'] },
-  { name: 'Plus', eyebrow: 'MOST POPULAR', monthly: 18, annual: 15, description: 'For people who use Mere X throughout the week to create and decide.', featured: true, action: 'Choose Plus', features: ['Expanded access in every 5-hour window', 'More research, image creation and editing', 'Create Word, Excel, PowerPoint and PDF files', 'Expanded Projects, Agents and context', 'Larger document uploads', 'Priority access at busy times'] },
-  { name: 'Pro', eyebrow: 'POWER USERS', monthly: 44, annual: 38, description: 'For demanding research, technical work and high-output creative workflows.', action: 'Choose Pro', features: ['Highest individual 5-hour usage windows', 'Advanced research and visual workflows', 'Maximum document context and file size', 'Unlimited Projects and custom Agents', 'Fastest response queue', 'Early access to new capabilities'] },
-  { name: 'Team', eyebrow: '2+ PEOPLE', monthly: 23, annual: 18, description: 'A private collaborative workspace with predictable cost per person.', action: 'Create a team', features: ['Expanded 5-hour access for every member', 'Shared documents, Projects and team Agents', 'Advanced research and image tools', 'Central billing, roles and usage controls', 'Workspace-level fair-use visibility', 'Team content excluded from product training'] },
+  { name: 'Free', eyebrow: 'START', monthly: 0, annual: 0, description: 'A serious starting point for everyday questions and focused work.', action: 'Start free', features: ['Everyday access to Mere Apex 4.0', 'Research, image creation and Deep Research', 'Document and image understanding', 'Personal Projects and custom Agents', 'Files, voice and web access'] },
+  { name: 'Plus', eyebrow: 'MOST POPULAR', monthly: 18, annual: 15, description: 'For people who use Mere X throughout the week to create and decide.', featured: true, action: 'Choose Plus', features: ['Generous access for work throughout the week', 'Autonomous Agents, Computer Workspace and Video Studio', 'Create Word, Excel, PowerPoint and PDF files', 'Expanded Projects, Agents and context', 'Larger document uploads', 'Priority access at busy times'] },
+  { name: 'Pro', eyebrow: 'POWER USERS', monthly: 44, annual: 38, description: 'For demanding research, technical work and high-output creative workflows.', action: 'Choose Pro', features: ['The most access available to one person', 'Advanced research and visual workflows', 'Maximum document context and file size', 'Unlimited Projects and custom Agents', 'Fastest response queue', 'Early access to new capabilities'] },
+  { name: 'Team', eyebrow: '2+ PEOPLE', monthly: 23, annual: 18, description: 'A private collaborative workspace with predictable cost per person.', action: 'Create a team', features: ['Generous access for everyone on the team', 'Shared documents, Projects and team Agents', 'Advanced research and image tools', 'Central billing, roles and access controls', 'Workspace-level access visibility', 'Team content excluded from product training'] },
   { name: 'Enterprise', eyebrow: 'CUSTOM', monthly: null, annual: null, description: 'Security, controls and support designed around a larger organization.', action: 'Contact sales', features: ['Flexible usage and volume pricing', 'SSO, SCIM and domain controls', 'Audit logs and custom retention', 'Data residency options', 'Priority support and service agreements', 'Custom legal and procurement terms'] },
 ]
 
@@ -259,9 +259,9 @@ function fileSizeLabel(size: number) {
 
 async function requestExportFile(format: ExportFormat, title: string, content: string, signal?: AbortSignal): Promise<GeneratedFile> {
   const response = await fetch('/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ format, title, content }), signal })
-  const result = await response.json() as { name?: string; mimeType?: string; data?: string; size?: number; error?: string }
+  const result = await response.json() as { name?: string; mimeType?: string; data?: string; size?: number; error?: string; warning?: string }
   if (!response.ok || !result.data || !result.name || !result.mimeType) throw new Error(result.error || 'The file could not be created.')
-  return { name: result.name, mimeType: result.mimeType, data: result.data, size: result.size || 0, format }
+  return { name: result.name, mimeType: result.mimeType, data: result.data, size: result.size || 0, format, warning: result.warning }
 }
 
 function generatedFileUrl(file: GeneratedFile) {
@@ -408,7 +408,7 @@ function Sidebar({ page, setPage, collapsed, setCollapsed, onSearch, onNewChat, 
           {profileOpen && <div className="profile-menu" role="menu" aria-label="Account menu">
             <div className="profile-menu-cap"><span>MERE X / ACCOUNT</span><BrandGlyph /></div>
             <button className="profile-menu-head" role="menuitem" onClick={() => openSettings('account')}><Avatar profile={profile} className="menu-avatar" /><span><b>{profile.name}</b><small>{profile.email}</small></span><span className="profile-open-icon"><ArrowRight size={15} /></span></button>
-            <button className="profile-plan-card" role="menuitem" onClick={() => openSettings('billing')}><span className="profile-plan-icon"><CreditCard size={18} /></span><span><small>CURRENT PLAN</small><b>Mere {plan.charAt(0).toUpperCase() + plan.slice(1)}</b><em>Rolling 5-hour access</em></span><ChevronRight size={16} /></button>
+            <button className="profile-plan-card" role="menuitem" onClick={() => openSettings('billing')}><span className="profile-plan-icon"><CreditCard size={18} /></span><span><small>CURRENT PLAN</small><b>Mere {plan.charAt(0).toUpperCase() + plan.slice(1)}</b><em>Access refreshes as you work</em></span><ChevronRight size={16} /></button>
             <div className="profile-shortcuts">
               <button role="menuitem" onClick={() => openSettings('personalization')}><SlidersHorizontal size={17} /><span><b>Personalize</b><small>Memory & style</small></span></button>
               <button role="menuitem" onClick={() => openSettings('general')}><Settings size={17} /><span><b>Settings</b><small>Workspace controls</small></span></button>
@@ -582,7 +582,13 @@ function ChatMessage({ message, onToast, onRegenerate }: { message: Message; onT
   if (message.role === 'user') return <div className="message user-message"><div className="user-stack">{!!message.attachments?.length && <div className="sent-files">{message.attachments.map(name => <span key={name}><File size={12} />{name}</span>)}</div>}<div className="user-bubble">{message.content}</div></div></div>
   const isDemo = message.content === 'mock'
   const availableFiles = [...(message.files || []), ...localFiles]
-  const copyResponse = async () => { await navigator.clipboard.writeText(message.content); onToast('Response copied') }
+  const copyResponse = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('unsupported')
+      await navigator.clipboard.writeText(message.content)
+      onToast('Response copied')
+    } catch { onToast('Copying is blocked in this browser. Select the text and copy it manually.') }
+  }
   const exportResponse = async (format: ExportFormat) => {
     setExporting(format)
     try {
@@ -590,11 +596,12 @@ function ChatMessage({ message, onToast, onRegenerate }: { message: Message; onT
       const file = await requestExportFile(format, title, message.content)
       setLocalFiles(current => [...current.filter(item => item.format !== format), file])
       setExportOpen(false)
-      onToast(`${file.name} is ready`)
+      onToast(file.warning ? `${file.name} is ready · ${file.warning}` : `${file.name} is ready`)
     } catch (error) { onToast(error instanceof Error ? error.message : 'The file could not be created') }
     finally { setExporting(null) }
   }
   const readAloud = () => {
+    if (!('speechSynthesis' in window)) { onToast('Spoken responses are not supported by this browser'); return }
     window.speechSynthesis.cancel()
     window.speechSynthesis.speak(new SpeechSynthesisUtterance(message.content))
     onToast('Reading response aloud')
@@ -685,11 +692,7 @@ function ChatPage({ messages, setMessages, onToast, onLiveVoice, agent, project,
       if (requestedImage) {
         const response = await fetch('/api/image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: content, attachments: payloadAttachments, aspectRatio: imageAspectRatio, imageSize }), signal: controller.signal })
         const result = await response.json() as { text?: string; images?: string[]; error?: string; resetAt?: number }
-        if (!response.ok) {
-          const when = result.resetAt ? new Date(result.resetAt) : null
-          const sameDay = when && when.toDateString() === new Date().toDateString()
-          throw new Error(when ? `${result.error} Available again ${sameDay ? `at ${when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `on ${when.toLocaleDateString()}`}.` : (result.error || 'Image generation failed'))
-        }
+        if (!response.ok) throw new Error(result.error || 'Image generation could not be completed.')
         setMessages([...next, { id: responseId, role: 'assistant', content: result.text || (payloadAttachments.length ? 'Here is your edited image.' : 'Here is your generated image.'), images: result.images }])
         if (result.images?.[0]) onArtifact({ id: `artifact-${Date.now()}`, title: content.replace(/^Create an image:\s*/i, '').slice(0, 64) || 'Generated image', type: 'Image', date: 'Just now', preview: result.images[0], content })
         setThinking(false)
@@ -733,6 +736,7 @@ function ChatPage({ messages, setMessages, onToast, onLiveVoice, agent, project,
           const file = await requestExportFile(requestedFormat, title, fullText, controller.signal)
           files = [file]
           onArtifact({ id: `artifact-${Date.now()}`, title: file.name.replace(/\.[^.]+$/, ''), type: 'Document', date: 'Just now', content: fullText })
+          if (file.warning) onToast(file.warning)
         } catch (error) { onToast(error instanceof Error ? `Response ready · ${error.message}` : 'Response ready · file export failed') }
       }
       setThinking(false)
@@ -778,6 +782,13 @@ function ProjectsPage({ projects, setProjects, onToast, onOpen }: {
   const [sortBy, setSortBy] = useState<'updated' | 'name'>('updated')
   const [indexingId, setIndexingId] = useState<string | null>(null)
   const shownProjects = useMemo(() => sortBy === 'name' ? [...projects].sort((a, b) => a.name.localeCompare(b.name)) : projects, [projects, sortBy])
+  // Derive the icon from the project itself, so sorting or deleting a
+  // neighbour never changes how a project looks.
+  const projectIcon = (id: string) => {
+    let hash = 0
+    for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) >>> 0
+    return [Sparkles, FolderKanban, BookOpen][hash % 3]
+  }
   const createProject = (event: FormEvent) => {
     event.preventDefault()
     if (!name.trim()) return
@@ -785,13 +796,20 @@ function ProjectsPage({ projects, setProjects, onToast, onOpen }: {
     setProjects(current => [project, ...current])
     setName(''); setDescription(''); setCreating(false); onToast('Project created')
   }
-  const removeProject = (id: string, projectName: string) => {
-    setProjects(current => current.filter(project => project.id !== id))
-    onToast(`${projectName} deleted`)
+  const removeProject = async (project: ProjectRecord) => {
+    if (!window.confirm(`Delete ${project.name}? Its instructions and indexed knowledge are removed permanently. This cannot be undone.`)) return
+    setProjects(current => current.filter(record => record.id !== project.id))
+    onToast(`${project.name} deleted`)
+    // Release the indexed knowledge as well, or the account keeps paying for an
+    // index nothing points at any more.
+    if (project.knowledgeStore) {
+      try { await fetch(`/api/knowledge/${encodeURIComponent(project.id)}`, { method: 'DELETE' }) }
+      catch { /* The mapping is cleaned up by the account cleanup pass. */ }
+    }
   }
   const indexKnowledge = async (project: ProjectRecord, file: File | undefined) => {
     if (!file) return
-    if (file.size > 100 * 1024 * 1024) { onToast(`${file.name} is larger than 100 MB`); return }
+    if (file.size > 25 * 1024 * 1024) { onToast(`${file.name} is larger than 25 MB, the largest document Mere X can index`); return }
     setIndexingId(project.id)
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file) })
@@ -808,7 +826,7 @@ function ProjectsPage({ projects, setProjects, onToast, onOpen }: {
     <div className="feature-banner"><div className="banner-mark"><FolderKanban size={23} /></div><div><span className="status-dot" />PROJECT MEMORY</div><h2>Your work remembers the full picture.</h2><p>Every chat and file in a project shares context, so Mere Apex 4.0 stays aligned from first thought to final output.</p><button onClick={() => onToast('Projects keep their instructions, chats and files in one shared context')}>Learn how projects work<ArrowRight size={15} /></button><div className="banner-grid" /></div>
     <div className="content-title"><h3>Your projects</h3><div><button className="filter-button" onClick={() => setSortBy(current => current === 'updated' ? 'name' : 'updated')}><Clock3 size={14} />{sortBy === 'updated' ? 'Last updated' : 'Name'}<ChevronDown size={14} /></button></div></div>
     <div className="project-grid">
-      {shownProjects.map((project, index) => <div className="project-card-wrap" key={project.id}><button className="project-card" onClick={() => onOpen(project)}><div className="project-icon">{index % 3 === 0 ? <Sparkles size={21} /> : index % 3 === 1 ? <FolderKanban size={21} /> : <BookOpen size={21} />}</div><h3>{project.name}</h3><p>{project.chatCount} chats · {project.fileCount} files</p><span>{project.knowledgeStore ? 'KNOWLEDGE ACTIVE · ' : ''}{project.updated}</span><div className="project-arrow"><ArrowRight size={16} /></div></button><label className="project-knowledge-button" title="Add project knowledge"><Database size={14} /><input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.json,.html,.xml,image/png,image/jpeg" disabled={indexingId === project.id} onChange={event => { void indexKnowledge(project, event.target.files?.[0]); event.target.value = '' }} /><span>{indexingId === project.id ? 'Indexing…' : 'Add knowledge'}</span></label><button className="project-menu-button" aria-label={`Delete ${project.name}`} title="Delete project" onClick={() => removeProject(project.id, project.name)}><Trash2 size={14} /></button></div>)}
+      {shownProjects.map(project => { const ProjectIcon = projectIcon(project.id); return <div className="project-card-wrap" key={project.id}><button className="project-card" onClick={() => onOpen(project)}><div className="project-icon"><ProjectIcon size={21} /></div><h3>{project.name}</h3><p>{project.chatCount} chats · {project.fileCount} files</p><span>{project.knowledgeStore ? 'KNOWLEDGE ACTIVE · ' : ''}{project.updated}</span><div className="project-arrow"><ArrowRight size={16} /></div></button><label className="project-knowledge-button" title="Add project knowledge"><Database size={14} /><input type="file" aria-label={`Add knowledge to ${project.name}`} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.json,.html,.xml,image/png,image/jpeg" disabled={indexingId === project.id} onChange={event => { void indexKnowledge(project, event.target.files?.[0]); event.target.value = '' }} /><span>{indexingId === project.id ? 'Indexing…' : 'Add knowledge'}</span></label><button className="project-menu-button" aria-label={`Delete ${project.name}`} title="Delete project" onClick={() => void removeProject(project)}><Trash2 size={14} /></button></div> })}
       <button className="project-card add-project" onClick={() => setCreating(true)}><Plus size={22} /><h3>Create a project</h3><p>Bring chats, files and instructions together.</p></button>
     </div>
     {creating && <div className="modal-backdrop" onMouseDown={event => { if (event.currentTarget === event.target) setCreating(false) }}><form className="entity-modal" onSubmit={createProject}><div className="modal-head"><div><p className="eyebrow">NEW WORKSPACE</p><h2>Create a project</h2><p>Give related chats and files one shared context.</p></div><IconButton label="Close" onClick={() => setCreating(false)}><X size={18} /></IconButton></div><label><span>Project name</span><input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="e.g. Product launch" /></label><label><span>Project instructions</span><textarea value={description} onChange={event => setDescription(event.target.value)} placeholder="What is this project about? What should Mere X remember?" /></label><div className="entity-modal-actions"><button type="button" className="soft-button" onClick={() => setCreating(false)}>Cancel</button><button className="primary-button" disabled={!name.trim()}>Create project</button></div></form></div>}
@@ -837,15 +855,15 @@ function LibraryPage({ items, setItems, onToast, onContinue }: { items: LibraryR
   }
   return <div className="page-shell">
     <PageHeading eyebrow="YOUR OUTPUTS" title="Library" description="Everything you create with Mere X, organized and ready to continue." action={<div className="heading-actions"><button className="soft-button" onClick={exportLibrary}><Download size={16} />Export</button><button className="primary-button" onClick={() => setCreating(true)}><Plus size={16} />New document</button></div>} />
-    <div className="library-toolbar"><div className="segmented">{['All', 'Document', 'Code', 'Image'].map(item => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><div className="inline-search"><Search size={16} /><input aria-label="Search library" placeholder="Search library" value={query} onChange={event => setQuery(event.target.value)} /></div></div>
+    <div className="library-toolbar"><div className="segmented">{['All', 'Document', 'Code', 'Image', 'Canvas'].map(item => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><div className="inline-search"><Search size={16} /><input aria-label="Search library" placeholder="Search library" value={query} onChange={event => setQuery(event.target.value)} /></div></div>
     <div className="library-grid">
-      {shown.map((item, index) => { const Icon = iconFor(item.type); return <article className="library-card" key={item.id}>
+      {shown.map(item => { const Icon = iconFor(item.type); return <article className="library-card" key={item.id}>
         <div className={`library-preview preview-${item.type.toLowerCase()}`}>
           {item.preview ? <img className="artifact-preview-image" src={item.preview} alt="" /> : item.type === 'Code' ? <><span className="code-line wide" /><span className="code-line" /><span className="code-line mid" /><span className="code-line tiny" /></> : item.type === 'Image' ? <div className="abstract-art"><i /><i /><i /></div> : <><span className="doc-kicker" /><span className="doc-title" /><span className="doc-line" /><span className="doc-line short" /><span className="doc-line" /><span className="doc-line mid" /></>}
           <button onClick={() => setSelected(item)} aria-label={`Open ${item.title}`}><ExternalLink size={16} /></button>
         </div>
-        <div className="library-info"><span className="library-type"><Icon size={15} />{item.type}</span><h3>{item.title}</h3><p>{item.date}</p></div><IconButton label={`Delete ${item.title}`} onClick={() => { setItems(current => current.filter(record => record.id !== item.id)); onToast('Library item deleted') }}><Trash2 size={15} /></IconButton>
-        {index === 0 && <span className="new-tag">NEW</span>}
+        <div className="library-info"><span className="library-type"><Icon size={15} />{item.type}</span><h3>{item.title}</h3><p>{item.date}</p></div><IconButton label={`Delete ${item.title}`} onClick={() => { if (!window.confirm(`Delete ${item.title} from your Library? This cannot be undone.`)) return; setItems(current => current.filter(record => record.id !== item.id)); onToast('Library item deleted') }}><Trash2 size={15} /></IconButton>
+        {item.date.toLowerCase().includes('just now') && <span className="new-tag">NEW</span>}
       </article>})}
       {!shown.length && <div className="library-empty"><Search size={22} /><b>No library items found</b><span>Change the filter or create a new document.</span></div>}
     </div>
@@ -1034,11 +1052,9 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast }: { 
         onUpgrade()
         return
       }
-      if (response.status === 429 && result.resetAt) {
-        const when = new Date(result.resetAt)
-        const sameDay = when.toDateString() === new Date().toDateString()
-        throw new Error(`${result.error} Available again ${sameDay ? `at ${when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `on ${when.toLocaleDateString()}`}.`)
-      }
+      // The server already explains this in plain language; adding a countdown
+      // would turn it back into a number to ration against.
+      if (response.status === 429) throw new Error(result.error || 'This workflow is paused while your access refreshes.')
       if (!response.ok || !result.job) throw new Error(result.error || 'The workflow could not be started.')
       setJob(result.job); setRecentJobs(current => [result.job!, ...current.filter(item => item.id !== result.job!.id)]); onToast(`${active.title} started`)
     } catch (error) { onToast(error instanceof Error ? error.message : 'The workflow could not be started') }
@@ -1399,9 +1415,15 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
   ]
   const normalizedQuery = query.trim().toLowerCase()
   const planLabel = usage?.label || (user?.plan ? user.plan.charAt(0).toUpperCase() + user.plan.slice(1) : 'Preview')
-  const resetLabel = usage?.window?.resetAt ? new Date(usage.window.resetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Automatic'
-  const windowLabel = usage?.state === 'paused' ? 'Refresh pending' : usage?.state === 'limited' ? 'Nearing limit' : usage?.state === 'active' ? 'In active use' : 'Available'
-  const toolsLabel = usage?.tools?.state === 'paused' ? 'Refresh pending' : usage?.tools?.state === 'limited' ? 'Limited' : 'Available'
+  // Access is described in plain language. People are told what they can do and
+  // whether it is ready, never a countdown or a number to ration against.
+  const windowLabel = usage?.state === 'paused' ? 'Refreshing' : usage?.state === 'limited' ? 'Winding down' : usage?.state === 'active' ? 'In active use' : 'Ready'
+  const toolsLabel = usage?.tools?.state === 'paused' ? 'Refreshing' : usage?.tools?.state === 'limited' ? 'Winding down' : 'Ready'
+  const accessNote = usage?.state === 'paused'
+    ? 'Your access is refreshing. Mere X will pick up where you left off shortly.'
+    : usage?.state === 'limited'
+      ? 'You have been working hard today. Access keeps refreshing as you go.'
+      : 'Access refreshes continuously, so everyday work simply keeps going.'
 
   const content = (() => {
     if (tab === 'general') return <><PageHeading title="General" description="Control the look, language and default behavior of Mere X." /><SettingsSection title="Appearance"><SettingRow icon={<Moon size={17} />} title="Theme" desc="Mere X uses its focused monochrome interface"><span className="connected-state"><Check size={13} />Mere Dark</span></SettingRow><SettingRow icon={<Languages size={17} />} title="Response language" desc="The preferred language for Mere X responses"><select aria-label="Language" value={preferences.language} onChange={event => updatePreference('language', event.target.value)}><option>English</option><option>ქართული</option></select></SettingRow><SettingRow icon={<PanelLeftClose size={17} />} title="Compact sidebar" desc="Use a narrower navigation layout"><Toggle label="Compact sidebar" active={compact} onChange={() => setCompact(!compact)} /></SettingRow></SettingsSection><SettingsSection title="Responses"><SettingRow icon={<Sparkles size={17} />} title="Default reasoning" desc="Choose how deeply Mere Apex works by default"><select aria-label="Default reasoning" value={preferences.reasoning} onChange={event => updatePreference('reasoning', event.target.value)}><option>Adaptive</option><option>Always on</option><option>Off</option></select></SettingRow></SettingsSection></>
@@ -1409,13 +1431,13 @@ function SettingsPage({ onToast, compact, setCompact, preferences, setPreference
     if (tab === 'personalization') return <><PageHeading title="Personalization" description="Shape how Mere X understands you and responds." /><SettingsSection title="Memory"><SettingRow icon={<BookOpen size={17} />} title="Reference saved memories" desc="Use details you explicitly ask Mere X to remember"><Toggle label="Reference saved memories" active={preferences.memory} onChange={() => updatePreference('memory', !preferences.memory)} /></SettingRow></SettingsSection><SettingsSection title="Custom instructions"><label className="instruction-label">What should Mere X know about you?</label><textarea className="instruction-box" value={preferences.about} onChange={event => updatePreference('about', event.target.value)} placeholder="Your role, goals and working context..." /><label className="instruction-label">How should Mere X respond?</label><textarea className="instruction-box" value={preferences.responseStyle} onChange={event => updatePreference('responseStyle', event.target.value)} placeholder="Tone, structure and level of detail..." /><button className="primary-button" onClick={() => onToast('Personalization saved and active')}>Save changes</button></SettingsSection></>
     if (tab === 'plugins') return <><PageHeading title="Connections" description="Bring approved tools and knowledge into your Mere X workflow." /><SettingsSection title="Available connections"><SettingRow icon={<Code2 size={17} />} title="Code repositories" desc="Repository access with scoped permissions"><button className="soft-button" onClick={() => onToast('Connection credentials are required before this source can be enabled')}>Configure</button></SettingRow><SettingRow icon={<FileText size={17} />} title="Cloud documents" desc="Connect document storage with secure delegated access"><button className="soft-button" onClick={() => onToast('Connection credentials are required before this source can be enabled')}>Configure</button></SettingRow><SettingRow icon={<Globe2 size={17} />} title="Web research" desc="Research public pages with sources"><span className="connected-state"><Check size={13} />Active</span></SettingRow></SettingsSection></>
     if (tab === 'voice') return <><PageHeading title="Voice" description="Configure listening, spoken responses and accessibility." /><SettingsSection title="Voice experience"><SettingRow icon={<Mic size={17} />} title="Voice input" desc="Dictate prompts from the composer"><Toggle label="Voice input" active={controls.voiceInput ?? true} onChange={() => updateControl('voiceInput', !(controls.voiceInput ?? true))} /></SettingRow><SettingRow icon={<Volume2 size={17} />} title="Response voice" desc="Voice used when reading answers aloud"><select aria-label="Voice" value={preferences.voice} onChange={event => updatePreference('voice', event.target.value)}><option>Nova</option><option>Atlas</option></select></SettingRow><SettingRow icon={<Headphones size={17} />} title="Test voice" desc="Play a short preview with your current selection"><button className="soft-button" onClick={playVoicePreview}>Play preview</button></SettingRow></SettingsSection></>
-    if (tab === 'billing') return <><PageHeading title="Plan & billing" description="Manage your plan, usage, renewal and payment history." /><div className="billing-hero"><div><span>CURRENT PLAN</span><h2>Mere {planLabel}</h2><p>Mere Apex 4.0 access with adaptive usage that refreshes throughout the day.</p></div><button className="primary-button" onClick={onOpenPricing}>Compare plans<Sparkles size={15} /></button></div><SettingsSection title="Current usage window"><SettingRow icon={<Clock3 size={17} />} title="Rolling 5-hour window" desc={`Next rolling refresh is visible at ${resetLabel}`}><span className="usage-value">{windowLabel}</span></SettingRow><SettingRow icon={<Globe2 size={17} />} title="Advanced tools" desc="Research, image, agent, computer and video work use the protected tool allowance"><span className="usage-value">{toolsLabel}</span></SettingRow><SettingRow icon={<FileText size={17} />} title="File workflows" desc="Analyze files and create downloadable Office or PDF documents"><span className="usage-value">Included</span></SettingRow></SettingsSection><BillingManagement user={user} onOpenPricing={onOpenPricing} onToast={onToast} /></>
+    if (tab === 'billing') return <><PageHeading title="Plan & billing" description="Manage your plan, usage, renewal and payment history." /><div className="billing-hero"><div><span>CURRENT PLAN</span><h2>Mere {planLabel}</h2><p>Mere Apex 4.0 with access that keeps refreshing while you work.</p></div><button className="primary-button" onClick={onOpenPricing}>Compare plans<Sparkles size={15} /></button></div><SettingsSection title="Your access"><SettingRow icon={<Clock3 size={17} />} title="Everyday work" desc={accessNote}><span className="usage-value">{windowLabel}</span></SettingRow><SettingRow icon={<Globe2 size={17} />} title="Advanced tools" desc="Research, image creation, agents, computer work and video"><span className="usage-value">{toolsLabel}</span></SettingRow><SettingRow icon={<FileText size={17} />} title="File workflows" desc="Analyze files and create downloadable Office or PDF documents"><span className="usage-value">Included</span></SettingRow></SettingsSection><BillingManagement user={user} onOpenPricing={onOpenPricing} onToast={onToast} /></>
     if (tab === 'data') return <><PageHeading title="Data controls" description="Control conversation history, exports and product improvement." /><SettingsSection title="Privacy"><SettingRow icon={<ShieldCheck size={17} />} title="Improve Mere X for everyone" desc="Allow de-identified conversations to improve the platform"><Toggle label="Improve Mere X" active={preferences.training} onChange={() => updatePreference('training', !preferences.training)} /></SettingRow><SettingRow icon={<Clock3 size={17} />} title="Chat history" desc="Save new conversations in your history"><Toggle label="Chat history" active={controls.chatHistory ?? true} onChange={() => updateControl('chatHistory', !(controls.chatHistory ?? true))} /></SettingRow></SettingsSection><SettingsSection title="Your data"><button className="danger-row" onClick={exportData}><span><Download size={17} /><span><b>Export workspace data</b><small>Download your conversations and preferences</small></span></span><ChevronRight size={15} /></button><button className="danger-row" onClick={() => { if (window.confirm('Delete every saved conversation? This cannot be undone.')) onDeleteChats() }}><span><Trash2 size={17} /><span><b>Delete all chats</b><small>Permanently clear conversation history</small></span></span><ChevronRight size={15} /></button></SettingsSection></>
     if (tab === 'cloud') return <><PageHeading title="Cloud sync" description="Keep your private Mere X workspace consistent across devices." /><SettingsSection title="Synchronization"><SettingRow icon={<Database size={17} />} title="Account database" desc="Projects, chats, agents and preferences are stored under your unique account ID"><span className="connected-state"><Check size={13} />Active</span></SettingRow><SettingRow icon={<RotateCcw size={17} />} title="Cross-device sync" desc="Opening Mere X on another signed-in device loads the same account workspace"><span className="connected-state"><Check size={13} />Active</span></SettingRow></SettingsSection></>
     if (tab === 'storage') return <><PageHeading title="Storage" description="Review the durable storage assigned to this account." /><div className="storage-meter"><div><span>ACCOUNT STORAGE</span><b>{storage ? storageLabel : 'Loading…'}</b></div><i><span style={{ width: `${Math.min(100, Math.max(2, storageBytes / 50000))}%` }} /></i><p>No chats, projects, agents or preferences are stored in browser local storage. Workspace data and files are isolated by your account ID in the Mere X database.</p></div><SettingsSection title="Account usage"><SettingRow icon={<FileText size={17} />} title="Stored files" desc="Files available only to this signed-in account"><span className="usage-value">{storage?.files ?? '—'}</span></SettingRow><SettingRow icon={<Zap size={17} />} title="Saved workflow runs" desc="Agent, research, computer and video runs tied to this account"><span className="usage-value">{storage?.jobs ?? '—'}</span></SettingRow><SettingRow icon={<Database size={17} />} title="Project knowledge stores" desc="Private knowledge indexes mapped to this account"><span className="usage-value">{storage?.knowledgeStores ?? '—'}</span></SettingRow><button className="manage-button" onClick={() => void refreshStorage()}>Refresh storage<ChevronRight size={15} /></button></SettingsSection></>
     if (tab === 'safety') return <><PageHeading title="Safety" description="Set safeguards for generated and researched content." /><SettingsSection title="Content"><SettingRow icon={<ShieldCheck size={17} />} title="Enhanced safety" desc="Apply stricter safeguards to sensitive topics"><Toggle label="Enhanced safety" active={controls.safeMode ?? true} onChange={() => updateControl('safeMode', !(controls.safeMode ?? true))} /></SettingRow><SettingRow icon={<CircleHelp size={17} />} title="Safety guidance" desc="Read Mere X help and responsible-use guidance"><button className="soft-button" onClick={onOpenHelp}>Open guide</button></SettingRow></SettingsSection></>
     if (tab === 'security') return <><PageHeading title="Security and login" description="Protect your account and review active access." /><SettingsSection title={passwordAccount ? 'Password' : 'Create a password'}><form className="security-form" onSubmit={updatePassword}>{passwordChallengeId ? <><label><span>Email confirmation code</span><input className="verification-code-input" value={passwordCode} onChange={event => setPasswordCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" autoFocus /></label><span className="settings-inline-note">Enter the 6-digit code sent to your account email.</span></> : <>{passwordAccount ? <label><span>Current password</span><input type="password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" /></label> : <span className="settings-inline-note">This account signs in with Google. Choose a password to also sign in with your email address; we confirm it with a code sent to {profile.email || 'your account email'}.</span>}<label><span>{passwordAccount ? 'New password' : 'Password'}</span><input type="password" value={nextPassword} onChange={event => setNextPassword(event.target.value)} autoComplete="new-password" placeholder="At least 8 characters" /></label></>}<button className="soft-button" disabled={accountBusy || (passwordChallengeId ? passwordCode.length !== 6 : (passwordAccount && !currentPassword) || nextPassword.length < 8)}>{passwordChallengeId ? (passwordAccount ? 'Confirm password change' : 'Confirm new password') : 'Send confirmation code'}</button>{passwordChallengeId && <button type="button" className="settings-text-button" onClick={() => { setPasswordChallengeId(''); setPasswordCode('') }}>Cancel</button>}</form></SettingsSection><SettingsSection title="Connected sign-in"><SettingRow icon={<ShieldCheck size={17} />} title="Google" desc={identities.find(identity => identity.provider === 'google')?.email || 'Not connected to this account'}><span className={identities.some(identity => identity.provider === 'google') ? 'connected-state' : 'feature-status'}>{identities.some(identity => identity.provider === 'google') ? <><Check size={13} />Connected</> : 'NOT CONNECTED'}</span></SettingRow></SettingsSection><SettingsSection title="Sessions">{sessions.map(session => <div className="session-row" key={session.id}><span className="device-icon"><Square size={15} /></span><span><b>{session.current ? 'This browser' : 'Signed-in browser'}</b><small>Started {new Date(session.createdAt).toLocaleDateString()} · Expires {new Date(session.expiresAt).toLocaleDateString()}</small></span><em>{session.current ? 'THIS DEVICE' : 'ACTIVE'}</em></div>)}{!sessions.length && <span className="settings-inline-note">{user ? 'Loading active sessions…' : 'Sign in to manage sessions.'}</span>}{user && <button className="manage-button" disabled={accountBusy || sessions.filter(session => !session.current).length === 0} onClick={() => void revokeOtherSessions()}>Sign out of all other devices<ChevronRight size={15} /></button>}</SettingsSection><SettingsSection title="Additional protection"><SettingRow icon={<ShieldCheck size={17} />} title="Two-step verification" desc="Requires verified message delivery before it can protect sign-in"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow><SettingRow icon={<Lock size={17} />} title="Passkey" desc="Device-bound passwordless sign-in is prepared for a production domain"><span className="feature-status">DEPLOYMENT SETUP</span></SettingRow></SettingsSection></>
-    if (tab === 'account') return <><PageHeading title="Account" description="Manage your profile, workspace identity and access." /><SettingsSection title="Profile"><AccountProfileEditor profile={profile} setProfile={setProfile} user={user} onUserUpdated={onUserUpdated} onToast={onToast} /></SettingsSection><SettingsSection title="Plan"><div className="plan-card"><div><span>PERSONAL</span><h3>Mere {planLabel}</h3><p>Mere Apex 4.0 and workspace tools with rolling 5-hour usage windows.</p></div><button className="soft-button" onClick={() => setTab('billing')}>Manage plan</button></div></SettingsSection><SettingsSection title="Delete account"><form className="delete-account-form" onSubmit={removeAccount}><div><b>Permanently delete this account</b><p>Your synchronized workspace, sessions and stored files will be removed. Shared links may remain without your identity until they expire.</p></div>{passwordAccount ? <label><span>Confirm with your password</span><input type="password" value={deletePassword} onChange={event => setDeletePassword(event.target.value)} autoComplete="current-password" /></label> : <label><span>Type {profile.email || 'your account email'} to confirm</span><input type="email" value={deleteEmail} onChange={event => setDeleteEmail(event.target.value)} autoComplete="off" placeholder={profile.email} /></label>}<button disabled={accountBusy || !(passwordAccount ? deletePassword : deleteEmail.trim())}>Delete account</button></form></SettingsSection><button className="logout-button" onClick={onSignOut}><LogOut size={16} />Log out</button></>
+    if (tab === 'account') return <><PageHeading title="Account" description="Manage your profile, workspace identity and access." /><SettingsSection title="Profile"><AccountProfileEditor profile={profile} setProfile={setProfile} user={user} onUserUpdated={onUserUpdated} onToast={onToast} /></SettingsSection><SettingsSection title="Plan"><div className="plan-card"><div><span>PERSONAL</span><h3>Mere {planLabel}</h3><p>Mere Apex 4.0 and the full workspace, with access that refreshes as you work.</p></div><button className="soft-button" onClick={() => setTab('billing')}>Manage plan</button></div></SettingsSection><SettingsSection title="Delete account"><form className="delete-account-form" onSubmit={removeAccount}><div><b>Permanently delete this account</b><p>Your synchronized workspace, sessions and stored files will be removed. Shared links may remain without your identity until they expire.</p></div>{passwordAccount ? <label><span>Confirm with your password</span><input type="password" value={deletePassword} onChange={event => setDeletePassword(event.target.value)} autoComplete="current-password" /></label> : <label><span>Type {profile.email || 'your account email'} to confirm</span><input type="email" value={deleteEmail} onChange={event => setDeleteEmail(event.target.value)} autoComplete="off" placeholder={profile.email} /></label>}<button disabled={accountBusy || !(passwordAccount ? deletePassword : deleteEmail.trim())}>Delete account</button></form></SettingsSection><button className="logout-button" onClick={onSignOut}><LogOut size={16} />Log out</button></>
     return <><PageHeading title="Keyboard shortcuts" description="Move faster through chats, search and workspace controls." /><SettingsSection title="Navigation"><div className="shortcut-row"><span>New chat</span><kbd>Ctrl</kbd><b>+</b><kbd>N</kbd></div><div className="shortcut-row"><span>Search everything</span><kbd>Ctrl</kbd><b>+</b><kbd>K</kbd></div><div className="shortcut-row"><span>Close menu or modal</span><kbd>Esc</kbd></div></SettingsSection><SettingsSection title="Composer"><div className="shortcut-row"><span>Send message</span><kbd>Enter</kbd></div><div className="shortcut-row"><span>New line</span><kbd>Shift</kbd><b>+</b><kbd>Enter</kbd></div></SettingsSection></>
   })()
 
@@ -1632,7 +1654,7 @@ function PricingPage({ navigate, user, onUserUpdated }: { navigate: (route: Publ
   const [checkoutPlan, setCheckoutPlan] = useState<PlanTier | null>(null)
   const comparison = [
     ['Mere Apex 4.0', 'Included', 'Included', 'Included', 'Included'],
-    ['5-hour access', 'Standard', 'Expanded', 'Highest', 'Expanded / member'],
+    ['Everyday access', 'Standard', 'Generous', 'Highest', 'Generous / member'],
     ['Deep Research', 'Essential', 'Expanded', 'Highest', 'Expanded'],
     ['Image creation & editing', 'Essential', 'Expanded', 'Highest', 'Expanded'],
     ['Office & PDF workflows', 'Core', 'Extended', 'Maximum', 'Shared'],
@@ -1648,16 +1670,16 @@ function PricingPage({ navigate, user, onUserUpdated }: { navigate: (route: Publ
     setNotice(''); setCheckoutPlan(plan)
   }
   return <PublicShell navigate={navigate} current="pricing" className="pricing-page" user={user}>
-    <section className="public-hero pricing-hero"><p className="landing-kicker">PLANS BUILT TO STAY SUSTAINABLE</p><h1>More capability.<br /><em>Less markup.</em></h1><p>Simple plans with clear limits, one powerful model and no surprise usage charges. Upgrade, downgrade or cancel when you need to.</p><div className="billing-toggle"><button className={!annual ? 'active' : ''} onClick={() => setAnnual(false)}>Monthly</button><button className={annual ? 'active' : ''} onClick={() => setAnnual(true)}>Annual <span>Save up to 22%</span></button></div></section>
+    <section className="public-hero pricing-hero"><p className="landing-kicker">PLANS BUILT TO STAY SUSTAINABLE</p><h1>More capability.<br /><em>Less markup.</em></h1><p>Simple plans, one powerful model and no surprise usage charges. Upgrade, downgrade or cancel when you need to.</p><div className="billing-toggle"><button className={!annual ? 'active' : ''} onClick={() => setAnnual(false)}>Monthly</button><button className={annual ? 'active' : ''} onClick={() => setAnnual(true)}>Annual <span>Save up to 22%</span></button></div></section>
     {notice && <div className="pricing-action-notice"><Info size={16} />{notice}</div>}
     <section className="pricing-grid">{planTiers.map(plan => { const price = annual ? plan.annual : plan.monthly; const current = user?.plan === plan.name.toLowerCase(); return <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>{plan.featured && <span className="pricing-ribbon">RECOMMENDED</span>}<p>{plan.eyebrow}</p><h2>{plan.name}</h2><div className="plan-price">{price === null ? <strong>Custom</strong> : <><strong>${price}</strong><span>{price === 0 ? 'forever' : plan.name === 'Team' ? '/ seat / month' : '/ month'}</span></>}</div><small>{price && annual ? `$${price * 12}${plan.name === 'Team' ? ' per seat' : ''} billed annually` : price ? 'Billed monthly' : 'No credit card required'}</small><p className="plan-description">{plan.description}</p><button disabled={current} className={plan.featured ? 'primary-button' : 'soft-button'} onClick={() => void choose(plan)}>{current ? 'Current plan' : plan.action}<ArrowRight size={15} /></button><ul>{plan.features.map(feature => <li key={feature}><Check size={15} />{feature}</li>)}</ul></article> })}</section>
-    <section className="pricing-note"><Clock3 size={19} /><div><b>Usage refreshes throughout the day.</b><p>Core access runs in rolling 5-hour windows. The amount available adapts to task complexity, file size and demand; advanced tools also use daily fair-use protection. Mere X shows reset timing before access pauses.</p></div></section>
+    <section className="pricing-note"><Clock3 size={19} /><div><b>Access refreshes while you work.</b><p>Mere X is built for continuous use rather than counting. A short question costs less than deep research over large files, so what is available adapts to the work itself. If a heavy stretch needs a pause, Mere X says so plainly and picks up again shortly.</p></div></section>
     <section className="comparison-section"><div className="public-section-head"><p className="landing-kicker">COMPARE</p><h2>Know exactly what is included.</h2></div><div className="comparison-scroll"><table><thead><tr><th>Capability</th><th>Free</th><th>Plus</th><th>Pro</th><th>Team</th></tr></thead><tbody>{comparison.map(row => <tr key={row[0]}>{row.map((cell, index) => index === 0 ? <th key={cell}>{cell}</th> : <td key={`${row[0]}-column-${index}`}>{cell === 'Included' ? <CheckCircle2 size={16} /> : cell}</td>)}</tr>)}</tbody></table></div></section>
     <section className="public-faq"><div className="public-section-head"><p className="landing-kicker">QUESTIONS</p><h2>Billing without ambiguity.</h2></div><div>{[
-      ['How do the 5-hour windows work?', 'Your active allowance refreshes on a rolling five-hour cycle. Short questions use less capacity than long-context research, large files, image work or complex generation.'],
+      ['How much can I use Mere X?', 'Enough to work without keeping score. Access refreshes continuously as you go, and a short question costs far less than deep research across large files, so everyday use simply keeps going.'],
       ['Why is there no fixed message number?', 'Workloads differ dramatically. An adaptive window is clearer in practice than promising a message count that changes with context length, tools and file complexity.'],
       ['Can I cancel or change plans?', 'Yes. Upgrades take effect immediately. Downgrades and cancellations take effect at the end of the current billing period.'],
-      ['What happens when I reach a limit?', 'Mere X shows the next refresh time. Paid accounts can wait for the rolling window, upgrade, or explicitly enable additional usage when that option becomes available.'],
+      ['What happens after a very heavy stretch?', 'Mere X tells you plainly that access is refreshing and that it will be ready again shortly. Nothing is lost, nothing is charged unexpectedly, and a larger plan is always available if you need more headroom.'],
       ['Is Team content used for training?', 'No. Team and Enterprise workspace content is excluded from product training by default.'],
     ].map(([question, answer]) => <details key={question}><summary>{question}<Plus size={16} /></summary><p>{answer}</p></details>)}</div></section>
     <section className="public-cta"><p className="landing-kicker">START CLEARLY</p><h2>Choose the plan that fits the work.</h2><p>Begin free. Upgrade only when Mere X becomes part of your real workflow.</p><button className="landing-cta large" onClick={() => navigate('signup')}>Create your account<ArrowRight size={16} /></button></section>
@@ -1676,7 +1698,7 @@ function SecurityPage({ navigate }: { navigate: (route: PublicRoute) => void }) 
     { icon: Database, title: 'Account workspace storage', text: 'Signed-in chats, Projects, Agents and preferences are persisted in the application database with owner-scoped access.', state: 'CURRENT' },
     { icon: ShieldCheck, title: 'Session protection', text: 'Passwords use memory-hard hashing, sessions use HttpOnly cookies and protected routes enforce account ownership.', state: 'CURRENT' },
     { icon: Users, title: 'Account access controls', text: 'Email/password accounts and session management are active. Passkeys, MFA and organizational roles remain launch controls.', state: 'IN PROGRESS' },
-    { icon: Server, title: 'Abuse and usage protection', text: 'Request throttling, rolling usage windows, file limits and isolated workflow execution are active in the application layer.', state: 'CURRENT' },
+    { icon: Server, title: 'Abuse and usage protection', text: 'Request throttling, adaptive access controls, upload safeguards and isolated workflow execution are active in the application layer.', state: 'CURRENT' },
     { icon: FileText, title: 'Independent assurance', text: 'Compliance claims will only be published after the relevant controls have been implemented and independently assessed.', state: 'COMMITMENT' },
   ]
   return <PublicShell navigate={navigate} current="security" className="security-page"><section className="public-hero"><p className="landing-kicker">SECURITY AT MERE X</p><h1>Trust is a system,<br /><em>not a slogan.</em></h1><p>A transparent view of the safeguards active today and the controls still required for a public production launch.</p></section><section className="security-disclosure"><Info size={19} /><div><b>Development disclosure</b><p>Authentication, durable account sync, signed billing events and usage protection are active. Production TLS, managed backups, verified email delivery, payment credentials and independent compliance assurance still depend on deployment configuration.</p></div></section><section className="security-grid">{controls.map(({ icon: Icon, title, text, state }) => <article key={title}><span><Icon size={20} /></span><em>{state}</em><h2>{title}</h2><p>{text}</p></article>)}</section><section className="security-principles"><div className="public-section-head"><p className="landing-kicker">DESIGN PRINCIPLES</p><h2>How production security will be evaluated.</h2></div><ol><li><span>01</span><div><b>Least privilege</b><p>People and services receive only the access required for their task.</p></div></li><li><span>02</span><div><b>Data minimization</b><p>Collect less, retain for defined periods and make deletion understandable.</p></div></li><li><span>03</span><div><b>Layered defenses</b><p>Authentication, authorization, rate limits, monitoring and recovery work together.</p></div></li><li><span>04</span><div><b>Honest assurance</b><p>No certification or encryption claim is published before it is actually true.</p></div></li></ol></section><section className="public-cta"><p className="landing-kicker">REPORT A CONCERN</p><h2>Security feedback is welcome.</h2><p>Send responsible vulnerability reports to security@mere-x.app. A formal disclosure program will be published before production launch.</p><button className="landing-secondary" onClick={() => navigate('help')}>Contact support<ArrowRight size={15} /></button></section></PublicShell>
@@ -1706,8 +1728,8 @@ function StatusPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
 function ReleaseNotesPage({ navigate }: { navigate: (route: PublicRoute) => void }) {
   const releases = [
     { version: 'Preview 0.6', date: 'August 21, 2026', title: 'A more expressive Mere X', items: ['Rebuilt monochrome landing experience with responsive motion and a live product workflow preview', 'Dedicated Mere Apex 4.0 documentation with eleven complete capability guides', 'Reworked chat surface with cleaner message hierarchy, softer composer and fewer visual dividers', 'Documentation search, keyboard shortcut and active section navigation', 'Responsive desktop and mobile layouts with reduced-motion accessibility'] },
-    { version: 'Preview 0.5', date: 'August 21, 2026', title: 'From chat to complete workflows', items: ['Stateful Mere Apex conversations with combined research and code tools', 'Deep Research, protected computer workspace, autonomous agents and persistent workflow history', 'Live Voice with temporary browser credentials', 'Video Studio and 1K, 2K and 4K image controls', 'Account sync, durable files and shares, rolling usage controls and account security'] },
-    { version: 'Preview 0.4', date: 'August 20, 2026', title: 'A complete workspace foundation', items: ['Unified readable typography across desktop and mobile', 'Direct image editing from the composer', 'Office and PDF analysis with downloadable Word, Excel, PowerPoint, PDF and Markdown output', 'Rolling 5-hour plan windows with adaptive fair-use language', 'Projects, Library, custom Agents and complete public product pages'] },
+    { version: 'Preview 0.5', date: 'August 21, 2026', title: 'From chat to complete workflows', items: ['Stateful Mere Apex conversations with combined research and code tools', 'Deep Research, protected computer workspace, autonomous agents and persistent workflow history', 'Live Voice with temporary browser credentials', 'Video Studio and 1K, 2K and 4K image controls', 'Account sync, durable files and shares, adaptive access controls and account security'] },
+    { version: 'Preview 0.4', date: 'August 20, 2026', title: 'A complete workspace foundation', items: ['Unified readable typography across desktop and mobile', 'Direct image editing from the composer', 'Office and PDF analysis with downloadable Word, Excel, PowerPoint, PDF and Markdown output', 'Plans described in plain language, with access that refreshes while you work', 'Projects, Library, custom Agents and complete public product pages'] },
     { version: 'Preview 0.3', date: 'August 18, 2026', title: 'Context that stays connected', items: ['Project and Agent context in conversations', 'Persistent local chat history and search', 'Share links and Library continuation flows'] },
   ]
   return <PublicShell navigate={navigate} current="release-notes" className="release-page"><section className="public-hero"><p className="landing-kicker">RELEASE NOTES</p><h1>Mere X is taking shape.</h1><p>A transparent record of the product foundation, improvements and changes.</p></section><section className="release-list">{releases.map(release => <article key={release.version}><aside><span>{release.version}</span><small>{release.date}</small></aside><div><h2>{release.title}</h2><ul>{release.items.map(item => <li key={item}><Check size={15} />{item}</li>)}</ul></div></article>)}</section></PublicShell>
@@ -1731,7 +1753,7 @@ function ApexDocsPage({ navigate }: { navigate: (route: PublicRoute) => void }) 
     { id: 'voice', label: 'Live Voice', icon: Mic, title: 'A conversation that can keep pace.', summary: 'Live Voice provides a low-latency spoken session with interruption handling and an on-screen transcript.', points: ['Start from the microphone control in a chat', 'Interrupt naturally when you want to change direction', 'Temporary protected credentials are used for each live session', 'Dictation remains available when you only want speech-to-text input'] },
     { id: 'projects', label: 'Projects & memory', icon: FolderKanban, title: 'Context organized around the outcome.', summary: 'Projects combine instructions, conversations and reference files into a persistent working context.', points: ['Keep a launch, client, study or product initiative separate', 'Add project-specific instructions for tone, audience and constraints', 'Index source files into project knowledge for grounded answers', 'Continue related artifacts from Library without rebuilding context'] },
     { id: 'agents', label: 'Agents & computer', icon: Bot, title: 'Delegate complete multi-step outcomes.', summary: 'Custom Agents carry a reusable role and set of instructions. Managed workflows can plan, research and complete longer tasks.', points: ['Create focused agents for research, writing, engineering or analysis', 'Autonomous Agent plans and verifies multi-stage work', 'Computer Workspace handles protected browser-style tasks in a managed workflow', 'Recent workflow history keeps results, sources and generated files available'] },
-    { id: 'limits', label: 'Access & limits', icon: Clock3, title: 'Adaptive access that refreshes throughout the day.', summary: 'Core use runs in rolling five-hour windows. Capacity adapts to task size so a short answer and a long research workflow are not treated as identical work.', points: ['The current window state and next refresh are visible in Plan & billing', 'Advanced research, image, agent, computer and video work uses a protected tool allowance', 'Higher plans expand access and workflow priority', 'Mere X warns before access pauses; there are no surprise usage charges'] },
+    { id: 'limits', label: 'Access', icon: Clock3, title: 'Access that refreshes while you work.', summary: 'Mere X adapts to the work rather than counting it. A short answer and a long research workflow are not treated as the same thing, so everyday use keeps going.', points: ['Plan & billing shows whether your access is ready in plain language', 'Advanced research, image, agent, computer and video work draw on a protected allowance', 'Larger plans expand headroom and workflow priority', 'Mere X says so before access pauses; there are never surprise usage charges'] },
     { id: 'trust', label: 'Privacy & safety', icon: ShieldCheck, title: 'Control and transparency are product features.', summary: 'Account controls, protected sessions, content boundaries and explicit sharing are built into the platform experience.', points: ['Conversations are private unless you deliberately create a share link', 'You can review active sessions, change your password and remove account data', 'Training preference, memory and chat history controls live in Settings', 'Important decisions should still be reviewed by a qualified human'] },
     { id: 'prompting', label: 'Get better results', icon: WandSparkles, title: 'Give the outcome, context and finish line.', summary: 'Mere Apex works best when it knows what success looks like. A useful prompt does not need special syntax.', points: ['State the outcome: what should exist when the work is finished?', 'Add context: audience, source material, current state and constraints', 'Define quality: tone, depth, format and what must be verified', 'Iterate directly: keep what works and name the exact change you want'] },
   ]
@@ -2103,6 +2125,8 @@ export default function App() {
   // load for the signed-in account has completed, which is what keeps one
   // account's work from being saved into another.
   const workspaceOwnerRef = useRef<string | null>(null)
+  // Effects need to raise a toast without taking the toast state as a dependency.
+  const notifyRef = useRef<(text: string) => void>(() => undefined)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [activeAgent, setActiveAgent] = useState<AgentRecord | null>(null)
   const [activeProject, setActiveProject] = useState<ProjectRecord | null>(null)
@@ -2219,10 +2243,17 @@ export default function App() {
     // Only ever write a snapshot that was actually loaded for this account.
     if (workspaceOwnerRef.current !== accountId) return
     const timer = window.setTimeout(() => {
-      const lightweightMessages = (records: Message[]) => records.map(({ images: _images, files: _files, ...message }) => message)
+      // Generated media is stored on the account and referenced by URL, so it
+      // belongs in the snapshot. Only inline data, which would bloat the record
+      // and cannot be reloaded anyway, is dropped.
+      const storedOnly = (values?: string[]) => values?.filter(value => !value.startsWith('data:'))
+      const lightweightMessages = (records: Message[]) => records.map(({ images, files: _files, ...message }) => {
+        const kept = storedOnly(images)
+        return kept?.length ? { ...message, images: kept } : message
+      })
       const snapshot: WorkspaceSnapshot = {
         projects,
-        library: library.map(({ preview: _preview, ...item }) => item),
+        library: library.map(({ preview, ...item }) => preview && !preview.startsWith('data:') ? { ...item, preview } : item),
         agents: agentRecords,
         conversations: conversations.map(record => ({ ...record, messages: lightweightMessages(record.messages) })),
         preferences,
@@ -2252,6 +2283,13 @@ export default function App() {
           workspaceOwnerRef.current = null
           setWorkspaceError('The signed-in account changed in another tab. Reload Mere X to continue.')
           setWorkspaceLoaded(false)
+          return
+        }
+        if (response.status === 413) {
+          // Silently dropping the save left people working on content that was
+          // never stored. Trim the oldest conversations and tell them why.
+          setConversations(current => current.length > 12 ? current.slice(0, Math.max(12, Math.floor(current.length / 2))) : current)
+          notifyRef.current('Your workspace grew too large to sync. The oldest conversations were archived off this device so new work keeps saving.')
           return
         }
         if (response.status === 409 && typeof result.version === 'number') workspaceVersionRef.current = result.version
@@ -2309,6 +2347,7 @@ export default function App() {
   }, [])
 
   const notify = (text: string) => setToast(text)
+  notifyRef.current = notify
   const authenticated = (user: AuthUser, providers: AuthIdentity[] = []) => {
     workspaceOwnerRef.current = null
     workspaceVersionRef.current = 0
