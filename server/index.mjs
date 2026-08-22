@@ -1615,6 +1615,16 @@ app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml').send(renderSitemapXml(siteOrigin(req)))
 })
 
+// IndexNow: Bing, Yandex and the rest accept a "these pages changed" ping only
+// from someone who can publish this file, so it has to answer before any
+// submission is taken seriously. See scripts/indexnow.mjs.
+app.get('/:key.txt', (req, res, next) => {
+  const key = process.env.INDEXNOW_KEY
+  if (!key || req.params.key !== key) return next()
+  res.set('Cache-Control', 'public, max-age=86400')
+  res.type('text/plain').send(key)
+})
+
 const distDir = path.resolve(currentDir, '..', 'dist')
 if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
   // index.html is never served from disk directly: every address gets its own

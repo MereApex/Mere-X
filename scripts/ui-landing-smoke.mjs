@@ -74,14 +74,14 @@ try {
     capabilityCards: document.querySelectorAll('.capability-card').length,
     heroAnimation: getComputedStyle(document.querySelector('.hero-signal > i')).animationName,
     marqueeAnimation: getComputedStyle(document.querySelector('.landing-motion-rail > div')).animationName,
-    navLinks: [...document.querySelectorAll('.landing-links button')].map(button => button.textContent.trim()),
+    navLinks: [...document.querySelectorAll('.landing-links button, .landing-links a')].map(node => node.textContent.trim()),
   })`)
   await screenshot('mere-x-landing-qa.png')
   await evaluate(`document.querySelector('#capabilities').scrollIntoView()`)
   await sleep(450)
   await screenshot('mere-x-landing-capabilities-qa.png')
 
-  await evaluate(`([...document.querySelectorAll('.landing-links button')].find(button => button.textContent.trim() === 'Mere Apex')).click()`)
+  await evaluate(`([...document.querySelectorAll('.landing-links button, .landing-links a')].find(node => node.textContent.trim() === 'Mere Apex')).click()`)
   await waitFor(`Boolean(document.querySelector('.apex-doc-layout'))`)
   const apexDesktop = await audit('.public-page')
   await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))`)

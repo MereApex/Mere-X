@@ -46,6 +46,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .page-area { min-height: 0; flex: 1; overflow: auto; }
 
 button { border: 0; background: none; }
+/* Route links are anchors so they can be crawled and opened in a new tab;
+   nothing about them should look like default link text. */
+.route-link { display: inline-flex; align-items: center; color: inherit; text-decoration: none; cursor: pointer; }
 .icon-button { display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; padding: 0; border-radius: 8px; color: var(--muted); transition: .18s ease; }
 .icon-button:hover, .icon-button.active { color: var(--text); background: #202020; }
 .icon-button:disabled { opacity: .4; cursor: default; }
@@ -774,8 +777,8 @@ kbd { display: inline-flex; height: 20px; align-items: center; padding: 0 5px; b
 .landing-nav { position: sticky; z-index: 50; top: 0; display: grid; height: 72px; align-items: center; grid-template-columns: 1fr auto 1fr; padding: 0 clamp(24px, 4vw, 66px); border-bottom: 1px solid #202020; background: rgba(8,8,8,.86); backdrop-filter: blur(20px); }
 .landing-brand { width: max-content; padding: 0; }
 .landing-links { display: flex; align-items: center; gap: 35px; }
-.landing-links button, .landing-signin { padding: 8px 0; color: #9a9a97; font-size: var(--type-body); transition: color .18s ease; }
-.landing-links button:hover, .landing-signin:hover { color: #f2f2ef; }
+.landing-links button, .landing-links a, .landing-signin { padding: 8px 0; color: #9a9a97; font-size: var(--type-body); transition: color .18s ease; }
+.landing-links button:hover, .landing-links a:hover, .landing-signin:hover { color: #f2f2ef; }
 .landing-auth { display: flex; align-items: center; justify-content: flex-end; gap: 22px; }
 .landing-cta { display: inline-flex; height: 39px; align-items: center; justify-content: center; gap: 9px; padding: 0 15px; border-radius: 8px; color: #0b0b0b; background: #f1f1ee; font-size: var(--type-body); font-weight: 600; transition: .2s ease; }
 .landing-cta:hover { background: #fff; transform: translateY(-1px); }
@@ -920,8 +923,8 @@ kbd { display: inline-flex; height: 20px; align-items: center; padding: 0 5px; b
 .public-header { position: sticky; z-index: 60; top: 0; display: grid; height: 72px; align-items: center; grid-template-columns: 1fr auto 1fr; padding: 0 clamp(24px, 4vw, 66px); border-bottom: 1px solid #222; background: rgba(8,8,8,.9); backdrop-filter: blur(22px); }
 .public-brand { width: max-content; padding: 0; }
 .public-header nav { display: flex; align-items: center; gap: 32px; }
-.public-header nav button, .public-signin { padding: 9px 0; color: #999996; font-size: var(--type-body); transition: color .18s ease; }
-.public-header nav button:hover, .public-header nav button.active, .public-signin:hover { color: #f2f2ef; }
+.public-header nav button, .public-header nav a, .public-signin { padding: 9px 0; color: #999996; font-size: var(--type-body); transition: color .18s ease; }
+.public-header nav button:hover, .public-header nav a:hover, .public-header nav button.active, .public-header nav a.active, .public-signin:hover { color: #f2f2ef; }
 .public-header > div { display: flex; align-items: center; justify-self: end; gap: 24px; }
 .public-account-return { display: flex; min-width: 184px; align-items: center; gap: 10px; padding: 6px 8px 6px 6px; border: 1px solid #292929; border-radius: 11px; color: #d8d8d5; background: #111; text-align: left; transition: border-color .18s ease, background .18s ease; }.public-account-return:hover { border-color: #484848; background: #171717; }.public-account-return > span:nth-child(2) { display: grid; min-width: 0; gap: 1px; flex: 1; }.public-account-return b { overflow: hidden; font-size: var(--type-caption); text-overflow: ellipsis; white-space: nowrap; }.public-account-return small { color: #777774; font-size: 11px; }.public-account-return > svg { color: #777774; }
 .public-main { min-height: calc(100vh - 72px); }
@@ -930,8 +933,8 @@ kbd { display: inline-flex; height: 20px; align-items: center; padding: 0 5px; b
 .public-footer-brand > span { color: #5f5f5c; font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: .8px; }
 .public-footer-group { display: flex; align-items: flex-start; flex-direction: column; gap: 13px; }
 .public-footer-group b { margin-bottom: 5px; color: #777774; font-family: "DM Mono", monospace; font-size: 11px; font-weight: 500; letter-spacing: 1.2px; }
-.public-footer-group button { padding: 0; color: #aaa; font-size: var(--type-small); text-align: left; }
-.public-footer-group button:hover { color: #fff; }
+.public-footer-group button, .public-footer-group a { padding: 0; color: #aaa; font-size: var(--type-small); text-align: left; }
+.public-footer-group button:hover, .public-footer-group a:hover { color: #fff; }
 .public-hero { display: flex; min-height: 550px; align-items: center; flex-direction: column; justify-content: center; padding: 110px 24px 90px; text-align: center; background: radial-gradient(circle at 50% 45%, #171717, #080808 58%); }
 .public-hero h1 { margin: 24px 0 25px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(55px, 7vw, 98px); font-weight: 400; letter-spacing: -4px; line-height: .98; }
 .public-hero h1 em, .public-section-head h2 em { color: #8d8d8a; font-weight: 400; font-style: normal; }

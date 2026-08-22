@@ -72,7 +72,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AnchorHTMLAttributes, Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { LiveServerMessage, Session } from '@google/genai'
 import {
   PayPalGuestPaymentButton,
@@ -1659,12 +1659,29 @@ function InfoPanel({ title, favorite, onClose, onFavorite, onMove, onArchive, on
   return <aside className="info-panel"><div className="panel-head"><h3>Chat details</h3><IconButton label="Close details" onClick={onClose}><X size={18} /></IconButton></div><div className="panel-section"><p>TITLE</p><div className="editable-title">{title}<Pencil size={14} /></div></div><div className="panel-section"><p>MODEL</p><div className="model-detail"><span className="model-orb" /><span><b>Mere Apex 4.0</b><small>Advanced reasoning and tools</small></span><Check size={15} /></div></div><div className="panel-section"><p>CONVERSATION</p><button onClick={onFavorite}><Star size={16} fill={favorite ? 'currentColor' : 'none'} />{favorite ? 'Remove from favorites' : 'Add to favorites'}</button><button onClick={onMove}><Folder size={16} />Move to project</button><button onClick={onArchive}><Archive size={16} />Archive chat</button><button className="danger" onClick={onDelete}><Trash2 size={16} />Delete chat</button></div><div className="panel-note"><Lock size={14} /><span><b>Private conversation</b><small>Only you can access this chat.</small></span></div></aside>
 }
 
+// Navigation used to be buttons, which meant a crawler could reach the home
+// page and nothing else, and nobody could open a page in a new tab. Every route
+// change is a real <a href> now: the ordinary click is handled here, and a
+// middle click or a modifier is left to the browser to do what it always does.
+function RouteLink({ route, navigate, className, children, ...rest }: { route: PublicRoute; navigate: (route: PublicRoute) => void; className?: string; children: ReactNode } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'className'>) {
+  return <a
+    {...rest}
+    href={pathFor(route)}
+    className={className ? `route-link ${className}` : 'route-link'}
+    onClick={event => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return
+      event.preventDefault()
+      navigate(route)
+    }}
+  >{children}</a>
+}
+
 function PublicHeader({ navigate, current, user }: { navigate: (route: PublicRoute) => void; current: PublicRoute; user?: AuthUser | null }) {
   const links: { route: PublicRoute; label: string }[] = [{ route: 'apex', label: 'Mere Apex' }, { route: 'pricing', label: 'Pricing' }, { route: 'security', label: 'Security' }, { route: 'help', label: 'Help' }]
   return <header className="public-header">
-    <button className="public-brand" onClick={() => navigate('landing')}><BrandMark /></button>
-    <nav aria-label="Public navigation">{links.map(link => <button key={link.route} className={current === link.route ? 'active' : ''} onClick={() => navigate(link.route)}>{link.label}</button>)}</nav>
-    <div>{user ? <button className="public-account-return" onClick={() => navigate('app')} aria-label="Return to your Mere X workspace"><Avatar profile={user} /><span><b>{user.name}</b><small>Mere {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}</small></span><ArrowRight size={15} /></button> : <><button className="public-signin" onClick={() => navigate('signin')}>Sign in</button><button className="landing-cta" onClick={() => navigate('signup')}>Get started<ArrowRight size={14} /></button></>}</div>
+    <RouteLink route="landing" navigate={navigate} className="public-brand" aria-label="Mere X home"><BrandMark /></RouteLink>
+    <nav aria-label="Public navigation">{links.map(link => <RouteLink key={link.route} route={link.route} navigate={navigate} className={current === link.route ? 'active' : undefined} aria-current={current === link.route ? 'page' : undefined}>{link.label}</RouteLink>)}</nav>
+    <div>{user ? <RouteLink route="app" navigate={navigate} className="public-account-return" aria-label="Return to your Mere X workspace"><Avatar profile={user} /><span><b>{user.name}</b><small>Mere {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}</small></span><ArrowRight size={15} /></RouteLink> : <><RouteLink route="signin" navigate={navigate} className="public-signin">Sign in</RouteLink><RouteLink route="signup" navigate={navigate} className="landing-cta">Get started<ArrowRight size={14} /></RouteLink></>}</div>
   </header>
 }
 
@@ -1674,7 +1691,7 @@ function PublicFooter({ navigate }: { navigate: (route: PublicRoute) => void }) 
     { title: 'SUPPORT', links: [{ route: 'help', label: 'Help center' }, { route: 'security', label: 'Security' }, { route: 'acceptable-use', label: 'Safety & use' }] },
     { title: 'LEGAL', links: [{ route: 'privacy', label: 'Privacy' }, { route: 'terms', label: 'Terms' }, { route: 'cookies', label: 'Cookies' }] },
   ]
-  return <footer className="public-footer"><div className="public-footer-brand"><BrandMark /><p>One model. Every kind of work.</p><span>© 2026 Mere X</span></div>{groups.map(group => <div className="public-footer-group" key={group.title}><b>{group.title}</b>{group.links.map(link => <button key={link.route} onClick={() => navigate(link.route)}>{link.label}</button>)}</div>)}</footer>
+  return <footer className="public-footer"><div className="public-footer-brand"><BrandMark /><p>One model. Every kind of work.</p><span>© 2026 Mere X</span></div>{groups.map(group => <div className="public-footer-group" key={group.title}><b>{group.title}</b>{group.links.map(link => <RouteLink key={link.route} route={link.route} navigate={navigate}>{link.label}</RouteLink>)}</div>)}</footer>
 }
 
 function PublicShell({ navigate, current, children, className = '', user }: { navigate: (route: PublicRoute) => void; current: PublicRoute; children: ReactNode; className?: string; user?: AuthUser | null }) {
@@ -2126,10 +2143,10 @@ function LandingPage({ navigate, user }: { navigate: (route: PublicRoute) => voi
   return <div className="landing-page landing-page-v2" ref={pageRef}>
     <nav className="landing-nav">
       <button className="landing-brand" onClick={() => pageRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}><BrandMark /></button>
-      <div className="landing-links"><button onClick={() => scrollTo('capabilities')}>Capabilities</button><button onClick={() => navigate('apex')}>Mere Apex</button><button onClick={() => navigate('pricing')}>Pricing</button><button onClick={() => navigate('security')}>Security</button></div>
+      <div className="landing-links"><button onClick={() => scrollTo('capabilities')}>Capabilities</button><RouteLink route="apex" navigate={navigate}>Mere Apex</RouteLink><RouteLink route="pricing" navigate={navigate}>Pricing</RouteLink><RouteLink route="security" navigate={navigate}>Security</RouteLink></div>
       <div className="landing-auth">{user
-        ? <button className="public-account-return" onClick={() => navigate('app')} aria-label="Return to your Mere X workspace"><Avatar profile={user} /><span><b>{user.name}</b><small>Mere {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}</small></span><ArrowRight size={15} /></button>
-        : <><button className="landing-signin" onClick={() => navigate('signin')}>Sign in</button><button className="landing-cta" onClick={() => navigate('signup')}>Get started<ArrowRight size={14} /></button></>}</div>
+        ? <RouteLink route="app" navigate={navigate} className="public-account-return" aria-label="Return to your Mere X workspace"><Avatar profile={user} /><span><b>{user.name}</b><small>Mere {user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}</small></span><ArrowRight size={15} /></RouteLink>
+        : <><RouteLink route="signin" navigate={navigate} className="landing-signin">Sign in</RouteLink><RouteLink route="signup" navigate={navigate} className="landing-cta">Get started<ArrowRight size={14} /></RouteLink></>}</div>
     </nav>
 
     <main>
