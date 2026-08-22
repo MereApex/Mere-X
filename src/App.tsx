@@ -73,7 +73,7 @@ import {
 } from 'lucide-react'
 import { Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { LiveServerMessage, Session } from '@google/genai'
-import { PayPalProvider, usePayPalSubscriptionPaymentSession } from '@paypal/react-paypal-js/sdk-v6'
+import { PayPalProvider, usePayPalOneTimePaymentSession, usePayPalSubscriptionPaymentSession } from '@paypal/react-paypal-js/sdk-v6'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import mereXEmblem from './assets/mere-x-emblem-transparent.png'
@@ -1521,7 +1521,94 @@ function PublicShell({ navigate, current, children, className = '', user }: { na
   return <div className={`public-page ${className}`}><PublicHeader navigate={navigate} current={current} user={user} /><main className="public-main">{children}</main><PublicFooter navigate={navigate} /></div>
 }
 
-type PaymentConfig = { enabled: boolean; clientId?: string; environment: 'sandbox' | 'production'; currency: string; methods: string[] }
+type PaymentConfig = {
+  enabled: boolean
+  clientId?: string
+  environment: 'sandbox' | 'production'
+  currency: string
+  methods: string[]
+  // Recurring billing needs a merchant feature not every account has. When it is
+  // unavailable the same plans are sold as a paid term instead.
+  mode?: 'subscription' | 'one-time'
+  renews?: boolean
+}
+
+function CheckoutSurface({ state, error, renews, onStart, disabled }: { state: 'ready' | 'creating' | 'confirming' | 'success'; error: string; renews: boolean; onStart: () => void; disabled: boolean }) {
+  return <div className="embedded-payment-method">
+    <div className="payment-method-head"><div><b>Pay securely</b><span>PayPal account or eligible debit and credit cards</span></div><ShieldCheck size={20} /></div>
+    <div className="accepted-cards" aria-label="Accepted payment methods"><span>PayPal</span><span>VISA</span><span>Mastercard</span><span>AMEX</span></div>
+    <button type="button" className="payment-primary-action" disabled={disabled} aria-busy={state !== 'ready'} onClick={onStart}>
+      <Lock size={16} />{renews ? 'Continue to secure approval' : 'Continue to secure payment'}<ArrowRight size={16} />
+    </button>
+    {state !== 'ready' && <div className="payment-progress"><RotateCcw className="spin" size={16} />{state === 'confirming' ? 'Confirming membership…' : 'Preparing secure checkout…'}</div>}
+    {error && <div className="payment-inline-error" role="alert"><Info size={15} />{error}</div>}
+    <p className="payment-security-note"><Lock size={14} />Card details are entered in encrypted hosted fields and are never stored by Mere X.</p>
+  </div>
+}
+
+// A membership bought as a paid term. This is the path that works on every
+// merchant account, because it uses the ordinary payment capability.
+function EmbeddedTermCheckout({ plan, annual, quantity, onSuccess }: { plan: PlanTier; annual: boolean; quantity: number; onSuccess: (user: AuthUser, subscription: BillingSubscription) => void }) {
+  const [state, setState] = useState<'ready' | 'creating' | 'confirming' | 'success'>('ready')
+  const [error, setError] = useState('')
+  const attemptId = useRef(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`)
+  const orderId = useRef('')
+
+  const createOrder = async () => {
+    setState('creating'); setError('')
+    const response = await fetch('/api/billing/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan: plan.name.toLowerCase(), annual, quantity, requestId: attemptId.current }),
+    })
+    const result = await response.json() as { orderId?: string; error?: string }
+    if (!response.ok || !result.orderId) {
+      setState('ready')
+      // Show what actually went wrong rather than a generic retry prompt.
+      setError(result.error || 'Secure checkout is unavailable right now.')
+      throw new Error(result.error || 'Secure checkout is unavailable right now.')
+    }
+    orderId.current = result.orderId
+    return { orderId: result.orderId }
+  }
+
+  const capture = async (approvedId?: string) => {
+    const id = approvedId || orderId.current
+    if (!id) throw new Error('The payment could not be verified.')
+    setState('confirming'); setError('')
+    const response = await fetch(`/api/billing/orders/${encodeURIComponent(id)}/capture`, { method: 'POST' })
+    const result = await response.json() as { user?: AuthUser; subscription?: BillingSubscription; error?: string }
+    if (!response.ok || !result.user || !result.subscription) throw new Error(result.error || 'The payment is still being confirmed.')
+    setState('success')
+    onSuccess(result.user, result.subscription)
+  }
+
+  const session = usePayPalOneTimePaymentSession({
+    createOrder,
+    onApprove: async data => {
+      try { await capture((data as { orderId?: string }).orderId) }
+      catch (cause) { setState('ready'); setError(cause instanceof Error ? cause.message : 'The payment could not be confirmed.') }
+    },
+    onCancel: () => { setState('ready'); setError('Checkout was cancelled. Nothing was charged.') },
+    onError: () => { setState('ready'); setError('The payment could not be completed. Try another payment method.') },
+    presentationMode: 'modal',
+  })
+
+  useEffect(() => {
+    if (!session.error) return
+    setState('ready')
+    setError(session.error instanceof Error ? session.error.message : 'The secure payment window could not be opened.')
+  }, [session.error])
+
+  if (state === 'success') return <div className="payment-success"><span><Check size={28} /></span><h3>Membership activated</h3><p>Your payment is confirmed and Mere {plan.name} is now active.</p></div>
+  return <CheckoutSurface
+    state={state}
+    error={error}
+    renews={false}
+    disabled={state !== 'ready' || session.isPending}
+    onStart={() => { void session.handleClick().catch(() => setState('ready')) }}
+  />
+}
 
 function EmbeddedSubscriptionCheckout({ plan, annual, quantity, onSuccess }: { plan: PlanTier; annual: boolean; quantity: number; onSuccess: (user: AuthUser, subscription: BillingSubscription) => void }) {
   const [state, setState] = useState<'ready' | 'creating' | 'confirming' | 'success'>('ready')
@@ -1538,7 +1625,8 @@ function EmbeddedSubscriptionCheckout({ plan, annual, quantity, onSuccess }: { p
     const result = await response.json() as { subscriptionId?: string; error?: string }
     if (!response.ok || !result.subscriptionId) {
       setState('ready')
-      throw new Error(result.error || 'Secure checkout is unavailable.')
+      setError(result.error || 'Secure checkout is unavailable right now.')
+      throw new Error(result.error || 'Secure checkout is unavailable right now.')
     }
     subscriptionId.current = result.subscriptionId
     return { subscriptionId: result.subscriptionId }
@@ -1576,25 +1664,16 @@ function EmbeddedSubscriptionCheckout({ plan, annual, quantity, onSuccess }: { p
   useEffect(() => {
     if (!session.error) return
     setState('ready')
-    setError('The secure payment window could not be opened. Please try again.')
+    setError(session.error instanceof Error ? session.error.message : 'The secure payment window could not be opened.')
   }, [session.error])
   if (state === 'success') return <div className="payment-success"><span><Check size={28} /></span><h3>Membership activated</h3><p>Your payment is confirmed and Mere {plan.name} is now active.</p></div>
-  return <div className="embedded-payment-method">
-    <div className="payment-method-head"><div><b>Pay securely</b><span>PayPal account or eligible debit and credit cards</span></div><ShieldCheck size={20} /></div>
-    <div className="accepted-cards" aria-label="Accepted payment methods"><span>PayPal</span><span>VISA</span><span>Mastercard</span><span>AMEX</span></div>
-    <button
-      type="button"
-      className="payment-primary-action"
-      disabled={state !== 'ready' || session.isPending || Boolean(session.error)}
-      aria-busy={state !== 'ready' || session.isPending}
-      onClick={() => { void session.handleClick().catch(() => { setState('ready'); setError('The secure payment window could not be opened. Please try again.') }) }}
-    >
-      <Lock size={16} />Continue to secure approval<ArrowRight size={16} />
-    </button>
-    {state !== 'ready' && <div className="payment-progress"><RotateCcw className="spin" size={16} />{state === 'confirming' ? 'Confirming membership…' : 'Preparing secure checkout…'}</div>}
-    {error && <div className="payment-inline-error" role="alert"><Info size={15} />{error}</div>}
-    <p className="payment-security-note"><Lock size={14} />Card details are entered in encrypted hosted fields and are never stored by Mere X.</p>
-  </div>
+  return <CheckoutSurface
+    state={state}
+    error={error}
+    renews
+    disabled={state !== 'ready' || session.isPending}
+    onStart={() => { void session.handleClick().catch(() => setState('ready')) }}
+  />
 }
 
 function PaymentModal({ plan, annual, onClose, onCompleted }: { plan: PlanTier; annual: boolean; onClose: () => void; onCompleted: (user: AuthUser, subscription: BillingSubscription) => void }) {
@@ -1626,8 +1705,13 @@ function PaymentModal({ plan, annual, onClose, onCompleted }: { plan: PlanTier; 
         <h2 id="payment-title">Mere {plan.name}</h2>
         <p>{plan.description}</p>
         {plan.name === 'Team' && <label className="seat-selector"><span>Team seats</span><div><button type="button" onClick={() => setQuantity(value => Math.max(2, value - 1))}>−</button><b>{quantity}</b><button type="button" onClick={() => setQuantity(value => Math.min(250, value + 1))}>+</button></div></label>}
-        <div className="payment-total"><span>{annual ? 'Annual billing' : 'Monthly billing'}</span><strong>${total.toFixed(2)}</strong><small>{config?.currency || 'USD'} · {annual ? 'charged once per year' : 'charged every month'}{plan.name === 'Team' ? ` · ${quantity} seats` : ''}</small></div>
-        <ul className="payment-terms"><li><Check size={14} />Immediate access after confirmed approval</li><li><Check size={14} />Renews automatically until cancelled</li><li><Check size={14} />Manage cancellation in Mere X settings</li></ul>
+        <div className="payment-total"><span>{annual ? (config?.renews === false ? '12 months' : 'Annual billing') : (config?.renews === false ? '1 month' : 'Monthly billing')}</span><strong>${total.toFixed(2)}</strong><small>{config?.currency || 'USD'} · {config?.renews === false ? (annual ? 'one payment for 12 months' : 'one payment for 1 month') : (annual ? 'charged once per year' : 'charged every month')}{plan.name === 'Team' ? ` · ${quantity} seats` : ''}</small></div>
+        <ul className="payment-terms">
+          <li><Check size={14} />Immediate access after confirmed payment</li>
+          {config?.renews === false
+            ? <><li><Check size={14} />One payment, no automatic renewal</li><li><Check size={14} />Renew whenever you choose</li></>
+            : <><li><Check size={14} />Renews automatically until cancelled</li><li><Check size={14} />Manage cancellation in Mere X settings</li></>}
+        </ul>
       </div>
       <div className="payment-checkout">
         <p className="payment-kicker">PAYMENT</p><h3>Complete checkout</h3><p className="payment-checkout-copy">Approval opens as a secure layer over this page. You stay inside Mere X throughout checkout and confirmation.</p>
@@ -1641,8 +1725,12 @@ function PaymentModal({ plan, annual, onClose, onCompleted }: { plan: PlanTier; 
           </div>
           <button type="button" className="soft-button" onClick={onClose}>Close</button>
         </div>}
-        {config?.clientId && <PayPalProvider clientId={config.clientId} environment={config.environment} components={['paypal-subscriptions']} pageType="checkout"><EmbeddedSubscriptionCheckout plan={plan} annual={annual} quantity={quantity} onSuccess={onCompleted} /></PayPalProvider>}
-        {config?.clientId && <p className="payment-consent">By continuing, you authorize recurring charges according to the cycle shown and agree to the Mere X Terms and Privacy Policy.</p>}
+        {config?.clientId && <PayPalProvider clientId={config.clientId} environment={config.environment} components={['paypal-payments']} pageType="checkout">
+          {config.mode === 'subscription'
+            ? <EmbeddedSubscriptionCheckout plan={plan} annual={annual} quantity={quantity} onSuccess={onCompleted} />
+            : <EmbeddedTermCheckout plan={plan} annual={annual} quantity={quantity} onSuccess={onCompleted} />}
+        </PayPalProvider>}
+        {config?.clientId && <p className="payment-consent">{config.renews === false ? 'By continuing, you authorize a single payment for the term shown and agree to the Mere X Terms and Privacy Policy.' : 'By continuing, you authorize recurring charges according to the cycle shown and agree to the Mere X Terms and Privacy Policy.'}</p>}
       </div>
     </section>
   </div>

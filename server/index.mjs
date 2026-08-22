@@ -71,9 +71,14 @@ import {
 } from './platform.mjs'
 import { collectInteraction, createInteraction, getInteraction, interactionInput, streamInteraction } from './interactions.mjs'
 import {
+  billingMode,
   cancelPayPalSubscription,
+  captureMembershipOrder,
   confirmPayPalSubscription,
+  createMembershipOrder,
   createPayPalSubscription,
+  membershipQuantity,
+  paypalCapabilities,
   paymentCatalog,
   paymentError,
   paypalConfigured,
@@ -589,8 +594,8 @@ app.get('/api/health', async (_req, res) => {
 // A signed-in account can see why checkout is unavailable, so the problem is
 // visible in the product instead of only in a server log.
 app.get('/api/billing/diagnostics', requireUser, async (_req, res) => {
-  const diagnostics = await paypalDiagnostics()
-  res.json(diagnostics)
+  const [diagnostics, capabilities] = await Promise.all([paypalDiagnostics(), paypalCapabilities({ refresh: true })])
+  res.json({ ...diagnostics, mode: await billingMode(), capabilities })
 })
 
 app.get('/api/auth/config', (_req, res) => {
@@ -910,13 +915,16 @@ app.get('/api/billing/plans', (req, res) => {
   })
 })
 
-app.get('/api/billing/config', requireUser, (_req, res) => {
+app.get('/api/billing/config', requireUser, async (_req, res) => {
   const config = publicPayPalConfig()
   const problems = config.enabled ? paypalCredentialProblems() : []
-  // A checkout that is configured but cannot authenticate must not render a
-  // payment button that is guaranteed to fail.
   if (problems.length) return res.json({ ...config, enabled: false, clientId: undefined, error: 'Secure checkout is being configured and is not available yet.' })
-  res.json(config)
+  // Recurring billing needs a feature not every merchant account has. When it is
+  // unavailable the same plans are sold as a paid term, which uses the payment
+  // capability every account has, rather than showing a button that cannot work.
+  const mode = await billingMode()
+  if (mode === 'unavailable') return res.json({ ...config, enabled: false, clientId: undefined, error: 'Secure checkout is being configured and is not available yet.' })
+  res.json({ ...config, mode, renews: mode === 'subscription' })
 })
 
 function sendPaymentError(res, error) {
@@ -964,6 +972,35 @@ app.post('/api/billing/subscriptions/:subscriptionId/confirm', requireUser, requ
     const subscription = await confirmPayPalSubscription(req.identity.user.id, String(req.params.subscriptionId))
     const user = await getUser(req.identity.user.id)
     res.json({ ok: true, subscription: publicSubscription(subscription), user })
+  } catch (error) { sendPaymentError(res, error) }
+})
+
+app.post('/api/billing/orders', requireUser, requireSameOrigin, async (req, res) => {
+  const plan = String(req.body?.plan || '').toLowerCase()
+  const billingCycle = req.body?.annual ? 'annual' : 'monthly'
+  if (!paymentCatalog[plan]) return res.status(400).json({ error: 'Choose an available plan.' })
+  const existing = await getCurrentBillingSubscription(req.identity.user.id)
+  if (existing && existing.status === 'ACTIVE' && !existing.cancelAtPeriodEnd) {
+    return res.status(409).json({ error: 'An active membership already exists. Manage it from Plan & billing.' })
+  }
+  try {
+    const order = await createMembershipOrder({
+      req,
+      user: req.identity.user,
+      planKey: plan,
+      billingCycle,
+      quantity: membershipQuantity(plan, req.body?.quantity),
+      requestId: req.body?.requestId,
+    })
+    res.status(201).json(order)
+  } catch (error) { sendPaymentError(res, error) }
+})
+
+app.post('/api/billing/orders/:orderId/capture', requireUser, requireSameOrigin, async (req, res) => {
+  try {
+    const membership = await captureMembershipOrder(req.identity.user, String(req.params.orderId))
+    const user = await getUser(req.identity.user.id)
+    res.json({ ok: true, subscription: publicSubscription(membership), user })
   } catch (error) { sendPaymentError(res, error) }
 })
 

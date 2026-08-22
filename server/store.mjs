@@ -713,6 +713,33 @@ export async function syncBillingSubscription({ providerSubscriptionId, status, 
   })
 }
 
+// A membership bought as a paid term rather than an automatic renewal. It uses
+// the same record as a subscription so access, history and expiry all behave the
+// same way; it simply does not renew itself.
+export async function grantMembershipTerm({ userId, providerReference, providerPlanId, planKey, billingCycle, quantity = 1, expiresAt, payload = null }) {
+  const timestamp = now()
+  return withTransaction(async connection => {
+    const [rows] = await connection.execute('SELECT * FROM billing_subscriptions WHERE provider_subscription_id=? FOR UPDATE', [providerReference])
+    const current = rows[0]
+    // Extend rather than replace when someone buys again before their term ends.
+    const [active] = await connection.execute("SELECT COALESCE(MAX(access_expires_at),0) AS expiry FROM billing_subscriptions WHERE user_id=? AND status='ACTIVE' AND access_expires_at>?", [userId, timestamp])
+    const base = current ? Number(current.access_expires_at || timestamp) : Math.max(timestamp, Number(active[0]?.expiry || 0))
+    const accessExpiresAt = current ? Number(current.access_expires_at) : base + (expiresAt - timestamp)
+    if (current) {
+      await connection.execute('UPDATE billing_subscriptions SET status=?,updated_at=? WHERE id=?', ['ACTIVE', timestamp, current.id])
+    } else {
+      await connection.execute(`INSERT INTO billing_subscriptions
+        (id,user_id,provider_subscription_id,provider_plan_id,plan_key,billing_cycle,quantity,status,payer_id,access_expires_at,cancel_at_period_end,payload,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?,?)`,
+        [randomUUID(), userId, providerReference, providerPlanId, planKey, billingCycle, quantity, 'ACTIVE', null, accessExpiresAt, payload ? JSON.stringify(payload) : null, timestamp, timestamp])
+    }
+    await connection.execute('UPDATE users SET plan=?,updated_at=? WHERE id=?', [planKey, timestamp, userId])
+    await connection.execute('INSERT INTO audit_events (id,user_id,action,metadata,created_at) VALUES (?,?,?,?,?)', [randomUUID(), userId, 'billing.term_purchased', JSON.stringify({ planKey, billingCycle, quantity, accessExpiresAt }), timestamp])
+    const [saved] = await connection.execute('SELECT * FROM billing_subscriptions WHERE provider_subscription_id=?', [providerReference])
+    return publicBillingSubscription(saved[0])
+  })
+}
+
 export async function recordBillingTransaction({ id, subscriptionId = null, userId = null, providerTransactionId = null, eventType, status, amount = null, currency = null, payload = null }) {
   const [result] = await execute(`INSERT IGNORE INTO billing_transactions (id,subscription_id,user_id,provider_transaction_id,event_type,status,amount,currency,payload,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`, [String(id), subscriptionId, userId, providerTransactionId, String(eventType), String(status), amount, currency, payload ? JSON.stringify(payload) : null, now()])
   return Number(result.affectedRows || 0) === 1
@@ -726,6 +753,8 @@ export async function listBillingTransactions(userId, limit = 30) {
 
 export async function expireEndedBillingAccess(timestamp = now()) {
   return withTransaction(async connection => {
+    // A term that has run out is expired first, then the account is re-evaluated.
+    await connection.execute("UPDATE billing_subscriptions SET status='EXPIRED',updated_at=? WHERE status='ACTIVE' AND cancel_at_period_end=1 AND access_expires_at IS NOT NULL AND access_expires_at<=?", [timestamp, timestamp])
     const [rows] = await connection.execute(`SELECT DISTINCT user_id FROM billing_subscriptions WHERE status IN ('CANCELLED','EXPIRED','SUSPENDED') AND access_expires_at IS NOT NULL AND access_expires_at<=?`, [timestamp])
     let downgraded = 0
     for (const row of rows) {

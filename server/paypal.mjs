@@ -2,6 +2,7 @@ import { Client, Environment, SubscriptionsController } from '@paypal/paypal-ser
 import { randomUUID } from 'node:crypto'
 import {
   createBillingSubscription,
+  grantMembershipTerm,
   getBillingPlan,
   getBillingPlanByProviderId,
   getBillingProduct,
@@ -273,6 +274,140 @@ export function paymentError(error) {
   }
   if (Number(error?.statusCode) === 503) return { status: 503, message: 'Payments are temporarily unavailable while secure checkout is being configured.', debugId }
   return { status: Number(error?.statusCode) >= 400 && Number(error?.statusCode) < 500 ? Number(error.statusCode) : 502, message: 'Secure checkout could not complete this request.', debugId }
+}
+
+// A PayPal app only receives the scopes for the features enabled on it. Some
+// accounts have "Accept payments" but not "Subscriptions", and recurring billing
+// simply cannot run there. Detect it once and use the style that works.
+let capabilityState = null
+
+export async function paypalCapabilities({ refresh = false } = {}) {
+  if (capabilityState && !refresh && Date.now() - capabilityState.checkedAt < 10 * 60 * 1000) return capabilityState
+  const state = { checkedAt: Date.now(), subscriptions: false, orders: false, reason: '' }
+  if (!paypalConfigured() || paypalCredentialProblems().length) {
+    capabilityState = state
+    return state
+  }
+  try {
+    await accessToken()
+    state.orders = true
+    state.subscriptions = missingScopes().length === 0
+    if (!state.subscriptions) state.reason = 'This PayPal app does not have Subscriptions enabled, so memberships are sold as a paid term instead of an automatic renewal.'
+  } catch (error) {
+    state.reason = String(error?.message || error).slice(0, 200)
+  }
+  capabilityState = state
+  return state
+}
+
+export async function billingMode() {
+  const capabilities = await paypalCapabilities()
+  if (capabilities.subscriptions) return 'subscription'
+  if (capabilities.orders) return 'one-time'
+  return 'unavailable'
+}
+
+// ---- one-time membership terms -------------------------------------------
+const TERM_MS = { monthly: 31 * 24 * 60 * 60 * 1000, annual: 366 * 24 * 60 * 60 * 1000 }
+
+function membershipAmount(planKey, billingCycle, quantity) {
+  const definition = paymentCatalog[planKey]?.[billingCycle]
+  if (!definition) throw Object.assign(new Error('Choose an available billing plan.'), { statusCode: 400 })
+  const total = (Number(definition.amount) * quantity).toFixed(2)
+  return { total, definition }
+}
+
+export function membershipQuantity(planKey, quantity) {
+  return planKey === 'team' ? Math.max(2, Math.min(250, Number(quantity) || 2)) : 1
+}
+
+export async function createMembershipOrder({ req, user, planKey, billingCycle, quantity = 1, requestId = randomUUID() }) {
+  assertTransactionReady()
+  const safeQuantity = membershipQuantity(planKey, quantity)
+  const { total, definition } = membershipAmount(planKey, billingCycle, safeQuantity)
+  const baseUrl = safeBaseUrl(req)
+  const order = await paypalRest('/v2/checkout/orders', {
+    method: 'POST',
+    headers: { 'PayPal-Request-Id': String(requestId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || randomUUID() },
+    body: {
+      intent: 'CAPTURE',
+      purchase_units: [{
+        // custom_id ties the payment to the account before the money moves, so a
+        // capture can never be credited to the wrong person.
+        custom_id: `${user.id}:${planKey}:${billingCycle}:${safeQuantity}`,
+        description: `${paymentCatalog[planKey].label} — ${billingCycle === 'annual' ? '12 months' : '1 month'}${planKey === 'team' ? ` · ${safeQuantity} seats` : ''}`.slice(0, 127),
+        amount: { currency_code: paypalCurrency(), value: total },
+      }],
+      payment_source: {
+        paypal: {
+          experience_context: {
+            brand_name: 'Mere X',
+            locale: 'en-US',
+            shipping_preference: 'NO_SHIPPING',
+            user_action: 'PAY_NOW',
+            return_url: `${baseUrl}/#/pricing?checkout=approved`,
+            cancel_url: `${baseUrl}/#/pricing?checkout=cancelled`,
+          },
+        },
+      },
+    },
+  })
+  if (!order?.id) throw new Error('The payment could not be started.')
+  return { orderId: order.id, amount: total, currency: paypalCurrency(), quantity: safeQuantity, description: definition.description }
+}
+
+export async function captureMembershipOrder(user, orderId) {
+  assertTransactionReady()
+  const id = String(orderId).replace(/[^A-Za-z0-9-]/g, '').slice(0, 40)
+  if (!id) throw Object.assign(new Error('Payment could not be verified.'), { statusCode: 400 })
+
+  const existing = await paypalRest(`/v2/checkout/orders/${id}`)
+  const unit = existing?.purchase_units?.[0]
+  const [ownerId, planKey, billingCycle, quantity] = String(unit?.custom_id || '').split(':')
+  // The order says who it is for. Anything else is somebody else's payment.
+  if (ownerId !== user.id) throw Object.assign(new Error('This payment belongs to a different account.'), { statusCode: 403 })
+  if (!paymentCatalog[planKey]?.[billingCycle]) throw Object.assign(new Error('This payment does not match an available plan.'), { statusCode: 409 })
+
+  const safeQuantity = membershipQuantity(planKey, quantity)
+  const { total } = membershipAmount(planKey, billingCycle, safeQuantity)
+
+  const captured = String(existing?.status || '').toUpperCase() === 'COMPLETED'
+    ? existing
+    : await paypalRest(`/v2/checkout/orders/${id}/capture`, { method: 'POST', headers: { 'PayPal-Request-Id': `capture-${id}` }, body: {} })
+
+  if (String(captured?.status || '').toUpperCase() !== 'COMPLETED') {
+    throw Object.assign(new Error('Payment approval is still pending.'), { statusCode: 409 })
+  }
+  const capture = captured?.purchase_units?.[0]?.payments?.captures?.[0]
+  const paid = capture?.amount?.value
+  const paidCurrency = capture?.amount?.currency_code
+  // Never grant access for less than the plan costs.
+  if (paid !== total || paidCurrency !== paypalCurrency()) {
+    throw Object.assign(new Error('The captured amount did not match this plan.'), { statusCode: 409 })
+  }
+
+  const membership = await grantMembershipTerm({
+    userId: user.id,
+    providerReference: id,
+    providerPlanId: `order:${planKey}:${billingCycle}`,
+    planKey,
+    billingCycle,
+    quantity: safeQuantity,
+    expiresAt: Date.now() + (TERM_MS[billingCycle] || TERM_MS.monthly),
+    payload: { orderId: id, captureId: capture?.id, amount: paid, currency: paidCurrency, status: captured.status },
+  })
+  await recordBillingTransaction({
+    id: `order-${id}`,
+    subscriptionId: membership?.id || null,
+    userId: user.id,
+    providerTransactionId: capture?.id || id,
+    eventType: 'MEMBERSHIP.TERM.PURCHASED',
+    status: 'COMPLETED',
+    amount: Number(paid),
+    currency: paidCurrency,
+    payload: { orderId: id, captureId: capture?.id },
+  })
+  return membership
 }
 
 function planEnvironmentKey(planKey, billingCycle) {
