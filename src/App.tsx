@@ -123,8 +123,10 @@ type ManagedJob = {
   id: string
   type: string
   status: 'queued' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled'
-  payload?: { prompt?: string; aspectRatio?: string; resolution?: string }
-  result?: { text?: string; sources?: Source[]; file?: { name: string; url: string; mimeType: string; size: number }; remoteStatus?: string }
+  payload?: { prompt?: string; aspectRatio?: string; resolution?: string; segments?: number; targetSeconds?: number }
+  // A longer clip is filmed as several continuing takes, and the run reports
+  // which take it is on.
+  result?: { text?: string; sources?: Source[]; file?: { name: string; url: string; mimeType: string; size: number }; remoteStatus?: string; segments?: number; segmentsDone?: number; targetSeconds?: number }
   error?: string | null
   createdAt?: number
   updatedAt?: number
@@ -1058,6 +1060,8 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast, onAr
   const [prompt, setPrompt] = useState('')
   const [aspectRatio, setAspectRatio] = useState('16:9')
   const [resolution, setResolution] = useState('720p')
+  // The model films eight seconds at a time; longer clips continue the same shot.
+  const [durationSeconds, setDurationSeconds] = useState(8)
   const [job, setJob] = useState<ManagedJob | null>(null)
   const [recentJobs, setRecentJobs] = useState<ManagedJob[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -1065,7 +1069,7 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast, onAr
     { id: 'deep-research', title: 'Deep Research', eyebrow: 'REPORT', description: 'Investigate a complex topic across many sources and return a structured, cited report.', icon: Globe2, placeholder: 'Research the market, compare the strongest evidence and produce an executive report…' },
     { id: 'computer-workspace', title: 'Computer Workspace', eyebrow: 'SANDBOX', description: 'Complete a multi-step browser and computer task inside a protected remote workspace.', icon: Monitor, placeholder: 'Open the provided public resources, collect the relevant facts and organize the result…' },
     { id: 'managed-agent', title: 'Autonomous Agent', eyebrow: 'MULTI-STEP', description: 'Give Mere Apex an outcome and let it plan, execute and verify the full task.', icon: Bot, placeholder: 'Create a complete launch plan with research, risks, schedule and finished deliverables…' },
-    { id: 'video', title: 'Video Studio', eyebrow: '8 SECONDS', description: 'Create a polished video clip with motion and a cinematic visual direction.', icon: Video, placeholder: 'A monochrome architectural film, slow camera movement, soft natural light…' },
+    { id: 'video', title: 'Video Studio', eyebrow: 'UP TO 30 SECONDS', description: 'Create a polished video clip with motion and a cinematic visual direction.', icon: Video, placeholder: 'A monochrome architectural film, slow camera movement, soft natural light…' },
   ]
   const active = workflows.find(item => item.id === kind) || workflows[0]
   const activeStatus = job && !['completed', 'failed', 'cancelled'].includes(job.status)
@@ -1118,7 +1122,7 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast, onAr
     setSubmitting(true); setJob(null)
     const endpoint = kind === 'deep-research' ? '/api/research/deep' : kind === 'computer-workspace' ? '/api/tools/computer' : kind === 'managed-agent' ? '/api/agents/run' : '/api/video'
     try {
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: prompt.trim(), aspectRatio, resolution }) })
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: prompt.trim(), aspectRatio, resolution, durationSeconds }) })
       const result = await response.json() as { job?: ManagedJob; error?: string; code?: string; usage?: UsageSummary; resetAt?: number }
       if (result.usage?.capabilities) setCapabilities(result.usage.capabilities)
       if (response.status === 403 && result.code === 'plan-upgrade-required') {
@@ -1144,12 +1148,14 @@ function WorkflowsPage({ authenticated, plan, onSignIn, onUpgrade, onToast, onAr
       <form className="workflow-form" onSubmit={run}>
         <div className="workflow-form-head"><span><ActiveIcon size={21} /></span><div><small>{active.eyebrow}</small><h2>{active.title}</h2></div><em className={job?.status || 'ready'}><i />{statusLabel}</em></div>
         <label><span>Describe the finished outcome</span><textarea value={prompt} onChange={event => setPrompt(event.target.value)} placeholder={active.placeholder} disabled={Boolean(activeStatus)} /></label>
-        {kind === 'video' && <div className="workflow-options"><label><span>Frame</span><select value={aspectRatio} onChange={event => setAspectRatio(event.target.value)}><option value="16:9">Landscape · 16:9</option><option value="9:16">Portrait · 9:16</option></select></label><label><span>Quality</span><select value={resolution} onChange={event => setResolution(event.target.value)}><option value="720p">Standard · 720p</option><option value="1080p">High · 1080p</option></select></label></div>}
+        {kind === 'video' && <div className="workflow-options"><label><span>Frame</span><select value={aspectRatio} onChange={event => setAspectRatio(event.target.value)}><option value="16:9">Landscape · 16:9</option><option value="9:16">Portrait · 9:16</option></select></label><label><span>Quality</span><select value={resolution} onChange={event => setResolution(event.target.value)}><option value="720p">Standard · 720p</option><option value="1080p">High · 1080p</option></select></label><label><span>Length</span><select value={durationSeconds} onChange={event => setDurationSeconds(Number(event.target.value))} aria-label="Video length"><option value={8}>Short · 8 seconds</option><option value={15}>Medium · about 15 seconds</option><option value={22}>Long · about 22 seconds</option><option value={29}>Extended · about 30 seconds</option></select></label></div>}
         <div className="workflow-run-row"><p><ShieldCheck size={15} />Tasks run in an isolated Mere X workspace. Sensitive actions are never performed silently.</p><button className="primary-button" disabled={!needsExpandedPlan && (!prompt.trim() || submitting || Boolean(activeStatus))}>{needsExpandedPlan ? <><CreditCard size={15} />Compare plans</> : submitting || activeStatus ? <><RotateCcw className="spin" size={15} />Working…</> : <><Zap size={15} />Run workflow</>}</button></div>
       </form>
       <section className={`workflow-result ${job ? 'has-job' : ''}`}>
         {!job && <div className="workflow-result-empty"><BrandGlyph /><b>The finished work appears here.</b><p>You can leave this page while a task runs and return to its status from Workflows.</p></div>}
-        {job && <><header><div><span>RUN / {job.id.slice(0, 8).toUpperCase()}</span><b>{statusLabel}</b></div><em>{job.status.toUpperCase()}</em></header>{activeStatus && <div className="workflow-progress"><span /><span /><span /><p>Planning, executing and checking the result…</p></div>}{job.error && <div className="workflow-error"><CircleHelp size={18} /><span><b>Workflow stopped</b><p>{job.error}</p></span></div>}{job.result?.text && <div className="workflow-output"><ReactMarkdown remarkPlugins={[remarkGfm]}>{job.result.text}</ReactMarkdown></div>}{job.result?.sources?.length ? <div className="workflow-sources"><b>Sources</b>{job.result.sources.map((source, index) => <a key={`${source.uri}-${index}`} href={source.uri} target="_blank" rel="noreferrer"><span>{index + 1}</span>{source.title}<ExternalLink size={13} /></a>)}</div> : null}{job.result?.file && <div className="workflow-video"><video controls preload="metadata" src={job.result.file.url} /><div className="workflow-video-actions"><button type="button" className="soft-button" onClick={() => onOpenMedia({ url: job.result!.file!.url, title: String(job.payload?.prompt || 'Generated video').slice(0, 60), kind: 'video' })}><Maximize2 size={15} />Open full size</button><a className="primary-button" href={job.result.file.url} download={job.result.file.name}><Download size={15} />Download video</a></div></div>}{job.status === 'completed' && !job.result?.text && !job.result?.file && <div className="workflow-complete"><CheckCircle2 size={20} /><span><b>Workflow completed</b><p>The task finished successfully.</p></span></div>}</>}
+        {job && <><header><div><span>RUN / {job.id.slice(0, 8).toUpperCase()}</span><b>{statusLabel}</b></div><em>{job.status.toUpperCase()}</em></header>{activeStatus && <div className="workflow-progress"><span /><span /><span /><p>{job.type === 'video' && Number(job.result?.segments) > 1
+          ? `Filming part ${Math.min(Number(job.result?.segments), (Number(job.result?.segmentsDone) || 0) + 1)} of ${job.result?.segments}. Longer clips are filmed in continuing takes…`
+          : 'Planning, executing and checking the result…'}</p></div>}{job.error && <div className="workflow-error"><CircleHelp size={18} /><span><b>Workflow stopped</b><p>{job.error}</p></span></div>}{job.result?.text && <div className="workflow-output"><ReactMarkdown remarkPlugins={[remarkGfm]}>{job.result.text}</ReactMarkdown></div>}{job.result?.sources?.length ? <div className="workflow-sources"><b>Sources</b>{job.result.sources.map((source, index) => <a key={`${source.uri}-${index}`} href={source.uri} target="_blank" rel="noreferrer"><span>{index + 1}</span>{source.title}<ExternalLink size={13} /></a>)}</div> : null}{job.result?.file && <div className="workflow-video"><video controls preload="metadata" src={job.result.file.url} /><div className="workflow-video-actions"><button type="button" className="soft-button" onClick={() => onOpenMedia({ url: job.result!.file!.url, title: String(job.payload?.prompt || 'Generated video').slice(0, 60), kind: 'video' })}><Maximize2 size={15} />Open full size</button><a className="primary-button" href={job.result.file.url} download={job.result.file.name}><Download size={15} />Download video</a></div></div>}{job.status === 'completed' && !job.result?.text && !job.result?.file && <div className="workflow-complete"><CheckCircle2 size={20} /><span><b>Workflow completed</b><p>The task finished successfully.</p></span></div>}</>}
       </section>
     </div>
     {!!recentJobs.length && <section className="workflow-history"><div className="content-title"><h3>Recent runs</h3><span className="content-meta">ACCOUNT WORKSPACE</span></div><div>{recentJobs.map(item => { const definition = workflows.find(workflow => workflow.id === item.type) || workflows[2]; const Icon = definition.icon; return <button key={item.id} className={job?.id === item.id ? 'active' : ''} onClick={() => { setKind((['deep-research', 'computer-workspace', 'managed-agent', 'video'].includes(item.type) ? item.type : 'managed-agent') as WorkflowKind); setPrompt(item.payload?.prompt || ''); setJob(item) }}><span><Icon size={16} /></span><div><b>{definition.title}</b><p>{item.payload?.prompt || 'Workflow run'}</p></div><em className={item.status}>{item.status}</em><ChevronRight size={15} /></button> })}</div></section>}

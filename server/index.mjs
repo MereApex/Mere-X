@@ -1158,18 +1158,38 @@ app.post('/api/live/token', requireUser, async (req, res) => {
   }
 })
 
+// One generation is capped at eight seconds by the model, so a longer clip is
+// built by continuing the shot: each extension carries the previous video
+// forward and adds roughly another seven seconds.
+const VIDEO_BASE_SECONDS = 8
+const VIDEO_EXTENSION_SECONDS = 7
+const VIDEO_MAX_SEGMENTS = 4
+
+function videoSegmentsFor(seconds) {
+  const target = Number(seconds)
+  if (!Number.isFinite(target) || target <= VIDEO_BASE_SECONDS) return 1
+  const extra = Math.ceil((target - VIDEO_BASE_SECONDS) / VIDEO_EXTENSION_SECONDS)
+  return Math.min(VIDEO_MAX_SEGMENTS, 1 + Math.max(0, extra))
+}
+
+function videoSecondsFor(segments) {
+  return VIDEO_BASE_SECONDS + (Math.max(1, segments) - 1) * VIDEO_EXTENSION_SECONDS
+}
+
 app.post('/api/video', requireUser, async (req, res) => {
   const ai = client()
   if (!ai) return res.status(503).json({ error: 'Mere X intelligence is not configured.' })
   const prompt = String(req.body?.prompt || '').trim()
   const aspectRatio = ['16:9', '9:16'].includes(req.body?.aspectRatio) ? req.body.aspectRatio : '16:9'
   const resolution = ['720p', '1080p'].includes(req.body?.resolution) ? req.body.resolution : '720p'
+  const segments = videoSegmentsFor(req.body?.durationSeconds)
   if (!prompt) return res.status(400).json({ error: 'Describe the video you want to create.' })
-  if (!await reserveUsage(req, res, 'video', resolution === '1080p' ? 2 : 1, { aspectRatio, resolution })) return
+  // A longer clip is several generations, and costs accordingly.
+  if (!await reserveUsage(req, res, 'video', (resolution === '1080p' ? 2 : 1) * segments, { aspectRatio, resolution, segments })) return
   const job = await createJob({
     ownerId: req.identity.user.id,
     type: 'video',
-    payload: { prompt: prompt.slice(0, 4000), aspectRatio, resolution },
+    payload: { prompt: prompt.slice(0, 4000), aspectRatio, resolution, segments, targetSeconds: videoSecondsFor(segments) },
   })
   try {
     const plan = String(req.identity.user.plan || 'free')
@@ -1183,7 +1203,10 @@ app.post('/api/video', requireUser, async (req, res) => {
       config: { numberOfVideos: 1, aspectRatio, resolution, durationSeconds: 8 },
     })
     if (!operation.name) throw new Error('Video task did not start')
-    const updated = await updateJob(job.id, { status: operation.done ? 'processing' : 'running', result: { operationName: operation.name } })
+    const updated = await updateJob(job.id, {
+      status: operation.done ? 'processing' : 'running',
+      result: { operationName: operation.name, model, segments, segmentsDone: 0, targetSeconds: videoSecondsFor(segments) },
+    })
     res.status(202).json({ job: updated })
   } catch (error) {
     console.error('[video]', { status: error?.status || error?.code, message: String(error?.message || error).slice(0, 500) })
@@ -1218,6 +1241,8 @@ app.get('/api/jobs/:id', async (req, res) => {
         const failed = await updateJob(job.id, { status: 'failed', error: videoFailureMessage(operation.error), result: { operationName } })
         return res.json({ job: failed })
       }
+      const plannedSegments = Number(job.result?.segments) || 1
+      const segmentsDone = Number(job.result?.segmentsDone) || 0
       const generated = operation.response?.generatedVideos?.[0]
       // A request that finishes with nothing to show was filtered rather than
       // broken, and telling someone it "could not be completed" hides that.
@@ -1234,6 +1259,27 @@ app.get('/api/jobs/:id', async (req, res) => {
         return res.json({ job: failed })
       }
       const video = generated?.video
+      // More of the shot still to film: hand this clip back to the model and let
+      // it continue from where it ends.
+      if (video && segmentsDone + 1 < plannedSegments) {
+        try {
+          const next = await ai.models.generateVideos({
+            model: job.result?.model || process.env.MERE_VIDEO_MODEL || 'veo-3.1-generate-preview',
+            source: { prompt: `${String(job.payload?.prompt || '').slice(0, 3800)}\n\nContinue this shot smoothly from where it ends.`, video },
+            config: { numberOfVideos: 1, aspectRatio: job.payload?.aspectRatio || '16:9', resolution: job.payload?.resolution || '720p' },
+          })
+          if (next.name) {
+            const continued = await updateJob(job.id, {
+              status: 'running',
+              result: { ...job.result, operationName: next.name, segmentsDone: segmentsDone + 1 },
+            })
+            return res.json({ job: continued })
+          }
+        } catch (error) {
+          // Keeping the footage already filmed beats losing the whole run.
+          console.error('[video-extend]', { jobId: job.id, message: String(error?.message || error).slice(0, 300) })
+        }
+      }
       let buffer
       if (video?.videoBytes) buffer = Buffer.from(video.videoBytes, 'base64')
       else if (video?.uri) {
@@ -1243,7 +1289,7 @@ app.get('/api/jobs/:id', async (req, res) => {
       }
       if (!buffer?.length) throw new Error('The completed video did not contain downloadable media')
       const file = await storeFile({ ownerId: req.identity.user.id, name: `mere-x-video-${job.id.slice(0, 8)}.mp4`, mimeType: video?.mimeType || 'video/mp4', buffer })
-      const completed = await updateJob(job.id, { status: 'completed', result: { operationName, file: { ...file, url: `/api/files/${file.id}` } } })
+      const completed = await updateJob(job.id, { status: 'completed', result: { ...job.result, operationName, file: { ...file, url: `/api/files/${file.id}` } } })
       return res.json({ job: completed })
     } catch (error) {
       console.error('[video-status]', { status: error?.status || error?.code, message: String(error?.message || error).slice(0, 500) })
