@@ -84,6 +84,9 @@ import {
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import mereXEmblem from './assets/mere-x-emblem-transparent.png'
+// The server stamps these same tags into the document before it is sent, so
+// client and crawler always agree about what a page is called.
+import { pageSeo, seoKeyForPath, SITE_NAME, SOCIAL_IMAGE } from '../server/seo.mjs'
 
 type Page = 'chat' | 'search' | 'projects' | 'library' | 'agents' | 'workflows' | 'settings'
 type SettingsTab = 'general' | 'notifications' | 'personalization' | 'plugins' | 'voice' | 'billing' | 'data' | 'cloud' | 'storage' | 'safety' | 'security' | 'account' | 'keyboard'
@@ -223,6 +226,84 @@ const starterPrompts = [
 ]
 
 const publicPageRoutes: PublicRoute[] = ['apex', 'pricing', 'privacy', 'terms', 'security', 'acceptable-use', 'cookies', 'help', 'status', 'release-notes', 'download']
+const workspacePages: Page[] = ['projects', 'library', 'agents', 'workflows', 'settings']
+
+// Real paths, not fragments. A search engine cannot index anything after a #,
+// so every page needs an address of its own.
+function pathFor(route: PublicRoute | Page) {
+  if (route === 'landing') return '/'
+  if (route === 'app' || route === 'chat') return '/app'
+  return `/${route}`
+}
+
+function routeFromPath(pathname = window.location.pathname): PublicRoute {
+  const path = pathname.replace(/^\/+|\/+$/g, '')
+  if (path.startsWith('shared/')) return 'shared'
+  if (path === 'signin' || path === 'signup') return path
+  if (path.startsWith('reset-password')) return 'reset-password'
+  if (!path || path === 'landing') return 'landing'
+  if (publicPageRoutes.includes(path as PublicRoute)) return path as PublicRoute
+  return 'app'
+}
+
+function workspacePageFromPath(pathname = window.location.pathname): Page {
+  const path = pathname.replace(/^\/+|\/+$/g, '') as Page
+  return workspacePages.includes(path) ? path : 'chat'
+}
+
+// Links shared before this release still carry #/pricing. Send them to the real
+// address once, so nothing that is already out in the world breaks.
+function upsertMeta(selector: string, attribute: 'name' | 'property', key: string, content: string) {
+  let tag = document.head.querySelector<HTMLMetaElement>(selector)
+  if (!tag) {
+    tag = document.createElement('meta')
+    tag.setAttribute(attribute, key)
+    document.head.appendChild(tag)
+  }
+  tag.setAttribute('content', content)
+}
+
+function upsertLink(rel: string, href: string) {
+  let tag = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`)
+  if (!tag) {
+    tag = document.createElement('link')
+    tag.setAttribute('rel', rel)
+    document.head.appendChild(tag)
+  }
+  tag.setAttribute('href', href)
+}
+
+// Titles, descriptions, canonicals and social cards are what a search result and
+// a shared link actually show, and a single-page app has to set them itself.
+function applyPageSeo(pathname = window.location.pathname) {
+  const key = seoKeyForPath(pathname)
+  const seo = pageSeo[key]
+  const canonical = `${window.location.origin}${key === '/' ? '/' : key}`
+
+  document.title = seo.title
+  upsertMeta('meta[name="description"]', 'name', 'description', seo.description)
+  upsertMeta('meta[name="robots"]', 'name', 'robots', seo.index === false ? 'noindex, follow' : 'index, follow, max-image-preview:large')
+  upsertLink('canonical', canonical)
+
+  upsertMeta('meta[property="og:type"]', 'property', 'og:type', 'website')
+  upsertMeta('meta[property="og:site_name"]', 'property', 'og:site_name', SITE_NAME)
+  upsertMeta('meta[property="og:title"]', 'property', 'og:title', seo.title)
+  upsertMeta('meta[property="og:description"]', 'property', 'og:description', seo.description)
+  upsertMeta('meta[property="og:url"]', 'property', 'og:url', canonical)
+  upsertMeta('meta[property="og:image"]', 'property', 'og:image', `${window.location.origin}${SOCIAL_IMAGE}`)
+  upsertMeta('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image')
+  upsertMeta('meta[name="twitter:title"]', 'name', 'twitter:title', seo.title)
+  upsertMeta('meta[name="twitter:description"]', 'name', 'twitter:description', seo.description)
+  upsertMeta('meta[name="twitter:image"]', 'name', 'twitter:image', `${window.location.origin}${SOCIAL_IMAGE}`)
+}
+
+function normalizeLegacyHash() {
+  const hash = window.location.hash
+  if (!hash.startsWith('#/')) return
+  const target = hash.slice(2)
+  const path = target === '' || target === 'landing' ? '/' : `/${target}`
+  window.history.replaceState(null, '', path + window.location.search)
+}
 
 type PlanTier = {
   name: string
@@ -296,7 +377,7 @@ const legalDocuments: Record<LegalRoute, { eyebrow: string; title: string; summa
       { title: '5. Retention and deletion', paragraphs: ['Account and workspace information is kept while your account is active and for a limited period afterward when required for security, disputes, legal obligations or backups. You can delete conversations, export workspace data and request account deletion. Some records may be retained where law requires it.'] },
       { title: '6. Your choices and rights', bullets: ['Access, correct, export or delete eligible personal information.', 'Turn memory and product-improvement controls on or off in Settings.', 'Object to or restrict certain processing where local law provides that right.', 'Withdraw consent without affecting processing that occurred before withdrawal.'] },
       { title: '7. Security, international transfers and children', paragraphs: ['Mere X applies safeguards appropriate to the service stage and works toward encryption, least-privilege access, monitoring and incident response in production. Data may be processed in countries other than yours using legally recognized transfer safeguards. Mere X is not intended for children under 13, or a higher minimum age where local law requires it.'] },
-      { title: '8. Contact and changes', paragraphs: ['Questions or privacy requests can be sent to privacy@mere-x.app. Material changes will be announced in the service and the updated effective date will appear on this page.'] },
+      { title: '8. Contact and changes', paragraphs: ['Questions or privacy requests can be sent to privacy@merex.ai. Material changes will be announced in the service and the updated effective date will appear on this page.'] },
     ],
   },
   terms: {
@@ -312,7 +393,7 @@ const legalDocuments: Record<LegalRoute, { eyebrow: string; title: string; summa
       { title: '6. Acceptable use and suspension', paragraphs: ['You must follow the Acceptable Use Policy and applicable law. Mere X may limit or suspend access when reasonably necessary to protect users, the service or third parties, investigate abuse, comply with law or address unpaid fees. We will provide notice where practical and legally permitted.'] },
       { title: '7. Third-party services', paragraphs: ['Connections, links, retrieved sources and external services may have separate terms and privacy practices. Mere X is not responsible for third-party content or services outside its control.'] },
       { title: '8. Disclaimers and liability', paragraphs: ['The service is provided on an “as available” basis to the extent permitted by law. Mere X does not guarantee uninterrupted service or that output will be accurate or unique. Liability limitations do not apply where prohibited by law and do not limit rights that cannot legally be waived.'] },
-      { title: '9. Changes, termination and contact', paragraphs: ['You may stop using Mere X at any time. Material term changes will be announced before they take effect when required. Questions about these terms can be sent to legal@mere-x.app.'] },
+      { title: '9. Changes, termination and contact', paragraphs: ['You may stop using Mere X at any time. Material term changes will be announced before they take effect when required. Questions about these terms can be sent to legal@merex.ai.'] },
     ],
   },
   'acceptable-use': {
@@ -323,7 +404,7 @@ const legalDocuments: Record<LegalRoute, { eyebrow: string; title: string; summa
       { title: 'Use Mere X responsibly', paragraphs: ['You may use Mere X for lawful research, analysis, creativity, learning, software development and business workflows. You remain responsible for how prompts, tools and outputs are used.'] },
       { title: 'Prohibited activity', bullets: ['Child sexual abuse material, sexual exploitation, grooming or content that sexualizes minors.', 'Instructions or assistance intended to facilitate violence, terrorism, weapons misuse or serious physical harm.', 'Malware deployment, credential theft, destructive intrusion, evasion of security controls or unauthorized access.', 'Fraud, scams, impersonation, deceptive manipulation, spam or coordinated inauthentic behavior.', 'Doxxing, stalking, biometric identification without legal authority or unlawful collection of personal data.', 'Content that infringes intellectual-property rights or violates confidentiality obligations.', 'Automated high-impact decisions without legally required safeguards and meaningful human review.', 'Attempts to bypass safety systems, extract secrets, disrupt the service or resell access without permission.'] },
       { title: 'Sensitive domains', paragraphs: ['Educational, medical, legal, financial, employment and public-sector use may require additional review, disclosures, qualified professionals and compliance controls. Mere X output must not replace professional judgment where safety or rights are materially affected.'] },
-      { title: 'Enforcement', paragraphs: ['Mere X may warn, rate-limit, remove content, restrict tools, suspend accounts or report activity when reasonably necessary. Context, intent, severity, history and applicable law are considered. Appeals can be sent to safety@mere-x.app.'] },
+      { title: 'Enforcement', paragraphs: ['Mere X may warn, rate-limit, remove content, restrict tools, suspend accounts or report activity when reasonably necessary. Context, intent, severity, history and applicable law are considered. Appeals can be sent to safety@merex.ai.'] },
     ],
   },
   cookies: {
@@ -334,7 +415,7 @@ const legalDocuments: Record<LegalRoute, { eyebrow: string; title: string; summa
       { title: '1. Essential storage', paragraphs: ['Mere X uses essential cookies or comparable browser storage for authentication, security, preferences, active conversations and basic service continuity. These controls cannot be disabled inside the product when they are required for the service to work.'] },
       { title: '2. Current preview behavior', paragraphs: ['Mere X stores lightweight workspace data in the browser for continuity and synchronizes signed-in account workspaces to the application database. Clearing browser data removes the local copy; signed-in users can reload synchronized chats, Projects, Agents and preferences from their account.'] },
       { title: '3. Analytics and diagnostics', paragraphs: ['Privacy-conscious analytics may be used to understand performance, feature adoption and errors. Non-essential analytics will follow consent requirements in applicable regions. Mere X does not use cross-site advertising cookies.'] },
-      { title: '4. Managing choices', paragraphs: ['You can manage cookies through browser controls and future consent settings. Blocking essential storage can prevent sign-in, saved preferences and other features from working correctly. Questions can be sent to privacy@mere-x.app.'] },
+      { title: '4. Managing choices', paragraphs: ['You can manage cookies through browser controls and future consent settings. Blocking essential storage can prevent sign-in, saved preferences and other features from working correctly. Questions can be sent to privacy@merex.ai.'] },
     ],
   },
 }
@@ -1912,7 +1993,7 @@ function PricingPage({ navigate, user, onUserUpdated }: { navigate: (route: Publ
 
 function LegalPage({ route, navigate, user }: { route: LegalRoute; navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
   const document = legalDocuments[route]
-  return <PublicShell navigate={navigate} current={route} user={user} className="legal-page"><header className="document-hero"><p className="landing-kicker">{document.eyebrow}</p><h1>{document.title}</h1><p>{document.summary}</p><div><span>Effective August 20, 2026</span><span>Version 1.0</span></div></header><div className="document-layout"><aside><b>ON THIS PAGE</b>{document.sections.map(section => <a key={section.title} href={`#${section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>{section.title}</a>)}<button onClick={() => navigate('help')}><CircleHelp size={15} />Need help?</button></aside><article>{document.sections.map(section => <section id={section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')} key={section.title}><h2>{section.title}</h2>{section.paragraphs?.map(paragraph => <p key={paragraph}>{paragraph}</p>)}{section.bullets && <ul>{section.bullets.map(item => <li key={item}>{item}</li>)}</ul>}</section>)}<div className="document-contact"><Mail size={19} /><div><b>Questions about this document?</b><p>Contact legal@mere-x.app or visit the Help center.</p></div></div></article></div></PublicShell>
+  return <PublicShell navigate={navigate} current={route} user={user} className="legal-page"><header className="document-hero"><p className="landing-kicker">{document.eyebrow}</p><h1>{document.title}</h1><p>{document.summary}</p><div><span>Effective August 20, 2026</span><span>Version 1.0</span></div></header><div className="document-layout"><aside><b>ON THIS PAGE</b>{document.sections.map(section => <a key={section.title} href={`#${section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>{section.title}</a>)}<button onClick={() => navigate('help')}><CircleHelp size={15} />Need help?</button></aside><article>{document.sections.map(section => <section id={section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')} key={section.title}><h2>{section.title}</h2>{section.paragraphs?.map(paragraph => <p key={paragraph}>{paragraph}</p>)}{section.bullets && <ul>{section.bullets.map(item => <li key={item}>{item}</li>)}</ul>}</section>)}<div className="document-contact"><Mail size={19} /><div><b>Questions about this document?</b><p>Contact legal@merex.ai or visit the Help center.</p></div></div></article></div></PublicShell>
 }
 
 function SecurityPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
@@ -1924,7 +2005,7 @@ function SecurityPage({ navigate, user }: { navigate: (route: PublicRoute) => vo
     { icon: Server, title: 'Abuse and usage protection', text: 'Request throttling, adaptive access controls, upload safeguards and isolated workflow execution are active in the application layer.', state: 'CURRENT' },
     { icon: FileText, title: 'Independent assurance', text: 'Compliance claims will only be published after the relevant controls have been implemented and independently assessed.', state: 'COMMITMENT' },
   ]
-  return <PublicShell navigate={navigate} current="security" user={user} className="security-page"><section className="public-hero"><p className="landing-kicker">SECURITY AT MERE X</p><h1>Trust is a system,<br /><em>not a slogan.</em></h1><p>A transparent view of the safeguards active today and the controls still required for a public production launch.</p></section><section className="security-disclosure"><Info size={19} /><div><b>Development disclosure</b><p>Authentication, durable account sync, signed billing events and usage protection are active. Production TLS, managed backups, verified email delivery, payment credentials and independent compliance assurance still depend on deployment configuration.</p></div></section><section className="security-grid">{controls.map(({ icon: Icon, title, text, state }) => <article key={title}><span><Icon size={20} /></span><em>{state}</em><h2>{title}</h2><p>{text}</p></article>)}</section><section className="security-principles"><div className="public-section-head"><p className="landing-kicker">DESIGN PRINCIPLES</p><h2>How production security will be evaluated.</h2></div><ol><li><span>01</span><div><b>Least privilege</b><p>People and services receive only the access required for their task.</p></div></li><li><span>02</span><div><b>Data minimization</b><p>Collect less, retain for defined periods and make deletion understandable.</p></div></li><li><span>03</span><div><b>Layered defenses</b><p>Authentication, authorization, rate limits, monitoring and recovery work together.</p></div></li><li><span>04</span><div><b>Honest assurance</b><p>No certification or encryption claim is published before it is actually true.</p></div></li></ol></section><section className="public-cta"><p className="landing-kicker">REPORT A CONCERN</p><h2>Security feedback is welcome.</h2><p>Send responsible vulnerability reports to security@mere-x.app. A formal disclosure program will be published before production launch.</p><button className="landing-secondary" onClick={() => navigate('help')}>Contact support<ArrowRight size={15} /></button></section></PublicShell>
+  return <PublicShell navigate={navigate} current="security" user={user} className="security-page"><section className="public-hero"><p className="landing-kicker">SECURITY AT MERE X</p><h1>Trust is a system,<br /><em>not a slogan.</em></h1><p>A clear view of how your account, your work and your payments are protected.</p></section><section className="security-disclosure"><ShieldCheck size={19} /><div><b>How we describe security</b><p>Every safeguard listed here is one that is actually running. Nothing on this page is aspirational, and anything still being rolled out is named as such rather than implied.</p></div></section><section className="security-grid">{controls.map(({ icon: Icon, title, text, state }) => <article key={title}><span><Icon size={20} /></span><em>{state}</em><h2>{title}</h2><p>{text}</p></article>)}</section><section className="security-principles"><div className="public-section-head"><p className="landing-kicker">DESIGN PRINCIPLES</p><h2>How production security will be evaluated.</h2></div><ol><li><span>01</span><div><b>Least privilege</b><p>People and services receive only the access required for their task.</p></div></li><li><span>02</span><div><b>Data minimization</b><p>Collect less, retain for defined periods and make deletion understandable.</p></div></li><li><span>03</span><div><b>Layered defenses</b><p>Authentication, authorization, rate limits, monitoring and recovery work together.</p></div></li><li><span>04</span><div><b>Honest assurance</b><p>No certification or encryption claim is published before it is actually true.</p></div></li></ol></section><section className="public-cta"><p className="landing-kicker">REPORT A CONCERN</p><h2>Security feedback is welcome.</h2><p>Send responsible vulnerability reports to security@merex.ai. A formal disclosure program will be published before production launch.</p><button className="landing-secondary" onClick={() => navigate('help')}>Contact support<ArrowRight size={15} /></button></section></PublicShell>
 }
 
 function HelpPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
@@ -1937,7 +2018,7 @@ function HelpPage({ navigate, user }: { navigate: (route: PublicRoute) => void; 
     ['Privacy and data', 'Review storage, exports, deletion, memory and product-improvement controls.', 'privacy'],
     ['Safety and security', 'Understand safeguards, account protection and responsible use.', 'security'],
   ].filter(article => `${article[0]} ${article[1]}`.toLowerCase().includes(query.toLowerCase()))
-  return <PublicShell navigate={navigate} current="help" user={user} className="help-page"><section className="help-hero"><p className="landing-kicker">MERE X HELP CENTER</p><h1>What do you need?</h1><div className="help-search"><Search size={20} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search setup, billing, privacy, Projects..." autoFocus /></div></section><section className="help-grid">{articles.map(([title, text, route]) => <button key={title} onClick={() => navigate(route as PublicRoute)}><span><LifeBuoy size={19} /></span><h2>{title}</h2><p>{text}</p><ArrowRight size={16} /></button>)}</section><section className="help-contact"><div><p className="landing-kicker">STILL NEED HELP?</p><h2>Talk to the right team.</h2><p>General support: support@mere-x.app<br />Privacy: privacy@mere-x.app<br />Security: security@mere-x.app</p></div><button className="landing-secondary" onClick={() => window.location.href = 'mailto:support@mere-x.app'}><Mail size={16} />Email support</button></section></PublicShell>
+  return <PublicShell navigate={navigate} current="help" user={user} className="help-page"><section className="help-hero"><p className="landing-kicker">MERE X HELP CENTER</p><h1>What do you need?</h1><div className="help-search"><Search size={20} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search setup, billing, privacy, Projects..." autoFocus /></div></section><section className="help-grid">{articles.map(([title, text, route]) => <button key={title} onClick={() => navigate(route as PublicRoute)}><span><LifeBuoy size={19} /></span><h2>{title}</h2><p>{text}</p><ArrowRight size={16} /></button>)}</section><section className="help-contact"><div><p className="landing-kicker">STILL NEED HELP?</p><h2>Talk to the right team.</h2><p>General support: support@merex.ai<br />Privacy: privacy@merex.ai<br />Security: security@merex.ai</p></div><button className="landing-secondary" onClick={() => window.location.href = 'mailto:support@merex.ai'}><Mail size={16} />Email support</button></section></PublicShell>
 }
 
 function StatusPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
@@ -1945,7 +2026,7 @@ function StatusPage({ navigate, user }: { navigate: (route: PublicRoute) => void
   const [checkedAt, setCheckedAt] = useState('')
   useEffect(() => { const controller = new AbortController(); fetch('/api/health', { signal: controller.signal }).then(response => { setApiState(response.ok ? 'operational' : 'degraded'); setCheckedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) }).catch(() => { setApiState('degraded'); setCheckedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) }); return () => controller.abort() }, [])
   const components = [{ name: 'Web application', state: 'operational' }, { name: 'Mere Apex conversations', state: apiState }, { name: 'Research and Workflows', state: apiState }, { name: 'Image, voice and video', state: apiState }, { name: 'Account workspace storage', state: apiState }]
-  return <PublicShell navigate={navigate} current="status" user={user} className="status-page"><section className="status-hero"><span className={`status-orb ${apiState}`} /><p className="landing-kicker">LIVE PREVIEW STATUS</p><h1>{apiState === 'checking' ? 'Checking systems…' : apiState === 'operational' ? 'All checked systems operational.' : 'Some systems are degraded.'}</h1><p>This page checks the local Mere X API health endpoint. Production incident history and external monitoring will be added with deployment.</p></section><section className="status-card"><header><b>Components</b><span>{checkedAt ? `Checked ${checkedAt}` : 'Checking now'}</span></header>{components.map(component => <div key={component.name}><span>{component.name}</span><b className={component.state}><i />{component.state === 'checking' ? 'Checking' : component.state === 'operational' ? 'Operational' : 'Degraded'}</b></div>)}</section><section className="status-history"><div className="public-section-head"><p className="landing-kicker">INCIDENT HISTORY</p><h2>No recorded production incidents.</h2></div><p>Mere X is currently a development preview. A public incident timeline will begin when production monitoring is enabled.</p></section></PublicShell>
+  return <PublicShell navigate={navigate} current="status" user={user} className="status-page"><section className="status-hero"><span className={`status-orb ${apiState}`} /><p className="landing-kicker">LIVE SERVICE STATUS</p><h1>{apiState === 'checking' ? 'Checking systems…' : apiState === 'operational' ? 'All checked systems operational.' : 'Some systems are degraded.'}</h1><p>A live check of the services behind Mere X. Anything degraded appears here first.</p></section><section className="status-card"><header><b>Components</b><span>{checkedAt ? `Checked ${checkedAt}` : 'Checking now'}</span></header>{components.map(component => <div key={component.name}><span>{component.name}</span><b className={component.state}><i />{component.state === 'checking' ? 'Checking' : component.state === 'operational' ? 'Operational' : 'Degraded'}</b></div>)}</section><section className="status-history"><div className="public-section-head"><p className="landing-kicker">INCIDENT HISTORY</p><h2>No recorded production incidents.</h2></div><p>Mere X is currently a development preview. A public incident timeline will begin when production monitoring is enabled.</p></section></PublicShell>
 }
 
 function ReleaseNotesPage({ navigate, user }: { navigate: (route: PublicRoute) => void; user?: AuthUser | null }) {
@@ -2062,7 +2143,7 @@ function LandingPage({ navigate, user }: { navigate: (route: PublicRoute) => voi
         <div className="hero-float-card float-research"><Globe2 size={15} /><span><b>Deep research</b><small>Sources connected</small></span><Check size={13} /></div>
         <div className="hero-float-card float-files"><FileText size={15} /><span><b>Final brief.docx</b><small>Ready to download</small></span><ArrowUp size={13} /></div>
         <div className="landing-product-frame product-frame-v2 hero-enter hero-enter-5">
-          <div className="frame-top"><div><span /><span /><span /></div><BrandMark /><span>mere-x.app</span><div><Lock size={12} />Private</div></div>
+          <div className="frame-top"><div><span /><span /><span /></div><BrandMark /><span>merex.ai</span><div><Lock size={12} />Private</div></div>
           <div className="frame-body">
             <aside><BrandMark compact /><span className="frame-active"><Plus size={14} />New chat</span>{[MessageCircle, Search, Folder, Library, Bot].map((Icon, i) => <span key={i}><Icon size={14} /><i /></span>)}</aside>
             <div className="frame-chat"><div className="frame-model"><BrandGlyph />Mere Apex 4.0<span>ACTIVE</span></div><div className="frame-workspace"><div className="frame-thread"><div className="frame-user-message">Turn these scattered findings into a launch decision.</div><div className="frame-apex-response"><span><BrandGlyph /></span><div><b>Mere Apex 4.0</b><p>I compared the evidence, resolved the conflicting signals and built a clear recommendation.</p><div className="frame-result"><span><CheckCircle2 size={14} />DECISION BRIEF</span><strong>Launch with a focused two-market pilot.</strong><div><i /><i /><i /></div></div><div className="frame-citations"><span>8 sources</span><span>3 files</span><span>Verified</span></div></div></div><div className="frame-composer frame-composer-live"><span>Ask a follow-up...</span><div><Paperclip size={15} /><Sparkles size={14} /><Globe2 size={14} /><b><ArrowUp size={14} /></b></div></div></div><aside className="frame-context"><p>WORKING CONTEXT</p><div><span>01</span><b>Market evidence</b><Check size={13} /></div><div><span>02</span><b>Product constraints</b><Check size={13} /></div><div className="active"><span>03</span><b>Decision synthesis</b><i /></div><section><span>CONFIDENCE</span><strong>High</strong><div><i /></div></section></aside></div></div>
@@ -2310,20 +2391,8 @@ function ResetPasswordPage({ navigate }: { navigate: (route: PublicRoute) => voi
 }
 
 export default function App() {
-  const getPublicRoute = (): PublicRoute => {
-    const hash = window.location.hash.replace('#/', '')
-    if (hash.startsWith('shared/')) return 'shared'
-    if (hash === 'signin' || hash === 'signup') return hash
-    if (hash.startsWith('reset-password')) return 'reset-password'
-    if (!hash || hash === 'landing') return 'landing'
-    if (publicPageRoutes.includes(hash as PublicRoute)) return hash as PublicRoute
-    return 'app'
-  }
-  const [publicRoute, setPublicRoute] = useState<PublicRoute>(getPublicRoute)
-  const [page, setPage] = useState<Page>(() => {
-    const route = window.location.hash.replace('#/', '') as Page
-    return ['projects', 'library', 'agents', 'workflows', 'settings'].includes(route) ? route : 'chat'
-  })
+  const [publicRoute, setPublicRoute] = useState<PublicRoute>(() => { normalizeLegacyHash(); return routeFromPath() })
+  const [page, setPage] = useState<Page>(() => workspacePageFromPath())
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -2574,7 +2643,7 @@ export default function App() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearchOpen(true) }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); setPublicRoute('app'); setPage('chat'); setMessages([]); setActiveConversationId(null); setActiveAgent(null); setActiveProject(null); window.location.hash = '/app' }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); setPublicRoute('app'); setPage('chat'); setMessages([]); setActiveConversationId(null); setActiveAgent(null); setActiveProject(null); window.history.pushState(null, '', pathFor('app')) }
       if (e.key === 'Escape') { setSearchOpen(false); setShareOpen(false); setInfoOpen(false); setSettingsOpen(false) }
     }
     window.addEventListener('keydown', handler)
@@ -2600,23 +2669,29 @@ export default function App() {
     if (!sessionResolved) return
     if (!sessionUser && publicRoute === 'app') {
       setPublicRoute('signin')
-      window.location.hash = '/signin'
+      window.history.replaceState(null, '', pathFor('signin'))
     } else if (sessionUser && (publicRoute === 'signin' || publicRoute === 'signup')) {
       setPublicRoute('app')
-      window.location.hash = '/app'
+      window.history.replaceState(null, '', pathFor('app'))
     }
   }, [sessionResolved, sessionUser?.id, publicRoute])
 
+  // Search engines and link previews read the head, so it follows the route.
+  useEffect(() => { applyPageSeo() }, [publicRoute, page])
+
   useEffect(() => {
     const syncRoute = () => {
-      const rawRoute = window.location.hash.replace('#/', '')
+      normalizeLegacyHash()
       setSearchOpen(false); setShareOpen(false); setInfoOpen(false); setSettingsOpen(false); setMobileOpen(false)
-      setPublicRoute(rawRoute.startsWith('shared/') ? 'shared' : rawRoute.startsWith('reset-password') ? 'reset-password' : rawRoute === 'signin' || rawRoute === 'signup' ? rawRoute : (!rawRoute || rawRoute === 'landing' ? 'landing' : publicPageRoutes.includes(rawRoute as PublicRoute) ? rawRoute as PublicRoute : 'app'))
-      const route = rawRoute as Page
-      setPage(['projects', 'library', 'agents', 'workflows', 'settings'].includes(route) ? route : 'chat')
+      setPublicRoute(routeFromPath())
+      setPage(workspacePageFromPath())
     }
+    window.addEventListener('popstate', syncRoute)
     window.addEventListener('hashchange', syncRoute)
-    return () => window.removeEventListener('hashchange', syncRoute)
+    return () => {
+      window.removeEventListener('popstate', syncRoute)
+      window.removeEventListener('hashchange', syncRoute)
+    }
   }, [])
 
   const notify = (text: string) => setToast(text)
@@ -2672,13 +2747,13 @@ export default function App() {
   const navigatePublic = (target: PublicRoute) => {
     setSearchOpen(false); setShareOpen(false); setInfoOpen(false); setSettingsOpen(false); setMobileOpen(false)
     setPublicRoute(target)
-    window.location.hash = target === 'landing' ? '/' : `/${target}`
+    window.history.pushState(null, '', pathFor(target))
   }
   const navigate = (target: Page) => {
     setSearchOpen(false); setShareOpen(false); setInfoOpen(false); setSettingsOpen(false); setMobileOpen(false)
     setPublicRoute('app')
     setPage(target)
-    window.location.hash = target === 'chat' ? '/app' : `/${target}`
+    window.history.pushState(null, '', pathFor(target))
   }
   const newChat = () => { setMessages([]); setActiveConversationId(null); setActiveAgent(null); setActiveProject(null); navigate('chat'); setInfoOpen(false) }
   const openChat = (conversation: ConversationRecord) => {
@@ -2763,7 +2838,7 @@ export default function App() {
   if (publicRoute === 'landing') return <LandingPage navigate={navigatePublic} user={sessionUser} />
   if (publicRoute === 'signin' || publicRoute === 'signup') return <AuthPage mode={publicRoute} navigate={navigatePublic} onAuthenticated={authenticated} />
   if (publicRoute === 'reset-password') return <ResetPasswordPage navigate={navigatePublic} />
-  if (publicRoute === 'shared') return <SharedConversationPage shareId={window.location.hash.replace('#/shared/', '')} navigate={navigatePublic} user={sessionUser} />
+  if (publicRoute === 'shared') return <SharedConversationPage shareId={window.location.pathname.replace(/^\/+shared\/?/, '')} navigate={navigatePublic} user={sessionUser} />
   if (publicRoute === 'apex') return <ApexDocsPage navigate={navigatePublic} user={sessionUser} />
   if (publicRoute === 'pricing') return <PricingPage navigate={navigatePublic} user={sessionUser} onUserUpdated={user => { setSessionUser(user); setProfile({ name: user.name, email: user.email, avatar: user.avatar }) }} />
   if (publicRoute === 'privacy' || publicRoute === 'terms' || publicRoute === 'acceptable-use' || publicRoute === 'cookies') return <LegalPage route={publicRoute} navigate={navigatePublic} user={sessionUser} />

@@ -14,6 +14,7 @@
     "build": "tsc -b && vite build",
     "test:database": "node scripts/mysql-smoke.mjs",
     "test:platform": "node scripts/platform-smoke.mjs",
+    "test:seo": "node scripts/seo-smoke.mjs",
     "test:payment-ui": "node scripts/ui-payment-smoke.mjs",
     "test:auth-ui": "node scripts/ui-auth-smoke.mjs",
     "test:ui": "node scripts/ui-all-smoke.mjs",

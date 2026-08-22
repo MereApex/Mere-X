@@ -4,10 +4,70 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a0a" />
-    <meta name="description" content="Mere X — Intelligence, refined." />
+
+    <title>Mere X — One intelligence for serious work</title>
+    <meta name="description" content="Mere X turns an ambitious idea into finished work: research with real sources, documents, images, video and autonomous workflows in one private workspace." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://merex.ai/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Mere X" />
+    <meta property="og:title" content="Mere X — One intelligence for serious work" />
+    <meta property="og:description" content="Research with real sources, documents, images, video and autonomous workflows in one private workspace." />
+    <meta property="og:url" content="https://merex.ai/" />
+    <meta property="og:image" content="https://merex.ai/mere-x-social.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Mere X — One intelligence for serious work" />
+    <meta name="twitter:description" content="Research with real sources, documents, images, video and autonomous workflows in one private workspace." />
+    <meta name="twitter:image" content="https://merex.ai/mere-x-social.png" />
+
     <link rel="icon" type="image/png" sizes="96x96" href="/src/assets/mere-x-favicon.png" />
     <link rel="apple-touch-icon" href="/src/assets/mere-x-favicon.png" />
-    <title>Mere X</title>
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Told once, in the markup, so a crawler that does not run scripts still
+         learns what this is and what it costs. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://merex.ai/#organization",
+            "name": "Mere X",
+            "url": "https://merex.ai/",
+            "logo": "https://merex.ai/mere-x-social.png",
+            "description": "Mere X is a private workspace built around one intelligence, Mere Apex 4.0.",
+            "email": "support@merex.ai"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://merex.ai/#website",
+            "url": "https://merex.ai/",
+            "name": "Mere X",
+            "publisher": { "@id": "https://merex.ai/#organization" },
+            "inLanguage": "en"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "Mere X",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "url": "https://merex.ai/",
+            "publisher": { "@id": "https://merex.ai/#organization" },
+            "description": "Research with real sources, create documents, images and video, and run autonomous workflows in one private workspace.",
+            "offers": [
+              { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "url": "https://merex.ai/pricing" },
+              { "@type": "Offer", "name": "Plus", "price": "18", "priceCurrency": "USD", "url": "https://merex.ai/pricing" },
+              { "@type": "Offer", "name": "Pro", "price": "44", "priceCurrency": "USD", "url": "https://merex.ai/pricing" },
+              { "@type": "Offer", "name": "Team", "price": "23", "priceCurrency": "USD", "url": "https://merex.ai/pricing" }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

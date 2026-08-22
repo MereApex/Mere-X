@@ -40,12 +40,12 @@ try {
   await command('Runtime.enable')
   await command('Page.enable')
   await command('Network.enable')
-  await evaluate(`fetch('/api/auth/signout', { method: 'POST' }).then(() => { location.hash='/app'; location.reload(); return true })`)
+  await evaluate(`fetch('/api/auth/signout', { method: 'POST' }).then(() => { location.href = '/app'; return true })`)
   for (let attempt = 0; attempt < 50; attempt += 1) {
     if (await evaluate(`Boolean(document.querySelector('.auth-form-wrap'))`)) break
     await sleep(100)
   }
-  const protectedRouteRedirected = await evaluate(`location.hash === '#/signin'`)
+  const protectedRouteRedirected = await evaluate(`location.pathname === '/signin'`)
   for (let attempt = 0; attempt < 50; attempt += 1) {
     if (await evaluate(`Boolean(document.querySelector('.google-auth-section iframe'))`)) break
     await sleep(100)

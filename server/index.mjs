@@ -10,6 +10,7 @@ import mammoth from 'mammoth'
 import officegen from 'officegen'
 import PDFDocument from 'pdfkit'
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { PassThrough } from 'node:stream'
 import { fileURLToPath } from 'node:url'
@@ -58,6 +59,7 @@ import {
   verifyPassword,
 } from './store.mjs'
 import { closeDatabase, databaseHealth, initializeDatabase } from './database.mjs'
+import { isKnownPath, renderIndexHtml, renderRobotsTxt, renderSitemapXml } from './seo.mjs'
 import {
   clearSessionCookie,
   plans,
@@ -1594,10 +1596,48 @@ app.use('/api', (error, _req, res, _next) => {
   res.status(500).json({ error: 'Mere X could not complete that request. Please try again.' })
 })
 
+// Crawlers ask for these two files before anything else, and they have to name
+// the origin they were actually served from, not a domain baked in at build time.
+function siteOrigin(req) {
+  if (process.env.PUBLIC_APP_URL) return process.env.PUBLIC_APP_URL.replace(/\/+$/, '')
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim()
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'merex.ai').split(',')[0].trim()
+  return proto + '://' + host
+}
+
+app.get('/robots.txt', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600')
+  res.type('text/plain').send(renderRobotsTxt(siteOrigin(req)))
+})
+
+app.get('/sitemap.xml', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600')
+  res.type('application/xml').send(renderSitemapXml(siteOrigin(req)))
+})
+
 const distDir = path.resolve(currentDir, '..', 'dist')
 if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
-  app.use(express.static(distDir))
-  app.use((_req, res) => res.sendFile(path.join(distDir, 'index.html')))
+  // index.html is never served from disk directly: every address gets its own
+  // title, description, canonical and social card stamped in before it is sent,
+  // because the crawlers behind link previews do not run JavaScript.
+  app.use(express.static(distDir, { index: false }))
+
+  let documentTemplate = ''
+  const loadDocument = async () => {
+    if (!documentTemplate) documentTemplate = await readFile(path.join(distDir, 'index.html'), 'utf8')
+    return documentTemplate
+  }
+
+  app.use(async (req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next()
+    try {
+      const html = renderIndexHtml(await loadDocument(), req.path, siteOrigin(req))
+      // The document is tiny and route-specific; revalidating it every time is
+      // what makes a deploy visible immediately instead of hours later.
+      res.set('Cache-Control', 'public, max-age=0, must-revalidate')
+      res.status(isKnownPath(req.path) ? 200 : 404).type('html').send(html)
+    } catch (error) { next(error) }
+  })
 }
 
 let server

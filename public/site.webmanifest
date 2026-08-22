@@ -1,0 +1,13 @@
+{
+  "name": "Mere X",
+  "short_name": "Mere X",
+  "description": "One intelligence for serious work.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "/mere-x-favicon.png", "sizes": "96x96", "type": "image/png", "purpose": "any" }
+  ]
+}

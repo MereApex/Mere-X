@@ -67,8 +67,12 @@ async function screenshot(path) {
   await writeFile(path, Buffer.from(capture.data, 'base64'))
 }
 
+// Routes are real paths now, so navigation goes through the History API the
+// same way a click in the app does.
+const pathFor = route => (route.replace(/^#?\/?/, '') === '' ? '/' : '/' + route.replace(/^#?\/?/, ''))
+
 async function navigate(hash, selector = '.page-area') {
-  await evaluate(`location.hash = ${JSON.stringify(hash)}`)
+  await evaluate(`(history.pushState(null, '', ${JSON.stringify(pathFor(hash))}), dispatchEvent(new PopStateEvent('popstate')), true)`)
   await waitFor(`Boolean(document.querySelector(${JSON.stringify(selector)}))`)
   await sleep(120)
 }
@@ -103,8 +107,8 @@ try {
   await waitFor(`getComputedStyle(document.querySelector('.settings-overlay')).opacity === '1' && getComputedStyle(document.querySelector('.settings-modal-shell')).transform === 'none'`)
   await screenshot('mere-x-settings-billing-audit.png')
   await click('.billing-hero .primary-button')
-  await waitFor(`location.hash === '#/pricing' && Boolean(document.querySelector('.pricing-grid')) && !document.querySelector('.settings-overlay')`)
-  const billingPricingRoute = await evaluate(`location.hash`)
+  await waitFor(`location.pathname === '/pricing' && Boolean(document.querySelector('.pricing-grid')) && !document.querySelector('.settings-overlay')`)
+  const billingPricingRoute = await evaluate(`location.pathname`)
   await navigate('/app')
   await openSettings('Billing')
   await waitFor(`document.querySelector('.settings-content h1')?.textContent === 'Plan & billing'`)
@@ -163,7 +167,7 @@ try {
   await click('.settings-content button[aria-label="Chat history"]')
   await clickText('.settings-nav-group > button', 'Safety')
   await clickText('.settings-content .soft-button', 'Open guide')
-  await waitFor(`location.hash === '#/help' && Boolean(document.querySelector('.help-grid'))`)
+  await waitFor(`location.pathname === '/help' && Boolean(document.querySelector('.help-grid'))`)
   const safetyRouteClosedModal = await evaluate(`!document.querySelector('.settings-overlay')`)
 
   const profileRoutes = [
@@ -179,7 +183,7 @@ try {
     await click('.account-row')
     await waitFor(`Boolean(document.querySelector('.profile-menu'))`)
     await click(selector)
-    await waitFor(`location.hash === ${JSON.stringify(hash)} && Boolean(document.querySelector(${JSON.stringify(ready)}))`)
+    await waitFor(`location.pathname === ${JSON.stringify(pathFor(hash))} && Boolean(document.querySelector(${JSON.stringify(ready)}))`)
     routeResults.push({ hash, ok: true })
   }
 
@@ -210,7 +214,7 @@ try {
     voiceBefore === voiceAfter ? 'Voice toggle did not persist' : null,
     voiceButtonVisible === voiceAfter ? null : 'Voice input visibility did not follow its setting',
     !storageLabel || storageLabel === '2.4 MB used' ? 'Storage usage is still hardcoded' : null,
-    billingPricingRoute !== '#/pricing' ? 'Compare plans did not open Pricing cleanly' : null,
+    billingPricingRoute !== '/pricing' ? 'Compare plans did not open Pricing cleanly' : null,
     !profileSaved || accountName !== 'QA User' ? 'Profile edits did not propagate to the sidebar' : null,
     historyBefore === historyAfter || !threadRemoved ? 'Chat history setting or browser-storage isolation failed' : null,
     !safetyRouteClosedModal ? 'Leaving settings kept the modal open' : null,
@@ -223,7 +227,7 @@ try {
   console.log(JSON.stringify({ ok: failures.length === 0, failures, modelHeader, billingPricingRoute, settingsSearchResults, tabResults, controls: { notificationBefore, notificationAfter, voiceBefore, voiceAfter, voiceButtonVisible, historyBefore, historyAfter, threadRemoved }, storageLabel, profileSaved, accountName, routeResults, mobileMenu, mobileSettings, runtimeErrors }, null, 2))
   if (failures.length) process.exitCode = 1
 } catch (error) {
-  const diagnostic = await evaluate(`(async()=>({hash:location.hash,root:document.querySelector('#root')?.innerHTML.slice(0,800)||'',session:await fetch('/api/auth/session').then(response=>response.json()).catch(reason=>({error:String(reason)}))}))()`).catch(() => null)
+  const diagnostic = await evaluate(`(async()=>({path:location.pathname,root:document.querySelector('#root')?.innerHTML.slice(0,800)||'',session:await fetch('/api/auth/session').then(response=>response.json()).catch(reason=>({error:String(reason)}))}))()`).catch(() => null)
   console.error(JSON.stringify({ ok: false, error: error.message, diagnostic, runtimeErrors }, null, 2))
   process.exitCode = 1
 } finally {
