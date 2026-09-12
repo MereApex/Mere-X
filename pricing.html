@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f4ee" />
+    <meta name="description" content="Secure Mere X plans with PayPal, cards, Google Pay, and Apple Pay." />
+    <link rel="canonical" href="/checkout" />
+    <link rel="icon" type="image/png" href="/src/assets/mere-x-logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet" />
+    <title>Pricing — Mere X</title>
+    <script>
+      try {
+        const savedTheme = localStorage.getItem("mere-x.theme") || "cream";
+        const resolvedTheme = savedTheme === "system"
+          ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "cream")
+          : savedTheme;
+        document.documentElement.dataset.theme = resolvedTheme;
+        document.documentElement.dataset.themePreference = savedTheme;
+      } catch (error) {
+        document.documentElement.dataset.theme = "cream";
+      }
+    </script>
+    <link rel="stylesheet" href="/src/styles/pricing.css" />
+  </head>
+  <body>
+    <header class="pricing-nav">
+      <a class="pricing-brand" href="/app" aria-label="Mere X workspace">
+        <span class="pricing-brand-mark"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+        <strong>Mere X</strong>
+      </a>
+
+      <div class="pricing-nav-actions">
+        <span class="current-plan-chip" id="currentPlanChip" hidden></span>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch color theme">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.3 8.3 0 0 1 8.8 4a8.4 8.4 0 1 0 11.2 11.2Z" /></svg>
+        </button>
+        <a class="workspace-link" href="/app">
+          <span>Back to workspace</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13.5 6.5 19 12l-5.5 5.5" /></svg>
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <section class="pricing-hero" aria-labelledby="pricingTitle">
+        <p class="eyebrow">MERE X PLANS</p>
+        <h1 id="pricingTitle">Choose the space<br />your work needs.</h1>
+        <p class="pricing-intro">Start free, then move up when you need more intelligence, context, and room to create.</p>
+      </section>
+
+      <section class="pricing-grid" aria-label="Pricing plans">
+        <article class="price-card" data-plan-card="Free">
+          <div class="card-top">
+            <p class="plan-name">Free</p>
+            <div class="plan-price"><span>$</span><strong>0</strong></div>
+            <p class="price-note">Free forever</p>
+          </div>
+          <p class="plan-summary">A calm place to begin with Mere X's essential intelligence.</p>
+          <ul>
+            <li>Essential chat access</li>
+            <li>Standard response mode</li>
+            <li>Personal workspace</li>
+          </ul>
+          <button class="plan-button" type="button" data-select-plan="Free">Choose Free</button>
+        </article>
+
+        <article class="price-card" data-plan-card="Starter">
+          <div class="card-top">
+            <p class="plan-name">Starter</p>
+            <div class="plan-price"><span>$</span><strong>9.99</strong><small>/ 30 days</small></div>
+            <p class="price-note">For everyday individual work</p>
+          </div>
+          <p class="plan-summary">More room for writing, files, and focused daily tasks.</p>
+          <ul>
+            <li>More messages and uploads</li>
+            <li>File and image tools</li>
+            <li>Expanded project limits</li>
+          </ul>
+          <button class="plan-button" type="button" data-select-plan="Starter">Choose Starter</button>
+        </article>
+
+        <article class="price-card featured" data-plan-card="Plus">
+          <span class="plan-badge">Most popular</span>
+          <div class="card-top">
+            <p class="plan-name">Plus</p>
+            <div class="plan-price"><span>$</span><strong>19.99</strong><small>/ 30 days</small></div>
+            <p class="price-note">For ambitious personal work</p>
+          </div>
+          <p class="plan-summary">Deeper thinking and higher limits across your workspace.</p>
+          <ul>
+            <li>DEEP reasoning mode</li>
+            <li>Higher workspace limits</li>
+            <li>Memory across conversations</li>
+          </ul>
+          <button class="plan-button" type="button" data-select-plan="Plus">Choose Plus</button>
+        </article>
+
+        <article class="price-card" data-plan-card="Pro">
+          <div class="card-top">
+            <p class="plan-name">Pro</p>
+            <div class="plan-price"><span>$</span><strong>39.99</strong><small>/ 30 days</small></div>
+            <p class="price-note">For intensive professional use</p>
+          </div>
+          <p class="plan-summary">Advanced research and priority access for demanding work.</p>
+          <ul>
+            <li>Advanced research workflows</li>
+            <li>Faster processing priority</li>
+            <li>Extended context and files</li>
+          </ul>
+          <button class="plan-button" type="button" data-select-plan="Pro">Choose Pro</button>
+        </article>
+
+        <article class="price-card" data-plan-card="Max">
+          <span class="plan-badge subtle">Highest limits</span>
+          <div class="card-top">
+            <p class="plan-name">Max</p>
+            <div class="plan-price"><span>$</span><strong>79.99</strong><small>/ 30 days</small></div>
+            <p class="price-note">For power users</p>
+          </div>
+          <p class="plan-summary">The largest individual workspace with maximum availability.</p>
+          <ul>
+            <li>Maximum individual limits</li>
+            <li>Largest context windows</li>
+            <li>Early access to new tools</li>
+          </ul>
+          <button class="plan-button" type="button" data-select-plan="Max">Choose Max</button>
+        </article>
+
+        <article class="price-card business" data-plan-card="Business">
+          <div class="card-top">
+            <p class="plan-name">Business</p>
+            <div class="plan-price"><span>$</span><strong>149+</strong><small>/ month</small></div>
+            <p class="price-note">For teams and organizations</p>
+          </div>
+          <p class="plan-summary">A managed workspace with controls built for growing teams.</p>
+          <ul>
+            <li>Shared team workspaces</li>
+            <li>Admin and security controls</li>
+            <li>Priority team support</li>
+          </ul>
+          <button class="plan-button" type="button" data-contact-sales>Contact sales</button>
+        </article>
+      </section>
+
+      <section class="pricing-assurance" aria-label="Plan details">
+        <span>Server-verified checkout</span>
+        <i aria-hidden="true"></i>
+        <span>Workspace data stays yours</span>
+        <i aria-hidden="true"></i>
+        <span>PayPal, cards, Google Pay, and Apple Pay</span>
+      </section>
+    </main>
+
+    <footer>
+      <span>Paid individual plans include 30 days of access. Prices are shown in USD.</span>
+      <a href="/app">Mere X workspace</a>
+    </footer>
+
+    <div class="pricing-toast" id="pricingToast" role="status" aria-live="polite" hidden>
+      <span class="toast-check">✓</span>
+      <span id="pricingToastText"></span>
+      <a href="/app">Open workspace</a>
+    </div>
+
+    <div class="checkout-modal" id="checkoutModal" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle" hidden>
+      <div class="checkout-backdrop" data-close-checkout></div>
+      <section class="checkout-panel">
+        <header class="checkout-head">
+          <div>
+            <p class="eyebrow">SECURE CHECKOUT</p>
+            <h2 id="checkoutTitle">Mere X <span id="checkoutPlan">Plus</span></h2>
+            <p><strong id="checkoutAmount">$19.99</strong> · 30 days of access</p>
+          </div>
+          <button class="checkout-close" type="button" data-close-checkout aria-label="Close checkout">×</button>
+        </header>
+
+        <div class="checkout-wallet" id="paypalButtonContainer"></div>
+        <div class="checkout-express" id="expressCheckout" hidden>
+          <div id="googlePayContainer" hidden></div>
+          <button class="apple-pay-button" id="applePayButton" type="button" aria-label="Pay with Apple Pay" hidden><span>Pay with</span> Pay</button>
+        </div>
+
+        <div class="checkout-divider"><span>or pay securely by card</span></div>
+        <form class="card-checkout" id="cardCheckout" hidden>
+          <label><span>Name on card</span><div class="hosted-field" id="card-name-field-container"></div></label>
+          <label><span>Card number</span><div class="hosted-field" id="card-number-field-container"></div></label>
+          <div class="card-field-row">
+            <label><span>Expires</span><div class="hosted-field" id="card-expiry-field-container"></div></label>
+            <label><span>Security code</span><div class="hosted-field" id="card-cvv-field-container"></div></label>
+          </div>
+          <button class="card-submit" id="cardFieldSubmit" type="submit">Pay securely</button>
+        </form>
+
+        <p class="checkout-status" id="checkoutStatus" role="status" aria-live="polite">Payments are processed securely by PayPal. Mere X never receives your full card number.</p>
+        <div class="checkout-trust"><span>Encrypted checkout</span><i></i><span>Server-verified total</span><i></i><span>No card data stored</span></div>
+      </section>
+    </div>
+
+    <script type="module" src="/src/js/pricing.js"></script>
+  </body>
+</html>

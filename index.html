@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en" class="auth-open">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f4ee" />
+    <meta name="description" content="Mere X — an intelligent workspace powered by Mere Nyx, Orion, and Apex 5.5." />
+    <link rel="icon" type="image/png" href="/src/assets/mere-x-logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet" />
+    <title>Mere X</title>
+    <script>
+      try {
+        const savedTheme = localStorage.getItem("mere-x.theme") || "cream";
+        const resolvedTheme = savedTheme === "system"
+          ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "cream")
+          : savedTheme;
+        document.documentElement.dataset.theme = resolvedTheme;
+        document.documentElement.dataset.themePreference = savedTheme;
+      } catch (error) {
+        document.documentElement.dataset.theme = "cream";
+      }
+    </script>
+    <link rel="stylesheet" href="/src/styles/app.css" />
+  </head>
+  <body>
+    <svg class="svg-defs" aria-hidden="true">
+      <defs>
+        <linearGradient id="chrome" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#272724" />
+          <stop offset="0.48" stop-color="#74736f" />
+          <stop offset="0.7" stop-color="#343431" />
+          <stop offset="1" stop-color="#171715" />
+        </linearGradient>
+        <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15"/><path d="M9.5 4.5v15"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24"><path d="M3.8 20.2v-3.9L15.9 4.2l3.9 3.9L7.7 20.2z"/><path d="M14 6.1l3.9 3.9"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.6" cy="10.6" r="6.6"/><path d="M15.3 15.3l5.5 5.5"/></symbol>
+        <symbol id="i-library" viewBox="0 0 24 24"><rect x="3.2" y="4" width="7.2" height="16"/><rect x="13.6" y="4" width="7.2" height="16"/><path d="M3.2 8.2h7.2M13.6 8.2h7.2"/></symbol>
+        <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.4" y="3.4" width="7.2" height="7.2"/><rect x="13.4" y="3.4" width="7.2" height="7.2"/><rect x="3.4" y="13.4" width="7.2" height="7.2"/><rect x="13.4" y="13.4" width="7.2" height="7.2"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 3.8v16.4M3.8 12h16.4"/></symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.3"/><circle cx="12" cy="12" r="8.4"/><path d="M12 1.2v2.4M12 20.4v2.4M1.2 12h2.4M20.4 12h2.4M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M19.6 4.4l-1.7 1.7M6.1 17.9l-1.7 1.7"/></symbol>
+        <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M9.5 9.6a2.5 2.5 0 115 .4c0 1.7-2.5 2-2.5 3.8"/><circle cx="12" cy="17.2" r=".85" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9.4l6 6.2 6-6.2"/></symbol>
+        <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15.6V3.4M7.6 7.8L12 3.4l4.4 4.4"/><path d="M4.4 13.4v7.2h15.2v-7.2"/></symbol>
+        <symbol id="i-more" viewBox="0 0 24 24"><circle cx="4.6" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="19.4" cy="12" r="1.15" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M8.2 12.6l6.4-6.4a3.2 3.2 0 014.6 4.6l-8.6 8.6a5.1 5.1 0 01-7.2-7.2l8.2-8.2"/></symbol>
+        <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.7" ry="8.6"/><path d="M3.4 12h17.2M5.2 6.6h13.6M5.2 17.4h13.6"/></symbol>
+        <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 8.4L12 1.4M13.8 8.88L15.7 5.59M15.12 10.2L21.18 6.7M15.6 12L19.4 12M15.12 13.8L21.18 17.3M13.8 15.12L15.7 18.41M12 15.6L12 22.6M10.2 15.12L8.3 18.41M8.88 13.8L2.82 17.3M8.4 12L4.6 12M8.88 10.2L2.82 6.7M10.2 8.88L8.3 5.59"/></symbol>
+        <symbol id="i-canvas" viewBox="0 0 24 24"><rect x="3" y="4.4" width="18" height="15.2"/><path d="M6.8 9h10.4M6.8 12.6h6.4M6.8 16.2h4"/></symbol>
+        <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4.4" width="18" height="15.2"/><circle cx="8.4" cy="9.4" r="1.7"/><path d="M3 16.4l5.2-4.2 3.9 3.2 3.4-2.8L21 17.2"/></symbol>
+        <symbol id="i-code" viewBox="0 0 24 24"><path d="M8.4 7.2L3.6 12l4.8 4.8M15.6 7.2L20.4 12l-4.8 4.8M13.9 4.2l-3.8 15.6"/></symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24"><path d="M2.6 20.4h18.8"/><path d="M5 20.4V10.4M10 20.4V4.6M15 20.4v-7.4M20 20.4V7.4"/></symbol>
+        <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9.2" y="2.8" width="5.6" height="11.2" rx="2.8"/><path d="M5.6 11.2a6.4 6.4 0 0012.8 0M12 17.6v3.6M8.6 21.2h6.8"/></symbol>
+        <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 9.6v4.8M7.5 6.2v11.6M12 3.4v17.2M16.5 6.2v11.6M21 9.6v4.8"/></symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 20.4V3.6M5.4 10.2L12 3.6l6.6 6.6"/></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="M5.4 5.4l13.2 13.2M18.6 5.4L5.4 18.6"/></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="M5.6 2.6h8.6l4.2 4.2v14.6H5.6z"/><path d="M14.2 2.6v4.2h4.2"/></symbol>
+        <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 5.4h6.6l2.2 2.8H21v10.4H3z"/></symbol>
+        <symbol id="i-command" viewBox="0 0 24 24"><path d="M8.7 8.7h6.6v6.6H8.7z"/><path d="M8.7 8.7H5.9a2.8 2.8 0 112.8-2.8zM15.3 8.7h2.8a2.8 2.8 0 10-2.8-2.8zM8.7 15.3H5.9a2.8 2.8 0 102.8 2.8zM15.3 15.3h2.8a2.8 2.8 0 11-2.8 2.8z"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.6 12.4l4.9 4.9L19.4 7.4"/></symbol>
+        <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.6 2.6L4.8 13.4h6.2l-.6 8L19.2 10.6H13z"/></symbol>
+        <symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3.4v17.2M5 7.2h14M8.2 20.6h7.6"/><path d="M5 7.2l-3 6h6zM19 7.2l-3 6h6z"/></symbol>
+        <symbol id="i-orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.7"/><ellipse cx="12" cy="12" rx="9.4" ry="4" transform="rotate(35 12 12)"/><ellipse cx="12" cy="12" rx="9.4" ry="4" transform="rotate(-35 12 12)"/></symbol>
+        <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="7.9" r="3.9"/><path d="M4.4 21a7.6 7.6 0 0115.2 0"/></symbol>
+        <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.2 17.4V10a5.8 5.8 0 1111.6 0v7.4"/><path d="M3.6 17.4h16.8M9.9 20.6h4.2"/></symbol>
+        <symbol id="i-plugin" viewBox="0 0 24 24"><path d="M9 2.8v4.4M15 2.8v4.4"/><path d="M6.6 7.2h10.8v3.6a5.4 5.4 0 01-10.8 0z"/><path d="M12 16.2v5"/></symbol>
+        <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14"/><path d="M3 9.6h18M6.6 15h4.4"/></symbol>
+        <symbol id="i-usage" viewBox="0 0 24 24"><path d="M2.6 20.4h18.8"/><path d="M5 20.4V9.4M10 20.4V3.6M15 20.4v-8.4M20 20.4V6.4"/></symbol>
+        <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5.6" rx="7.6" ry="2.8"/><path d="M4.4 5.6v12.8c0 1.55 3.4 2.8 7.6 2.8s7.6-1.25 7.6-2.8V5.6"/><path d="M4.4 12c0 1.55 3.4 2.8 7.6 2.8s7.6-1.25 7.6-2.8"/></symbol>
+        <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.2 18.4h10.6a4.1 4.1 0 00.5-8.2A6.6 6.6 0 006 8.6a4.9 4.9 0 001.2 9.8z"/><path d="M9.8 13.8L12 11.6l2.2 2.2M12 11.6v7.6"/></symbol>
+        <symbol id="i-storage" viewBox="0 0 24 24"><path d="M3 8.6l2-4.6h14l2 4.6v11.4H3z"/><path d="M3 8.6h18M8 13.8h8M8 16.8h4"/></symbol>
+        <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.8l8 3v6.3c0 5.2-3.4 8.2-8 9.4-4.6-1.2-8-4.2-8-9.4V5.8z"/><path d="M8.6 12.1l2.3 2.3 4.5-4.9"/></symbol>
+        <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M17.4 12v3.2M20.2 12v2.2"/></symbol>
+        <symbol id="i-parent" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.1"/><circle cx="17.2" cy="10" r="2.5"/><path d="M3.4 20.4a5.6 5.6 0 0111.2 0M13.6 17.2a4.6 4.6 0 017 3.2"/></symbol>
+        <symbol id="i-logout" viewBox="0 0 24 24"><path d="M10.2 3.6H4.2v16.8h6M14.4 8l4 4-4 4M8.6 12h9.8"/></symbol>
+        <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1.6-5h12.8L20 9M5.2 9v10.8h13.6V9"/><path d="M4 9a3 3 0 006 0 3 3 0 006 0 3 3 0 004 0M9.4 19.8v-5.2h5.2v5.2"/></symbol>
+        <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.6" y="8.6" width="11.8" height="11.8" rx="2.6"/><path d="M15.4 5.4a2 2 0 0 0-2-2H6.2a2.8 2.8 0 0 0-2.8 2.8v7.2a2 2 0 0 0 2 2"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20.2 12a8.2 8.2 0 1 1-2.6-6"/><path d="M20.4 4.2v4.6h-4.6"/></symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7.4" y="7.4" width="9.2" height="9.2" rx="1.8" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3.6 21 19.4H3z"/><path d="M12 9.8v4.2"/><circle cx="12" cy="16.8" r=".85" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M8.6 4.4L16.2 12l-7.6 7.6"/></symbol>
+        <symbol id="i-arrow-ne" viewBox="0 0 24 24"><path d="M6.6 17.4L17.4 6.6M7.8 6.6h9.6v9.6"/></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v13.2M6.4 10.6L12 16.2l5.6-5.6M3.4 20.6h17.2"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3.4 6.6h17.2M9 3.4h6v3.2H9zM5.8 6.6l1 14h10.4l1-14M10 10.6v7M14 10.6v7"/></symbol>
+        <symbol id="i-pin" viewBox="0 0 24 24"><path d="M14.6 2.8l6.6 6.6-2.6 1-1 4.4-7.4-7.4 4.4-1zM10.2 7.4L2.8 14.8l6.4 6.4 7.4-7.4M3.4 20.6l-1.2 1.2"/></symbol>
+        <symbol id="i-home" viewBox="0 0 24 24"><path d="M2.8 11.2L12 3l9.2 8.2M5.4 9.6V21h13.2V9.6M9.4 21v-6.2h5.2V21"/></symbol>
+        <symbol id="i-chat" viewBox="0 0 24 24"><path d="M3.4 4.4h17.2v12.2H9.2l-5.8 4.6z"/><path d="M7.4 8.8h9.2M7.4 12.4h5.6"/></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 6.4V12l3.9 2.3"/><path d="M12 2.4v1.5M12 20.1v1.5M2.4 12h1.5M20.1 12h1.5"/></symbol>
+        <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14"/><path d="M3 5.6l9 6.5 9-6.5"/></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.2" y="10" width="15.6" height="11"/><path d="M8 10V7a4 4 0 118 0v3"/><circle cx="12" cy="14.6" r=".9" fill="currentColor" stroke="none"/><path d="M12 15.5v2.6"/></symbol>
+        <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1.8 12S5.7 5.2 12 5.2 22.2 12 22.2 12 18.3 18.8 12 18.8 1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3.2"/></symbol>
+        <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M9.6 5.6A9.8 9.8 0 0112 5.2c6.3 0 10.2 6.8 10.2 6.8a18 18 0 01-3.5 4.3M6.3 7.5A17.4 17.4 0 001.8 12S5.7 18.8 12 18.8c1.4 0 2.7-.3 3.8-.9"/><path d="M9.8 9.8a3.1 3.1 0 004.4 4.4M3.4 3.4l17.2 17.2"/></symbol>
+        <symbol id="i-network" viewBox="0 0 24 24"><circle cx="12" cy="3.8" r="1.5" fill="currentColor" stroke="none"/><circle cx="16.43" cy="5.1" r="1.1" fill="currentColor" stroke="none"/><circle cx="19.46" cy="8.59" r="1.1" fill="currentColor" stroke="none"/><circle cx="20.12" cy="13.17" r="1.5" fill="currentColor" stroke="none"/><circle cx="9.69" cy="19.87" r="1.5" fill="currentColor" stroke="none"/><circle cx="5.8" cy="17.37" r="1.1" fill="currentColor" stroke="none"/><circle cx="3.88" cy="13.17" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.54" cy="8.59" r="1.5" fill="currentColor" stroke="none"/><circle cx="7.57" cy="5.1" r="1.1" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-google" viewBox="0 0 24 24"><path fill="#4285f4" stroke="none" d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.63h6.46a5.53 5.53 0 01-2.4 3.63v3h3.88c2.27-2.09 3.56-5.17 3.56-8.81z"/><path fill="#34a853" stroke="none" d="M12 24c3.24 0 5.96-1.08 7.94-2.91l-3.88-3.01c-1.08.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.94H1.28v3.09A11.99 11.99 0 0012 24z"/><path fill="#fbbc05" stroke="none" d="M5.29 14.29a7.2 7.2 0 010-4.58V6.62H1.28a12 12 0 000 10.76l4.01-3.09z"/><path fill="#ea4335" stroke="none" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.43-3.43C17.95 1.18 15.24 0 12 0 7.31 0 3.26 2.69 1.28 6.62l4.01 3.09C6.23 6.86 8.88 4.75 12 4.75z"/></symbol>
+        <symbol id="i-apple" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M16.36 12.86c-.02-2.2 1.8-3.26 1.88-3.31-1.02-1.5-2.62-1.7-3.19-1.72-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.87-.76-1.48.02-2.84.86-3.6 2.18-1.53 2.66-.39 6.6 1.1 8.76.73 1.06 1.6 2.25 2.74 2.2 1.1-.04 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.08 2.65-2.14.84-1.23 1.18-2.42 1.2-2.48-.03-.01-2.28-.88-2.3-3.51zM14.2 6.26c.6-.74 1.01-1.76.9-2.78-.87.04-1.93.58-2.56 1.31-.56.65-1.05 1.69-.92 2.69.97.07 1.97-.49 2.58-1.22z"/></symbol>
+      </defs>
+    </svg>
+
+    <div class="auth-screen" id="authScreen">
+      <section class="auth-showcase">
+        <a class="auth-showcase-brand" href="#" aria-label="Mere X home">
+          <span><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+          <strong>Mere X</strong>
+        </a>
+
+        <div class="auth-showcase-copy">
+          <p class="auth-showcase-eyebrow">MERE X INTELLIGENCE</p>
+          <h2>Everything you make, in one considered place.</h2>
+          <p>Research, writing, code, and analysis — held together by a single model and a workspace that stays out of the way.</p>
+          <ul class="auth-highlights">
+            <li>
+              <svg><use href="#i-check"></use></svg>
+              <span><strong>Three Mere 5.5 models</strong><small>Nyx for speed, Orion for balance, and Apex for maximum capability.</small></span>
+            </li>
+            <li>
+              <svg><use href="#i-check"></use></svg>
+              <span><strong>Deep research and canvas</strong><small>Multi-step analysis with current, cited sources.</small></span>
+            </li>
+            <li>
+              <svg><use href="#i-check"></use></svg>
+              <span><strong>Private by default</strong><small>Your API key stays server-side and API data is not used for training by default.</small></span>
+            </li>
+          </ul>
+        </div>
+
+        <p class="auth-showcase-note">Secure cloud accounts, encrypted sessions, and a synchronized workspace.</p>
+        <span class="auth-showcase-glow" aria-hidden="true"></span>
+      </section>
+
+      <section class="auth-panel">
+        <div class="auth-card">
+          <div class="auth-card-brand">
+            <span><img src="/src/assets/mere-x-logo.png" alt="" /></span><strong>Mere X</strong>
+          </div>
+
+          <div class="auth-switch" id="authSwitch" role="group" aria-label="Account access">
+            <button type="button" class="active" data-auth-view="signin" aria-pressed="true">Sign in</button>
+            <button type="button" data-auth-view="signup" aria-pressed="false">Create account</button>
+          </div>
+
+          <form class="auth-form" id="signinForm" novalidate>
+            <header class="auth-head">
+              <p class="auth-eyebrow">WELCOME BACK</p>
+              <h1>Sign in to Mere X</h1>
+              <p class="auth-sub">Pick up exactly where your last idea left off.</p>
+            </header>
+
+            <div class="auth-social auth-social-google"><div class="google-signin-host" data-google-signin></div></div>
+
+            <div class="auth-divider"><span>or continue with email</span></div>
+
+            <p class="auth-alert" role="alert" hidden></p>
+
+            <div class="auth-field">
+              <label for="signinEmail">Email</label>
+              <div class="auth-input">
+                <svg><use href="#i-mail"></use></svg>
+                <input id="signinEmail" name="email" type="email" autocomplete="email" spellcheck="false" placeholder="you@example.com" />
+              </div>
+              <p class="auth-error" id="signinEmail-error"></p>
+            </div>
+
+            <div class="auth-field">
+              <label for="signinPassword">Password</label>
+              <div class="auth-input">
+                <svg><use href="#i-lock"></use></svg>
+                <input id="signinPassword" name="password" type="password" autocomplete="current-password" placeholder="Your password" />
+                <button type="button" class="auth-peek" data-peek="signinPassword" aria-label="Show password"><svg><use href="#i-eye"></use></svg></button>
+              </div>
+              <p class="auth-error" id="signinPassword-error"></p>
+            </div>
+
+            <div class="auth-row">
+              <label class="auth-check">
+                <input type="checkbox" id="rememberMe" checked />
+                <span class="auth-check-box"><svg><use href="#i-check"></use></svg></span>
+                <span>Keep me signed in</span>
+              </label>
+              <button type="button" class="auth-link" data-auth-view="reset">Forgot password?</button>
+            </div>
+
+            <button type="submit" class="auth-submit">
+              <span class="auth-submit-label">sign in<svg><use href="#i-arrow-ne"></use></svg></span>
+              <span class="auth-spinner" aria-hidden="true"></span>
+            </button>
+
+            <p class="auth-foot">New to Mere X? <button type="button" class="auth-link" data-auth-view="signup">Create an account</button></p>
+          </form>
+
+          <form class="auth-form" id="signupForm" novalidate hidden>
+            <header class="auth-head">
+              <p class="auth-eyebrow">GET STARTED</p>
+              <h1>Create your account</h1>
+              <p class="auth-sub">A single workspace for research, writing, and code.</p>
+            </header>
+
+            <div class="auth-social auth-social-google"><div class="google-signin-host" data-google-signin></div></div>
+
+            <div class="auth-divider"><span>or sign up with email</span></div>
+
+            <p class="auth-alert" role="alert" hidden></p>
+
+            <div class="auth-field">
+              <label for="signupEmail">Email</label>
+              <div class="auth-input">
+                <svg><use href="#i-mail"></use></svg>
+                <input id="signupEmail" name="email" type="email" autocomplete="email" spellcheck="false" placeholder="you@example.com" />
+              </div>
+              <p class="auth-error" id="signupEmail-error"></p>
+            </div>
+
+            <div class="auth-field">
+              <label for="signupPassword">Password</label>
+              <div class="auth-input">
+                <svg><use href="#i-lock"></use></svg>
+                <input id="signupPassword" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" />
+                <button type="button" class="auth-peek" data-peek="signupPassword" aria-label="Show password"><svg><use href="#i-eye"></use></svg></button>
+              </div>
+              <div class="auth-strength" id="passwordStrength" data-level="0" data-empty="true" aria-hidden="true">
+                <span class="auth-strength-track"><span></span><span></span><span></span><span></span></span>
+                <small id="passwordStrengthLabel">Too short</small>
+              </div>
+              <p class="auth-error" id="signupPassword-error"></p>
+            </div>
+
+            <div class="auth-field">
+              <label for="signupConfirm">Confirm password</label>
+              <div class="auth-input">
+                <svg><use href="#i-shield"></use></svg>
+                <input id="signupConfirm" name="confirm" type="password" autocomplete="new-password" placeholder="Repeat your password" />
+                <button type="button" class="auth-peek" data-peek="signupConfirm" aria-label="Show password"><svg><use href="#i-eye"></use></svg></button>
+              </div>
+              <p class="auth-error" id="signupConfirm-error"></p>
+            </div>
+
+            <div class="auth-field">
+              <label class="auth-check">
+                <input type="checkbox" id="acceptTerms" />
+                <span class="auth-check-box"><svg><use href="#i-check"></use></svg></span>
+                <span>I agree to the Mere X Terms of Service and Privacy Policy.</span>
+              </label>
+              <p class="auth-error" id="acceptTerms-error"></p>
+            </div>
+
+            <button type="submit" class="auth-submit">
+              <span class="auth-submit-label">create account<svg><use href="#i-arrow-ne"></use></svg></span>
+              <span class="auth-spinner" aria-hidden="true"></span>
+            </button>
+
+            <p class="auth-foot">Already have an account? <button type="button" class="auth-link" data-auth-view="signin">Sign in</button></p>
+          </form>
+
+          <form class="auth-form" id="resetForm" novalidate hidden>
+            <button type="button" class="auth-back" data-auth-view="signin"><svg><use href="#i-arrow-right"></use></svg><span>Back to sign in</span></button>
+
+            <header class="auth-head">
+              <p class="auth-eyebrow">ACCOUNT RECOVERY</p>
+              <h1>Reset your password</h1>
+              <p class="auth-sub">Enter the email on your account and we will send a reset link.</p>
+            </header>
+
+            <p class="auth-alert" role="alert" hidden></p>
+
+            <div class="auth-field">
+              <label for="resetEmail">Email</label>
+              <div class="auth-input">
+                <svg><use href="#i-mail"></use></svg>
+                <input id="resetEmail" name="email" type="email" autocomplete="email" spellcheck="false" placeholder="you@example.com" />
+              </div>
+              <p class="auth-error" id="resetEmail-error"></p>
+            </div>
+
+            <div id="resetPasswordFields" hidden>
+              <div class="auth-field">
+                <label for="resetNewPassword">New password</label>
+                <div class="auth-input">
+                  <svg><use href="#i-lock"></use></svg>
+                  <input id="resetNewPassword" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" />
+                </div>
+                <p class="auth-error" id="resetNewPassword-error"></p>
+              </div>
+              <div class="auth-field">
+                <label for="resetConfirmPassword">Confirm password</label>
+                <div class="auth-input">
+                  <svg><use href="#i-shield"></use></svg>
+                  <input id="resetConfirmPassword" name="confirm" type="password" autocomplete="new-password" placeholder="Repeat your password" />
+                </div>
+                <p class="auth-error" id="resetConfirmPassword-error"></p>
+              </div>
+            </div>
+
+            <button type="submit" class="auth-submit">
+              <span class="auth-submit-label" id="resetSubmitLabel">send reset link<svg><use href="#i-arrow-ne"></use></svg></span>
+              <span class="auth-spinner" aria-hidden="true"></span>
+            </button>
+          </form>
+        </div>
+
+        <p class="auth-legal">Your account and workspace are synchronized securely. Passwords are hashed server-side and private credentials never enter the browser.</p>
+      </section>
+    </div>
+
+    <div class="app-shell">
+      <div class="mobile-backdrop" id="mobileBackdrop"></div>
+
+      <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+        <div class="sidebar-top">
+          <button type="button" class="brand" id="brandButton" aria-label="Mere X home">
+          <span class="brand-mark"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+            <span class="brand-name">Mere X</span>
+          </button>
+          <div class="sidebar-head-actions">
+            <button class="icon-button" id="sidebarSearch" aria-label="Search" title="Search  ⌘K">
+              <svg><use href="#i-search"></use></svg>
+            </button>
+            <button class="icon-button sidebar-toggle" id="sidebarToggle" aria-label="Close sidebar" title="Close sidebar">
+              <svg><use href="#i-panel"></use></svg>
+            </button>
+          </div>
+        </div>
+
+        <nav class="primary-nav">
+          <button class="nav-item nav-item--primary" id="newChatButton" data-sidebar-view="chat">
+            <span class="nav-icon"><svg><use href="#i-edit"></use></svg></span>
+            <span class="nav-label">New conversation</span>
+            <span class="nav-key">⌘ N</span>
+          </button>
+          <button class="nav-item" id="libraryButton" data-sidebar-view="library">
+            <span class="nav-icon"><svg><use href="#i-image"></use></svg></span>
+            <span class="nav-label">Library</span>
+          </button>
+          <button class="nav-item" id="projectButton" data-sidebar-view="projects">
+            <span class="nav-icon"><svg><use href="#i-folder"></use></svg></span>
+            <span class="nav-label">Projects</span>
+          </button>
+          <button class="nav-item" id="agentButton" data-sidebar-view="agents">
+            <span class="nav-icon"><svg><use href="#i-orbit"></use></svg></span>
+            <span class="nav-label">Agents</span>
+          </button>
+          <button class="nav-item" id="pluginButton" data-sidebar-view="plugins">
+            <span class="nav-icon"><svg><use href="#i-plugin"></use></svg></span>
+            <span class="nav-label">Plugins</span>
+          </button>
+          <button class="nav-item" id="moreButton" aria-haspopup="true" aria-expanded="false">
+            <span class="nav-icon"><svg><use href="#i-more"></use></svg></span>
+            <span class="nav-label">More</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-section conversations-section">
+          <div class="section-heading"><span>Recents</span></div>
+          <div class="recent-list" id="recentList"></div>
+          <p class="empty-copy" id="recentEmpty">Conversations you start will appear here.</p>
+        </div>
+
+        <div class="sidebar-footer">
+          <button class="profile-card" id="profileButton">
+            <span class="avatar" data-identity-avatar>GM</span>
+            <span class="profile-copy"><strong data-identity-name>Giorgi Merebashvili</strong><small data-identity-plan>Plus</small></span>
+            <svg class="profile-store"><use href="#i-store"></use></svg>
+          </button>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div class="topbar-left">
+            <button class="icon-button mobile-menu" id="mobileMenu" aria-label="Open menu"><svg><use href="#i-panel"></use></svg></button>
+            <div class="mobile-app-brand" aria-label="Mere X home">
+          <span><img src="/src/assets/mere-x-logo.png" alt="" /></span><strong>Mere X</strong>
+            </div>
+            <button class="model-trigger" id="modelTrigger" aria-haspopup="true" aria-expanded="false">
+              <span id="modelTriggerLabel">Mere Apex <strong>5.5</strong></span>
+              <svg><use href="#i-chevron"></use></svg>
+            </button>
+          </div>
+          <div class="workspace-switcher" id="workspaceSwitcher" role="tablist" aria-label="Workspace view">
+            <button class="active" type="button" role="tab" aria-selected="true" data-workspace="chat">Chat</button>
+            <button type="button" role="tab" aria-selected="false" data-workspace="work">Workspace</button>
+          </div>
+          <div class="topbar-actions">
+            <button class="topbar-button" id="shareButton" title="Share"><svg><use href="#i-share"></use></svg><span>Share</span></button>
+            <button class="icon-button mobile-new-chat" id="mobileNewChat" aria-label="New conversation"><svg><use href="#i-edit"></use></svg></button>
+          </div>
+        </header>
+
+        <section class="conversation-canvas" aria-label="New conversation">
+          <div class="ambient ambient-one"></div>
+          <div class="ambient ambient-two"></div>
+
+          <section class="local-view" id="localView" aria-live="polite" hidden></section>
+
+          <div class="project-bar" id="projectBar" hidden></div>
+          <div class="agent-bar" id="agentBar" hidden></div>
+          <section class="workspace-view" id="workspaceView" aria-live="polite" hidden></section>
+
+          <div class="welcome-block">
+            <div class="hero-mark" aria-hidden="true">
+              <span class="hero-orbit hero-orbit-outer"></span>
+              <span class="hero-orbit hero-orbit-inner"></span>
+              <span class="hero-logo-motion">
+              <img class="hero-logo" src="/src/assets/mere-x-logo.png" alt="" />
+                <span class="hero-logo-sheen"></span>
+                <span class="hero-network-scan"></span>
+                <i class="hero-node hero-node-one"></i>
+                <i class="hero-node hero-node-two"></i>
+                <i class="hero-node hero-node-three"></i>
+                <i class="hero-node hero-node-four"></i>
+                <i class="hero-node hero-node-five"></i>
+              </span>
+            </div>
+            <h1>Where should we <em>begin</em>?</h1>
+            <p class="welcome-copy">One workspace for ideas, research, creation, and complex work.</p>
+            <div class="agent-starters" id="agentStarters" hidden></div>
+          </div>
+
+          <div class="conversation-feed" id="conversationFeed" aria-live="polite" aria-label="Conversation messages"></div>
+
+          <div class="composer-zone">
+            <form class="composer" id="composerForm">
+              <div class="composer-input-row">
+                <button type="button" class="round-tool" id="attachmentButton" aria-label="Add content" title="Add content"><svg><use href="#i-plus"></use></svg></button>
+                <div class="composer-field">
+                  <span class="active-tool" id="activeTool" hidden>
+                    <svg id="activeToolIcon"><use href="#i-spark"></use></svg>
+                    <span id="activeToolText"></span>
+                    <button type="button" id="removeTool" aria-label="Remove tool"><svg><use href="#i-close"></use></svg></button>
+                  </span>
+                  <div class="composer-files" id="composerFiles" aria-label="Attached files" hidden></div>
+                  <textarea id="promptInput" rows="1" aria-label="Ask Mere X" placeholder="Ask Mere X"></textarea>
+                </div>
+                <div class="composer-actions">
+                  <button type="button" class="effort-trigger" id="effortTrigger" aria-haspopup="true" aria-expanded="false" title="Thinking effort">
+                    <span id="effortValue">High</span><svg><use href="#i-chevron"></use></svg>
+                  </button>
+                  <button type="button" class="composer-icon" id="dictateButton" aria-label="Dictate" title="Dictate"><svg><use href="#i-mic"></use></svg></button>
+                  <button class="send-button" id="sendButton" type="submit" aria-label="Voice mode" title="Voice mode">
+                    <svg class="send-wave"><use href="#i-wave"></use></svg>
+                    <svg class="send-arrow"><use href="#i-arrow"></use></svg>
+                    <svg class="send-stop"><use href="#i-stop"></use></svg>
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <div class="starter-actions" aria-label="Start with a capability">
+              <button class="starter-action" data-tool="Images"><svg><use href="#i-image"></use></svg><span>Create an image</span></button>
+              <button class="starter-action" data-tool="Canvas"><svg><use href="#i-edit"></use></svg><span>Write or edit</span></button>
+              <button class="starter-action" data-tool="Web search"><svg><use href="#i-globe"></use></svg><span>Search the web</span></button>
+              <button class="starter-action" data-tool="Deep research"><svg><use href="#i-spark"></use></svg><span>Deep research</span></button>
+              <button class="starter-action" data-tool="File analysis"><svg><use href="#i-file"></use></svg><span>Analyze files</span></button>
+            </div>
+            <p class="composer-note">Mere X can make mistakes. Check important information.</p>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <div class="popover model-popover" id="modelPopover" hidden>
+      <div class="popover-heading"><span>Model</span><small>Three specialized systems</small></div>
+      <button class="model-choice" data-model="nyx">
+        <span class="model-choice-mark"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+        <span><strong>Mere Nyx 5.5</strong><small>Fast answers and everyday creation</small></span>
+        <svg class="choice-check"><use href="#i-check"></use></svg>
+      </button>
+      <button class="model-choice" data-model="orion">
+        <span class="model-choice-mark"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+        <span><strong>Mere Orion 5.5</strong><small>Balanced reasoning, research, and code</small></span>
+        <svg class="choice-check"><use href="#i-check"></use></svg>
+      </button>
+      <button class="model-choice selected" data-model="apex">
+        <span class="model-choice-mark"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+        <span><strong>Mere Apex 5.5</strong><small>Maximum capability for complex work</small></span>
+        <svg class="choice-check"><use href="#i-check"></use></svg>
+      </button>
+      <div class="model-capabilities"><span>Vision</span><span>Research</span><span>Code</span><span>Analysis</span></div>
+    </div>
+
+    <div class="popover effort-popover" id="effortPopover" hidden>
+      <button type="button" class="effort-heading" id="effortHeading" title="Open reasoning settings">
+        <span id="effortHeadingLabel">High</span>
+        <svg><use href="#i-arrow-right"></use></svg>
+      </button>
+      <div class="effort-slider" id="effortSlider" data-locked="true" style="--effort-pos: 0.6667">
+        <span class="effort-fill" aria-hidden="true"></span>
+        <span class="effort-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="effort-knob" aria-hidden="true"></span>
+        <input type="range" id="effortRange" min="0" max="3" step="1" value="2" aria-label="Thinking effort" />
+        <button type="button" class="effort-lock" id="effortLock" aria-label="DEEP reasoning requires an upgrade" title="DEEP reasoning requires an upgrade"><svg><use href="#i-lock"></use></svg></button>
+      </div>
+      <p class="effort-note" id="effortNote">More reasoning for harder problems.</p>
+    </div>
+
+    <div class="popover attachment-popover" id="attachmentPopover" hidden>
+      <button id="uploadFileButton"><svg><use href="#i-file"></use></svg><span><strong>Upload a file</strong><small>Document, image, or code</small></span></button>
+      <button id="chooseProjectButton"><svg><use href="#i-folder"></use></svg><span><strong>Choose from a project</strong><small>Use existing material</small></span></button>
+      <div class="account-divider"></div>
+      <p class="popover-label">Tools</p>
+      <div class="tool-grid">
+        <button data-tool="Web search"><svg><use href="#i-globe"></use></svg><span>Web search</span></button>
+        <button data-tool="Deep research"><svg><use href="#i-spark"></use></svg><span>Deep research</span></button>
+        <button data-tool="Canvas"><svg><use href="#i-canvas"></use></svg><span>Canvas</span></button>
+        <button data-tool="Images"><svg><use href="#i-image"></use></svg><span>Images</span></button>
+        <button data-tool="Code workspace"><svg><use href="#i-code"></use></svg><span>Code workspace</span></button>
+        <button data-tool="Data analysis"><svg><use href="#i-chart"></use></svg><span>Data analysis</span></button>
+        <button data-tool="File analysis"><svg><use href="#i-file"></use></svg><span>File analysis</span></button>
+      </div>
+    </div>
+
+    <div class="popover more-popover" id="morePopover" hidden>
+      <div class="popover-heading"><span>More</span><small>Workspace tools</small></div>
+      <div class="more-menu-list">
+        <button data-more-action="automations"><span><svg><use href="#i-clock"></use></svg></span><span><strong>Automations</strong><small>Schedule recurring AI work</small></span></button>
+        <button data-more-action="knowledge"><span><svg><use href="#i-database"></use></svg></span><span><strong>Knowledge</strong><small>Manage sources and memory</small></span></button>
+        <button data-more-action="analytics"><span><svg><use href="#i-chart"></use></svg></span><span><strong>Analytics</strong><small>Review workspace activity</small></span></button>
+        <button data-more-action="browser"><span><svg><use href="#i-cloud"></use></svg></span><span><strong>Web research</strong><small>Search controls and research history</small></span></button>
+        <button data-more-action="storage"><span><svg><use href="#i-storage"></use></svg></span><span><strong>Storage</strong><small>Files and generated assets</small></span></button>
+        <button data-more-action="archive"><span><svg><use href="#i-library"></use></svg></span><span><strong>Archived chats</strong><small>Review hidden conversations</small></span></button>
+      </div>
+    </div>
+
+    <div class="popover account-popover" id="accountPopover" hidden>
+      <button class="account-identity" data-account-action="profile">
+        <span class="account-avatar" data-identity-avatar>GM</span>
+        <span><strong data-identity-name>Giorgi Merebashvili</strong><small data-identity-plan>Plus</small></span>
+        <svg><use href="#i-arrow-right"></use></svg>
+      </button>
+      <div class="account-divider"></div>
+      <div class="account-menu-list">
+        <button data-account-action="upgrade"><svg><use href="#i-spark"></use></svg><span>Upgrade plan</span></button>
+        <button data-open-settings="personalization"><svg><use href="#i-network"></use></svg><span>Personalization</span></button>
+        <button data-open-settings="profile"><svg><use href="#i-user"></use></svg><span>Profile</span></button>
+        <button data-open-settings="general"><svg><use href="#i-settings"></use></svg><span>Settings</span></button>
+      </div>
+      <div class="account-divider"></div>
+      <div class="account-menu-list">
+        <button data-account-action="help"><svg><use href="#i-help"></use></svg><span>Help</span><svg class="account-chevron"><use href="#i-arrow-right"></use></svg></button>
+        <button data-account-action="logout"><svg><use href="#i-logout"></use></svg><span>Log out</span></button>
+      </div>
+    </div>
+
+    <div class="popover recent-menu" id="recentMenu" hidden role="menu" aria-label="Conversation actions">
+      <button type="button" data-recent-menu="pin" role="menuitem"><svg><use href="#i-pin"></use></svg><span>Pin</span></button>
+      <button type="button" data-recent-menu="move-project" role="menuitem"><svg><use href="#i-folder"></use></svg><span>Move to project</span></button>
+      <button type="button" data-recent-menu="archive" role="menuitem"><svg><use href="#i-library"></use></svg><span>Archive</span></button>
+      <button type="button" class="is-danger" data-recent-menu="delete" role="menuitem"><svg><use href="#i-trash"></use></svg><span>Delete</span></button>
+    </div>
+
+    <div class="modal-layer" id="searchModal" hidden>
+      <button class="modal-backdrop" aria-label="Close search"></button>
+      <div class="command-modal" role="dialog" aria-modal="true" aria-labelledby="searchTitle">
+        <div class="command-input">
+          <svg><use href="#i-search"></use></svg>
+          <input id="globalSearch" type="search" aria-label="Search conversations, projects, agents, knowledge, or actions" placeholder="Search conversations, agents, or actions" autocomplete="off" />
+          <kbd>ESC</kbd>
+        </div>
+        <div class="command-content">
+          <p id="searchTitle">Quick actions</p>
+          <button data-command="new"><span><svg><use href="#i-edit"></use></svg>New conversation</span><kbd>⌘ N</kbd></button>
+          <button data-command="project"><span><svg><use href="#i-folder"></use></svg>New project</span></button>
+          <button data-command="agent"><span><svg><use href="#i-orbit"></use></svg>New agent</span></button>
+          <button data-command="settings"><span><svg><use href="#i-settings"></use></svg>Settings</span></button>
+          <div class="search-results" id="searchResults"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-layer" id="settingsModal" hidden>
+      <button class="modal-backdrop" aria-label="Close settings"></button>
+      <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="settings-header">
+          <div><small>MERE X</small><h2 id="settingsTitle">Settings</h2></div>
+          <button class="icon-button modal-close" aria-label="Close"><svg><use href="#i-close"></use></svg></button>
+        </div>
+        <div class="settings-body">
+          <aside class="settings-sidebar">
+            <label class="settings-search"><svg><use href="#i-search"></use></svg><input id="settingsSearch" type="search" aria-label="Search settings" placeholder="Search settings" autocomplete="off" /></label>
+            <nav class="settings-nav" id="settingsNav" aria-label="Settings sections">
+              <button class="active" data-settings="general"><svg><use href="#i-settings"></use></svg><span>General</span></button>
+              <button data-settings="notifications"><svg><use href="#i-bell"></use></svg><span>Notifications</span></button>
+              <button data-settings="personalization"><svg><use href="#i-network"></use></svg><span>Personalization</span></button>
+              <button data-settings="voice"><svg><use href="#i-wave"></use></svg><span>Voice</span></button>
+              <button data-settings="billing"><svg><use href="#i-card"></use></svg><span>Billing</span></button>
+              <button data-settings="usage"><svg><use href="#i-usage"></use></svg><span>Usage</span></button>
+              <button data-settings="analytics"><svg><use href="#i-chart"></use></svg><span>Analytics</span></button>
+              <button data-settings="data"><svg><use href="#i-database"></use></svg><span>Data controls</span></button>
+              <button data-settings="browser"><svg><use href="#i-cloud"></use></svg><span>Web research</span></button>
+              <button data-settings="storage"><svg><use href="#i-storage"></use></svg><span>Storage</span></button>
+              <button data-settings="safety"><svg><use href="#i-shield"></use></svg><span>Safety</span></button>
+              <button data-settings="security"><svg><use href="#i-key"></use></svg><span>Security and login</span></button>
+              <button data-settings="parental"><svg><use href="#i-parent"></use></svg><span>Parental controls</span></button>
+              <button data-settings="profile"><svg><use href="#i-user"></use></svg><span>Profile</span></button>
+            </nav>
+          </aside>
+          <section class="settings-panel" id="settingsPanel" aria-live="polite"></section>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-layer" id="actionModal" hidden>
+      <button class="modal-backdrop" aria-label="Close dialog"></button>
+      <form class="action-modal" id="actionForm" role="dialog" aria-modal="true" aria-labelledby="actionTitle">
+        <header class="action-modal-header">
+          <div><small id="actionEyebrow">MERE X</small><h2 id="actionTitle">Action</h2></div>
+          <button type="button" class="icon-button action-modal-close" aria-label="Close"><svg><use href="#i-close"></use></svg></button>
+        </header>
+        <div class="action-modal-body" id="actionBody"></div>
+        <footer class="action-modal-footer" id="actionFooter">
+          <button type="button" class="action-secondary" data-action-cancel>Cancel</button>
+          <button type="submit" class="action-primary" id="actionSubmit">Save</button>
+        </footer>
+      </form>
+    </div>
+
+    <input id="workspaceFileInput" type="file" multiple hidden />
+    <input id="profilePhotoInput" type="file" accept="image/*" hidden />
+
+    <div class="modal-layer image-viewer" id="imageViewer" hidden>
+      <button class="modal-backdrop" aria-label="Close image"></button>
+      <figure class="image-viewer-frame" role="dialog" aria-modal="true" aria-label="Image preview">
+        <img id="imageViewerImage" alt="" />
+        <figcaption class="image-viewer-bar">
+          <a class="image-viewer-download" id="imageViewerDownload" download="mere-x-image.png"><svg><use href="#i-download"></use></svg><span>Download</span></a>
+          <button type="button" class="image-viewer-close" id="imageViewerClose" aria-label="Close image"><svg><use href="#i-close"></use></svg></button>
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"><span class="toast-dot"></span><span id="toastText">UI ready</span></div>
+
+    <script type="module" src="/src/js/app.js"></script>
+  </body>
+</html>

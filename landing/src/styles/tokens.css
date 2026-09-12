@@ -1,0 +1,182 @@
+/* ============================================================
+   MERE X DESIGN SYSTEM — TOKENS
+   A cream-and-ink system with a chrome accent, tuned for long
+   reading, dense data, and a lot of restrained motion.
+   ============================================================ */
+
+:root {
+  /* ---- Paper & ink ------------------------------------- */
+  --paper:        #f6f3ec;
+  --paper-raised: #fbf9f4;
+  --paper-sunken: #ede9df;
+  --paper-deep:   #e4dfd2;
+  --surface:      #fffefb;
+  --surface-2:    #f9f7f1;
+
+  --ink:      #111110;
+  --ink-2:    #3b3a34;
+  --ink-3:    #5d5b53;
+  --muted:    #7c7a70;
+  --faint:    #a5a296;
+  --ghost:    #c4c0b3;
+
+  --line:        rgba(17, 17, 16, 0.10);
+  --line-soft:   rgba(17, 17, 16, 0.055);
+  --line-strong: rgba(17, 17, 16, 0.19);
+
+  --invert-bg:   #111110;
+  --invert-ink:  #f6f3ec;
+  --invert-muted:rgba(246, 243, 236, 0.62);
+  --invert-line: rgba(246, 243, 236, 0.14);
+
+  /* ---- Signature accents ------------------------------- */
+  --accent:        #b0653c;   /* burnt sienna — used sparingly */
+  --accent-soft:   rgba(176, 101, 60, 0.12);
+  --accent-line:   rgba(176, 101, 60, 0.32);
+  --positive:      #4f7a52;
+  --positive-soft: rgba(79, 122, 82, 0.13);
+  --warning:       #a5762a;
+  --warning-soft:  rgba(165, 118, 42, 0.14);
+  --danger:        #a94b3d;
+  --danger-soft:   rgba(169, 75, 61, 0.13);
+  --info:          #4b6a86;
+  --info-soft:     rgba(75, 106, 134, 0.13);
+
+  /* Data series — validated for light + dark, colourblind-safe order */
+  --s1: #2f2e2a;
+  --s2: #b0653c;
+  --s3: #4b6a86;
+  --s4: #6f8a63;
+  --s5: #8d6a80;
+  --s6: #a5762a;
+
+  /* ---- Chrome (the Mere X material) -------------------- */
+  --chrome-1: #2a2a26;
+  --chrome-2: #86857e;
+  --chrome-3: #1a1a17;
+  --chrome-hi: #ffffff;
+  --chrome-grad: linear-gradient(135deg, #1c1c19 0%, #8b8a83 34%, #f2f0ea 47%, #6a6963 60%, #131311 100%);
+
+  /* ---- Elevation --------------------------------------- */
+  --shadow-xs: 0 1px 2px rgba(28, 26, 18, 0.05);
+  --shadow-sm: 0 2px 8px rgba(28, 26, 18, 0.05), 0 1px 2px rgba(28, 26, 18, 0.04);
+  --shadow-md: 0 10px 28px rgba(28, 26, 18, 0.07), 0 2px 6px rgba(28, 26, 18, 0.04);
+  --shadow-lg: 0 22px 60px rgba(28, 26, 18, 0.10), 0 4px 12px rgba(28, 26, 18, 0.05);
+  --shadow-xl: 0 40px 110px rgba(28, 26, 18, 0.14), 0 8px 22px rgba(28, 26, 18, 0.06);
+  --shadow-ring: inset 0 0 0 1px var(--line);
+
+  /* ---- Type -------------------------------------------- */
+  --font-ui: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-display: "Outfit", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --t-display: clamp(2.9rem, 1.4rem + 5.4vw, 6.1rem);
+  --t-h1:      clamp(2.3rem, 1.3rem + 3.6vw, 4.1rem);
+  --t-h2:      clamp(1.75rem, 1.15rem + 2.1vw, 2.8rem);
+  --t-h3:      clamp(1.32rem, 1.05rem + 1.05vw, 1.85rem);
+  --t-h4:      clamp(1.08rem, 0.98rem + 0.4vw, 1.28rem);
+  --t-lead:    clamp(1.03rem, 0.96rem + 0.36vw, 1.28rem);
+  --t-body:    1rem;
+  --t-sm:      0.885rem;
+  --t-xs:      0.795rem;
+  --t-2xs:     0.715rem;
+
+  --lh-tight: 1.04;
+  --lh-snug: 1.2;
+  --lh-body: 1.62;
+  --tr-tight: -0.032em;
+  --tr-snug: -0.02em;
+  --tr-wide: 0.14em;
+
+  /* ---- Space & shape ----------------------------------- */
+  --shell: 1280px;
+  --shell-narrow: 800px;
+  --shell-wide: 1560px;
+  --gutter: clamp(20px, 4.2vw, 64px);
+  --section-y: clamp(64px, 8vw, 132px);
+
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-2xl: 36px;
+  --r-pill: 999px;
+
+  /* ---- Motion ------------------------------------------ */
+  --ease-out: cubic-bezier(0.22, 0.85, 0.28, 1);
+  --ease-in-out: cubic-bezier(0.62, 0.02, 0.28, 1);
+  --ease-spring: cubic-bezier(0.16, 1.02, 0.3, 1);
+  --ease-snap: cubic-bezier(0.34, 1.4, 0.5, 1);
+  --d-fast: 0.16s;
+  --d-base: 0.28s;
+  --d-slow: 0.55s;
+  --d-scenic: 0.9s;
+
+  --nav-h: 72px;
+  --grain-opacity: 0.026;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --paper:        #0d0d0b;
+  --paper-raised: #141413;
+  --paper-sunken: #0a0a09;
+  --paper-deep:   #060605;
+  --surface:      #17171500;
+  --surface-2:    #1b1b18;
+
+  --ink:      #f4f1ea;
+  --ink-2:    #d5d1c7;
+  --ink-3:    #b0ada3;
+  --muted:    #8d8a80;
+  --faint:    #6a6860;
+  --ghost:    #45443f;
+
+  --line:        rgba(244, 241, 234, 0.115);
+  --line-soft:   rgba(244, 241, 234, 0.06);
+  --line-strong: rgba(244, 241, 234, 0.22);
+
+  --invert-bg:   #f4f1ea;
+  --invert-ink:  #111110;
+  --invert-muted:rgba(17, 17, 16, 0.62);
+  --invert-line: rgba(17, 17, 16, 0.14);
+
+  --surface:   #161614;
+  --surface-2: #1c1c19;
+
+  --accent:        #d38055;
+  --accent-soft:   rgba(211, 128, 85, 0.16);
+  --accent-line:   rgba(211, 128, 85, 0.38);
+  --positive:      #7fae82;
+  --positive-soft: rgba(127, 174, 130, 0.16);
+  --warning:       #d6a851;
+  --warning-soft:  rgba(214, 168, 81, 0.16);
+  --danger:        #d47a6b;
+  --danger-soft:   rgba(212, 122, 107, 0.16);
+  --info:          #7ea3c4;
+  --info-soft:     rgba(126, 163, 196, 0.16);
+
+  --s1: #ddd9cf;
+  --s2: #d38055;
+  --s3: #7ea3c4;
+  --s4: #93b285;
+  --s5: #b391a5;
+  --s6: #d6a851;
+
+  --chrome-grad: linear-gradient(135deg, #4a4a45 0%, #b9b8b0 34%, #ffffff 47%, #8e8d86 60%, #3a3a36 100%);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.34), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 12px 32px rgba(0, 0, 0, 0.42), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 26px 68px rgba(0, 0, 0, 0.5), 0 4px 14px rgba(0, 0, 0, 0.34);
+  --shadow-xl: 0 48px 128px rgba(0, 0, 0, 0.62), 0 10px 26px rgba(0, 0, 0, 0.4);
+
+  --grain-opacity: 0.05;
+  color-scheme: dark;
+}
+
+/* Film-grain texture (single source, both themes) */
+:root {
+  --grain-url: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27200%27 height=%27200%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.85%27 numOctaves=%274%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27200%27 height=%27200%27 filter=%27url(%23n)%27/%3E%3C/svg%3E");
+}
