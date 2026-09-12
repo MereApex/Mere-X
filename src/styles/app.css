@@ -1266,7 +1266,7 @@ html[data-theme="dark"] .auth-showcase { background: linear-gradient(180deg, #1a
 }
 
 img[src*="mere-x-logo"] {
-  filter: brightness(0) saturate(100%);
+  filter: drop-shadow(0 3px 7px rgba(0,0,0,.14));
 }
 
 .brand-mark,
@@ -1282,7 +1282,7 @@ img[src*="mere-x-logo"] {
 
 .brand-mark,
 .brand-mark img {
-  width: 30px;
+  width: 45px;
   height: 30px;
 }
 
@@ -1292,37 +1292,38 @@ body.sidebar-collapsed .brand:hover .brand-mark {
 
 body.sidebar-collapsed .brand-mark,
 body.sidebar-collapsed .brand-mark img {
-  width: 30px;
+  width: 45px;
   height: 30px;
 }
 
 .mobile-app-brand > span,
 .mobile-app-brand img {
-  width: 31px;
+  width: 46.5px;
   height: 31px;
 }
 
 .model-choice-mark,
 .model-choice-mark img {
-  width: 37px;
+  width: 51px;
   height: 37px;
 }
+.model-choice-mark { flex: 0 0 51px; }
 
 .auth-showcase-brand > span,
 .auth-showcase-brand img {
-  width: 38px;
+  width: 57px;
   height: 38px;
 }
 
 .auth-card-brand > span,
 .auth-card-brand img {
-  width: 34px;
+  width: 51px;
   height: 34px;
 }
 
 /* The sign-in showcase is intentionally dark in both themes. */
 .auth-showcase-brand img {
-  filter: brightness(0) invert(1);
+  filter: invert(1) drop-shadow(0 3px 8px rgba(255,255,255,.12));
 }
 
 .welcome-block {
@@ -1331,8 +1332,8 @@ body.sidebar-collapsed .brand-mark img {
 
 .hero-mark {
   position: relative;
-  width: clamp(142px, 14vw, 178px);
-  height: clamp(142px, 14vw, 178px);
+  width: clamp(190px, 18vw, 236px);
+  height: clamp(142px, 13.5vw, 176px);
   display: grid;
   place-items: center;
   margin-bottom: 19px;
@@ -1367,11 +1368,13 @@ body.sidebar-collapsed .brand-mark img {
 .hero-logo-motion {
   position: relative;
   z-index: 2;
-  width: 82%;
-  height: 82%;
+  width: 88%;
+  height: auto;
+  aspect-ratio: 3 / 2;
   display: grid;
   place-items: center;
-  animation: heroTurn 15s linear infinite;
+  transform-style: preserve-3d;
+  animation: workspaceMarkFloat 6.8s 1.55s ease-in-out infinite;
 }
 
 .hero-logo,
@@ -1388,12 +1391,44 @@ body.sidebar-collapsed .brand-mark img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  animation: emblemBreathe 4.2s ease-in-out infinite;
+  animation: none;
 }
+
+.hero-logo-piece {
+  position: absolute;
+  overflow: hidden;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  opacity: 1;
+  will-change: transform, opacity;
+}
+.hero-piece-a { inset: 0 50% 50% 0; transform-origin: right bottom; }
+.hero-piece-b { inset: 0 0 50% 50%; transform-origin: left bottom; }
+.hero-piece-c { inset: 50% 50% 0 0; transform-origin: right top; }
+.hero-piece-d { inset: 50% 0 0 50%; transform-origin: left top; }
+.hero-mark .hero-logo-piece .hero-logo { width: 200%; height: 200%; max-width: none; }
+.hero-piece-a .hero-logo { left: 0; top: 0; }
+.hero-piece-b .hero-logo { right: 0; top: 0; left: auto; }
+.hero-piece-c .hero-logo { left: 0; bottom: 0; top: auto; }
+.hero-piece-d .hero-logo { right: 0; bottom: 0; left: auto; top: auto; }
+.hero-logo-master {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 1;
+}
+.hero-mark.is-entering .hero-piece-a { animation: workspaceFoldA 1.35s .04s cubic-bezier(.16,.82,.2,1) both; }
+.hero-mark.is-entering .hero-piece-b { animation: workspaceFoldB 1.35s .12s cubic-bezier(.16,.82,.2,1) both; }
+.hero-mark.is-entering .hero-piece-c { animation: workspaceFoldC 1.35s .2s cubic-bezier(.16,.82,.2,1) both; }
+.hero-mark.is-entering .hero-piece-d { animation: workspaceFoldD 1.35s .28s cubic-bezier(.16,.82,.2,1) both; }
+.hero-mark.is-entering .hero-logo-master { animation: workspaceMasterIn 1.62s cubic-bezier(.16,.82,.2,1) both; }
 
 .hero-logo-sheen,
 .hero-network-scan {
-  z-index: 2;
+  z-index: 3;
   pointer-events: none;
   -webkit-mask: url("../assets/mere-x-logo.png") center / contain no-repeat;
   mask: url("../assets/mere-x-logo.png") center / contain no-repeat;
@@ -1407,9 +1442,9 @@ body.sidebar-collapsed .brand-mark img {
 }
 
 .hero-network-scan {
-  background: repeating-linear-gradient(0deg, transparent 0 12%, var(--logo-effect) 13% 14%, transparent 15% 25%);
-  background-size: 100% 220%;
-  opacity: .36;
+  background: linear-gradient(180deg, transparent 30%, var(--logo-effect) 48%, transparent 66%);
+  background-size: 100% 320%;
+  opacity: .22;
   mix-blend-mode: screen;
   animation: networkFlow 3.4s linear infinite;
 }
@@ -1552,8 +1587,8 @@ html[data-theme="dark"] .chat-message::selection { background: rgba(244,241,234,
   display: block;
   margin-top: 3px;
 }
-.message-avatar img { width: 100%; height: 100%; object-fit: contain; filter: brightness(0); }
-html[data-theme="dark"] .message-avatar img { filter: brightness(0) invert(1); }
+.message-avatar img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 5px rgba(0,0,0,.13)); }
+html[data-theme="dark"] .message-avatar img { filter: invert(1) drop-shadow(0 2px 5px rgba(255,255,255,.08)); }
 
 .message-column { min-width: 0; }
 .chat-message-assistant .chat-message-body {
@@ -2002,6 +2037,13 @@ html[data-theme="dark"] .message-error button { background: rgba(255,255,255,.05
   to { transform: rotate(360deg); }
 }
 
+@keyframes workspaceFoldA { 0% { opacity: 0; transform: translate3d(-48%,-52%,88px) rotateY(70deg) rotateZ(-10deg) scale(.8); } 68% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes workspaceFoldB { 0% { opacity: 0; transform: translate3d(48%,-48%,96px) rotateY(-70deg) rotateZ(10deg) scale(.8); } 68% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes workspaceFoldC { 0% { opacity: 0; transform: translate3d(-46%,52%,84px) rotateX(-68deg) rotateZ(9deg) scale(.82); } 68% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes workspaceFoldD { 0% { opacity: 0; transform: translate3d(46%,50%,92px) rotateX(68deg) rotateZ(-9deg) scale(.82); } 68% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes workspaceMasterIn { 0%, 78% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes workspaceMarkFloat { 0%, 100% { transform: translate3d(0,0,22px) rotateX(0) rotateY(0); } 50% { transform: translate3d(0,-7px,30px) rotateX(2deg) rotateY(-3deg); } }
+
 @keyframes heroSheen {
   from { transform: rotate(0deg) scale(1.08); }
   to { transform: rotate(360deg) scale(1.08); }
@@ -2048,7 +2090,7 @@ html[data-theme="dark"] {
 }
 
 html[data-theme="dark"] img[src*="mere-x-logo"] {
-  filter: brightness(0) invert(1);
+  filter: invert(1) drop-shadow(0 3px 8px rgba(255,255,255,.1));
 }
 
 html[data-theme="dark"] .brand-mark,
@@ -2069,7 +2111,7 @@ html[data-theme="dark"] .hero-network-scan {
 @media (max-width: 760px) {
   body.sidebar-collapsed .brand-mark,
   body.sidebar-collapsed .brand-mark img {
-    width: 33px;
+    width: 49.5px;
     height: 33px;
   }
 
@@ -2078,8 +2120,8 @@ html[data-theme="dark"] .hero-network-scan {
   }
 
   .hero-mark {
-    width: clamp(118px, 32vw, 142px);
-    height: clamp(118px, 32vw, 142px);
+    width: clamp(166px, 43vw, 198px);
+    height: clamp(124px, 32vw, 148px);
     margin-bottom: 15px;
   }
 
@@ -2746,13 +2788,15 @@ html[data-theme="dark"] .action-modal { border-color: rgba(255,255,255,.1); back
 
 @media (max-height: 680px) and (min-width: 761px) {
   .welcome-block { margin-top: 24px; }
-  .hero-mark { width: 132px; height: 132px; margin-bottom: 12px; }
+  .hero-mark { width: 176px; height: 132px; margin-bottom: 12px; }
   .composer-zone { margin-top: 21px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-mark,
   .hero-logo-motion,
+  .hero-logo-piece,
+  .hero-logo-master,
   .hero-mark .hero-logo,
   .hero-logo-sheen,
   .hero-network-scan,

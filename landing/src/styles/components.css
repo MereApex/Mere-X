@@ -630,18 +630,18 @@ code.inline {
 
 .brand { position: relative; z-index: 3; display: inline-flex; align-items: center; gap: 10px; flex: 0 0 auto; min-width: max-content; isolation: isolate; }
 .brand-mark, .brand-word { display: block; flex: 0 0 auto; }
-.brand-mark { display: grid; place-items: center; width: var(--glyph-h, 32px); height: var(--glyph-h, 32px); overflow: visible; transition: transform 0.6s var(--ease-spring); }
+.brand-mark { display: grid; place-items: center; width: calc(var(--glyph-h, 32px) * 1.5); height: var(--glyph-h, 32px); overflow: visible; transition: transform 0.6s var(--ease-spring); }
 .brand:hover .brand-mark { transform: translateY(-1px) scale(1.05); }
 
 .brand-glyph {
   display: block;
-  width: var(--glyph-h, 32px);
+  width: calc(var(--glyph-h, 32px) * 1.5);
   height: var(--glyph-h, 32px);
   max-width: none;
   object-fit: contain;
-  filter: brightness(0) saturate(100%) drop-shadow(0 3px 7px rgba(0, 0, 0, 0.12));
+  filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.14));
 }
-[data-theme="dark"] .brand-glyph { filter: brightness(0) invert(1) drop-shadow(0 3px 9px rgba(255, 255, 255, 0.1)); }
+[data-theme="dark"] .brand-glyph { filter: invert(1) drop-shadow(0 3px 9px rgba(255, 255, 255, 0.1)); }
 .brand-wordmark {
   display: block;
   color: var(--ink);

@@ -1837,6 +1837,14 @@ searchResults.addEventListener("click", (event) => {
   if (view) { closeSearch(); showLocalView(view.dataset.searchView); }
 });
 
+function restartBrandIntro() {
+  const mark = document.querySelector(".hero-mark");
+  if (!mark) return;
+  mark.classList.remove("is-entering");
+  void mark.offsetWidth;
+  mark.classList.add("is-entering");
+}
+
 function resetWorkspace(message = "New conversation ready") {
   if (realtimeVoice) stopRealtimeVoice(false);
   leaveConversation();
@@ -1854,6 +1862,7 @@ function resetWorkspace(message = "New conversation ready") {
   syncComposerBusy();
   removeTool.click();
   renderAgentSurface();
+  restartBrandIntro();
   closeMobileSidebar();
   closeSearch();
   promptInput.focus();

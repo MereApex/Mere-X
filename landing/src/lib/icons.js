@@ -120,10 +120,10 @@ export function icon(name, className = "icon") {
   );
 }
 
-/** The original Mere X monogram. Its colour is controlled by CSS per theme. */
+/** The master Mere X monogram. Its colour is controlled by CSS per theme. */
 export function mereXMark(height = 32) {
   return raw(`<img class="brand-glyph" src="/brand/mere-x-mark.png" alt=""
-    width="1536" height="1536" style="--glyph-h:${height}px" decoding="async" />`);
+    width="1536" height="1024" style="--glyph-h:${height}px" decoding="async" />`);
 }
 
 /** A crisp text wordmark that remains sharp at every viewport size. */

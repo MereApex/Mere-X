@@ -64,17 +64,17 @@ a { text-decoration: none; }
 
 .pricing-brand { display: inline-flex; align-items: center; gap: 10px; }
 .pricing-brand-mark {
-  width: 34px;
-  height: 34px;
+  width: 48px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: rgba(255, 255, 255, .42);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
-.pricing-brand-mark img { width: 29px; height: 29px; object-fit: contain; filter: brightness(0); }
-html[data-theme="dark"] .pricing-brand-mark { background: rgba(255, 255, 255, .055); }
-html[data-theme="dark"] .pricing-brand-mark img { filter: brightness(0) invert(1); }
+.pricing-brand-mark img { width: 48px; height: 32px; object-fit: contain; filter: drop-shadow(0 3px 7px rgba(0,0,0,.14)); }
+html[data-theme="dark"] .pricing-brand-mark { background: transparent; }
+html[data-theme="dark"] .pricing-brand-mark img { filter: invert(1) drop-shadow(0 3px 8px rgba(255,255,255,.1)); }
 .pricing-brand strong { font-size: 19px; font-weight: 500; letter-spacing: -.03em; }
 
 .pricing-nav-actions { display: flex; align-items: center; gap: 9px; }

@@ -17,7 +17,10 @@
     <script>
       (function () {
         try {
-          var saved = localStorage.getItem("mere-x.theme") || "light";
+          var requested = new URLSearchParams(location.search).get("theme");
+          var saved = requested === "dark" || requested === "light"
+            ? requested
+            : (localStorage.getItem("mere-x.theme") || "light");
           var resolved = saved === "system"
             ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
             : saved;
