@@ -23,18 +23,18 @@ test("every Mere X surface uses the same transparent master mark", async () => {
 test("landing and workspace retain the folding intro and seamless final layer", async () => {
   const [orb, landingStyles, workspacePage, workspaceStyles, app] = await Promise.all([
     readFile(new URL("../landing/src/components/orb.js", import.meta.url), "utf8"),
-    readFile(new URL("../landing/src/styles/site.css", import.meta.url), "utf8"),
+    readFile(new URL("../landing/src/styles/hero-cinematic.css", import.meta.url), "utf8"),
     readFile(new URL("../index.html", import.meta.url), "utf8"),
-    readFile(new URL("../src/styles/app.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/styles/hero-cinematic.css", import.meta.url), "utf8"),
     readFile(new URL("../src/js/app.js", import.meta.url), "utf8")
   ]);
 
-  assert.equal((orb.match(/class="mx-slice /g) || []).length, 4);
-  assert.match(orb, /class="mx-mark-master"/);
-  assert.match(landingStyles, /\[data-theme="dark"\] \.mx-mark-master \{ filter: invert\(1\); \}/);
-  assert.equal((workspacePage.match(/class="hero-logo-piece /g) || []).length, 4);
+  assert.equal((orb.match(/class="mx-ribbon-panel /g) || []).length, 2);
+  assert.match(orb, /class="mx-logo-final"/);
+  assert.match(landingStyles, /\[data-theme="dark"\] \.mx-logo-final \{ filter: invert\(1\); \}/);
+  assert.equal((workspacePage.match(/class="hero-ribbon-panel /g) || []).length, 2);
   assert.match(workspacePage, /class="hero-logo-master"/);
-  assert.match(workspaceStyles, /@keyframes workspaceMasterIn/);
-  assert.match(workspaceStyles, /html\[data-theme="dark"\] img\[src\*="mere-x-logo"\]/);
+  assert.match(workspaceStyles, /@keyframes workspaceLogoLock/);
+  assert.match(workspaceStyles, /@keyframes workspaceCinemaSpecular/);
   assert.match(app, /function restartBrandIntro\(\)/);
 });

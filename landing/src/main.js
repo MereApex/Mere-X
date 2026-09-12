@@ -8,6 +8,7 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/components.css";
 import "./styles/site.css";
+import "./styles/hero-cinematic.css";
 import "./styles/console.css";
 
 import { renderNav, mountNav } from "./components/nav.js";

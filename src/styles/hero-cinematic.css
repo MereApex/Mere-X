@@ -1,0 +1,160 @@
+/* Cinematic workspace intro: two ribbon planes lock into the untouched mark. */
+.hero-mark {
+  width: clamp(210px, 19vw, 252px);
+  height: clamp(150px, 13.8vw, 184px);
+  isolation: isolate;
+  perspective: 1200px;
+  animation: none;
+}
+.hero-mark::before,
+.hero-mark::after { content: none; }
+
+.hero-cinema-aura {
+  position: absolute;
+  z-index: -2;
+  left: 50%;
+  top: 48%;
+  width: 70%;
+  height: 52%;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--logo-ink) 10%, transparent);
+  filter: blur(36px);
+  opacity: .2;
+  transform: translate(-50%,-50%);
+  animation: workspaceCinemaAura 7.5s 1.3s ease-in-out infinite;
+}
+
+.hero-cinema-horizon {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 52%;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--logo-orbit) 20% 80%, transparent);
+  opacity: .36;
+  transform: translate(-50%,-50%);
+}
+.hero-mark.is-entering .hero-cinema-horizon { animation: workspaceHorizonIn 1.55s .12s cubic-bezier(.16,.8,.2,1) both; }
+
+.hero-cinema-arc {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 55%;
+  border: 1px solid var(--logo-orbit);
+  border-radius: 50%;
+  opacity: .34;
+  transform-style: preserve-3d;
+}
+.hero-arc-near { width: 92%; height: 42%; transform: translate(-50%,-50%) rotateX(70deg); }
+.hero-arc-far { width: 68%; height: 30%; opacity: .18; transform: translate(-50%,-50%) rotateX(70deg); }
+.hero-mark.is-entering .hero-arc-near { animation: workspaceArcNearIn 1.55s .26s cubic-bezier(.16,.8,.2,1) both; }
+.hero-mark.is-entering .hero-arc-far { animation: workspaceArcFarIn 1.55s .38s cubic-bezier(.16,.8,.2,1) both; }
+
+.hero-logo-motion {
+  width: 90%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 18px 20px rgba(0,0,0,.16));
+  animation: workspaceCinemaFloat 8s 1.75s ease-in-out infinite;
+}
+
+.hero-ribbon-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+.hero-ribbon-panel .hero-logo { inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.hero-ribbon-left { clip-path: inset(0 50% 0 0); transform-origin: 50% 50%; }
+.hero-ribbon-right { clip-path: inset(0 0 0 50%); transform-origin: 50% 50%; }
+.hero-mark.is-entering .hero-ribbon-left { animation: workspaceRibbonLeftIn 1.48s .02s cubic-bezier(.14,.82,.18,1) both; }
+.hero-mark.is-entering .hero-ribbon-right { animation: workspaceRibbonRightIn 1.48s .08s cubic-bezier(.14,.82,.18,1) both; }
+
+.hero-logo-master { z-index: 2; opacity: 1; }
+.hero-mark.is-entering .hero-logo-master { animation: workspaceLogoLock 1.58s cubic-bezier(.14,.82,.18,1) both; }
+
+.hero-join-flare {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  top: 6%;
+  bottom: 6%;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--logo-effect), transparent);
+  box-shadow: 0 0 12px var(--logo-effect);
+  opacity: 0;
+}
+.hero-mark.is-entering .hero-join-flare { animation: workspaceJoinFlare 1.58s .02s ease-out both; }
+
+.hero-logo-sheen {
+  inset: -2%;
+  z-index: 3;
+  background: linear-gradient(108deg, transparent 34%, var(--logo-effect) 47%, transparent 59%);
+  background-size: 290% 100%;
+  background-position: 170% 0;
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: workspaceCinemaSpecular 7.6s 1.12s ease-in-out infinite;
+}
+html[data-theme="dark"] .hero-logo-sheen { mix-blend-mode: multiply; }
+
+.hero-contact-shadow {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 72%;
+  width: 58%;
+  height: 8%;
+  border-radius: 50%;
+  background: rgba(0,0,0,.42);
+  filter: blur(14px);
+  opacity: .18;
+  transform: translateX(-50%);
+  animation: workspaceShadowBreathe 8s 1.75s ease-in-out infinite;
+}
+html[data-theme="dark"] .hero-contact-shadow { background: rgba(0,0,0,.88); }
+
+@keyframes workspaceRibbonLeftIn {
+  0% { opacity: 0; transform: translate3d(-46%,-2%,110px) rotateY(-86deg) rotateZ(-4deg) scale(.8); filter: blur(6px); }
+  40% { opacity: 1; filter: blur(0); }
+  78% { transform: translate3d(-1.4%,0,6px) rotateY(3deg) scale(1.008); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes workspaceRibbonRightIn {
+  0% { opacity: 0; transform: translate3d(46%,2%,110px) rotateY(86deg) rotateZ(4deg) scale(.8); filter: blur(6px); }
+  40% { opacity: 1; filter: blur(0); }
+  78% { transform: translate3d(1.4%,0,6px) rotateY(-3deg) scale(1.008); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes workspaceLogoLock { 0%,72% { opacity: 0; filter: blur(5px); transform: scale(.992); } 100% { opacity: 1; filter: none; transform: none; } }
+@keyframes workspaceJoinFlare { 0%,42% { opacity: 0; transform: scaleY(0); } 64% { opacity: .85; transform: scaleY(1); } 100% { opacity: 0; transform: scaleY(.18); } }
+@keyframes workspaceHorizonIn { from { opacity: 0; transform: translate(-50%,-50%) scaleX(.04); } to { opacity: .36; transform: translate(-50%,-50%) scaleX(1); } }
+@keyframes workspaceArcNearIn { from { opacity: 0; transform: translate(-50%,-50%) rotateX(70deg) scale(.54); } to { opacity: .34; transform: translate(-50%,-50%) rotateX(70deg) scale(1); } }
+@keyframes workspaceArcFarIn { from { opacity: 0; transform: translate(-50%,-50%) rotateX(70deg) scale(.5); } to { opacity: .18; transform: translate(-50%,-50%) rotateX(70deg) scale(1); } }
+@keyframes workspaceCinemaAura { 0%,100% { opacity: .14; transform: translate(-50%,-50%) scale(.92); } 50% { opacity: .24; transform: translate(-50%,-50%) scale(1.05); } }
+@keyframes workspaceCinemaFloat { 0%,100% { transform: translate3d(0,0,24px) rotateY(0); } 50% { transform: translate3d(0,-5px,30px) rotateY(-1.5deg); } }
+@keyframes workspaceShadowBreathe { 0%,100% { opacity: .18; transform: translateX(-50%) scaleX(1); } 50% { opacity: .12; transform: translateX(-50%) scaleX(.92); } }
+@keyframes workspaceCinemaSpecular { 0%,16% { opacity: 0; background-position: 170% 0; } 27% { opacity: .68; } 43%,100% { opacity: 0; background-position: -70% 0; } }
+
+@media (max-width: 760px) {
+  .hero-mark { width: clamp(186px, 49vw, 220px); height: clamp(136px, 36vw, 162px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cinema-aura,
+  .hero-cinema-horizon,
+  .hero-cinema-arc,
+  .hero-logo-motion,
+  .hero-ribbon-panel,
+  .hero-logo-master,
+  .hero-join-flare,
+  .hero-logo-sheen,
+  .hero-contact-shadow { animation: none !important; }
+  .hero-ribbon-panel,
+  .hero-logo-master { opacity: 1; transform: none; filter: none; }
+}
