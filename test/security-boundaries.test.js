@@ -9,6 +9,7 @@ test("workspace and console pages require an account session", async () => {
   assert.match(server, /app\.use\("\/app", requirePageAuth/);
   assert.match(server, /app\.get\(\/\^\\\/console/);
   assert.match(server, /requirePageAuth, \(req, res\) => res\.sendFile/);
+  assert.match(server, /app\.get\("\/checkout", requirePageAuth, \(req, res\) => res\.sendFile\(path\.join\(workspaceDist, "pricing", "index\.html"\)\)\)/);
 });
 
 test("private APIs require authentication and API-key scopes", async () => {

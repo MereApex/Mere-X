@@ -7,11 +7,24 @@ const reduced = () => document.documentElement.dataset.motion === "reduced";
 
 let revealObserver = null;
 
+function countText(node, value) {
+  const decimals = Number(node.dataset.countDecimals || 0);
+  const prefix = node.dataset.countPrefix || "";
+  const suffix = node.dataset.countSuffix || "";
+  return prefix + value.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  }) + suffix;
+}
+
 /** Reveal elements as they enter the viewport, honouring [data-stagger]. */
 export function initReveal(scope = document) {
   if (reduced()) {
     scope.querySelectorAll("[data-reveal], [data-count], .bench, .mode-cell, .tl-item").forEach((node) => node.classList.add("is-in"));
-    scope.querySelectorAll("[data-count]").forEach((node) => { node.textContent = node.dataset.countText || node.dataset.count; });
+    scope.querySelectorAll("[data-count]").forEach((node) => {
+      const target = Number(node.dataset.count);
+      node.textContent = node.dataset.countText || (Number.isFinite(target) ? countText(node, target) : node.dataset.count);
+    });
     return () => {};
   }
 
@@ -43,20 +56,17 @@ export function initReveal(scope = document) {
 export function animateCount(node) {
   const target = Number(node.dataset.count);
   if (!Number.isFinite(target)) return;
-  const decimals = Number(node.dataset.countDecimals || 0);
-  const prefix = node.dataset.countPrefix || "";
-  const suffix = node.dataset.countSuffix || "";
   const duration = Number(node.dataset.countDuration || 1400);
   const start = performance.now();
 
   const step = (now) => {
-    const t = Math.min(1, (now - start) / duration);
+    // Some browsers can deliver a frame timestamp from just before this
+    // animation was scheduled (especially after a theme or tab transition).
+    // Clamp both ends so counters never flash negative or overshoot.
+    const t = Math.max(0, Math.min(1, (now - start) / duration));
     const eased = 1 - Math.pow(1 - t, 3);
     const value = target * eased;
-    node.textContent = prefix + value.toLocaleString("en-US", {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals
-    }) + suffix;
+    node.textContent = countText(node, value);
     if (t < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
