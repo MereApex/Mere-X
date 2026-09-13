@@ -45,6 +45,12 @@ test("private APIs require authentication and API-key scopes", async () => {
   assert.match(auth, /req\.authMethod === "session"/);
 });
 
+test("optional plugin bootstrap cannot take down the public production site", async () => {
+  const [server, connections] = await Promise.all([source("../server/index.js"), source("../server/plugin-connections.js")]);
+  assert.match(server, /if \(databaseConfigured\(\)\) await initConnections\(\)/);
+  assert.doesNotMatch(connections, /export async function initConnections\(\) \{\s*encryptionKey\(\)/);
+});
+
 test("live voice uses the authenticated server-side WebRTC handshake", async () => {
   const [client, server] = await Promise.all([source("../src/js/app.js"), source("../server/index.js")]);
   assert.match(client, /new RTCPeerConnection\(\)/);

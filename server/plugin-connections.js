@@ -32,7 +32,6 @@ function ownerConnections(userId) {
 }
 
 export async function initConnections() {
-  encryptionKey();
   connections.clear();
   const result = await query(
     `SELECT user_id, plugin_id, account, scope, encrypted_secret, connected_at

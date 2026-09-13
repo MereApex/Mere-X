@@ -146,7 +146,7 @@ const paymentLimiter = rateLimit({
 });
 app.use("/api", apiLimiter);
 await initDatabase();
-await initConnections();
+if (databaseConfigured()) await initConnections();
 app.use("/api", optionalAuth);
 app.use("/api/auth", authLimiter, createAuthRouter());
 app.use("/api/workspace", createWorkspaceRouter());
