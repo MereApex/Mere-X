@@ -206,7 +206,9 @@ export async function requirePageAuth(req, res, next) {
       return next();
     }
     const requested = String(req.originalUrl || "/app");
-    const returnTo = requested.startsWith("/app") || requested.startsWith("/console") ? requested : "/app";
+    const returnTo = /^\/(?:app|console)(?:[/?]|$)/.test(requested) || /^\/checkout(?:\?|$)/.test(requested)
+      ? requested
+      : "/app";
     res.setHeader("Cache-Control", "no-store");
     return res.redirect(303, `/login?returnTo=${encodeURIComponent(returnTo)}`);
   } catch (error) {

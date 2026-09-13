@@ -923,8 +923,10 @@ app.post("/api/embeddings", generationLimiter, asyncRoute(async (req, res) => {
 }));
 
 app.post("/api/realtime/session", generationLimiter, asyncRoute(async (req, res) => {
-  openai();
-  const sdp = cleanText(req.body?.sdp, 80_000);
+  /* SDP is line-oriented and its final CRLF is significant to strict WebRTC
+     parsers, so do not pass it through cleanText(), which trims whitespace. */
+  const rawSdp = typeof req.body?.sdp === "string" ? req.body.sdp.replace(/\u0000/g, "") : "";
+  const sdp = rawSdp.slice(0, 80_000);
   if (!sdp || !/^v=0(?:\r?\n)/.test(sdp)) {
     return res.status(400).json({ error: { code: "invalid_sdp", message: "A valid WebRTC offer is required." } });
   }
@@ -970,26 +972,15 @@ app.post("/api/realtime/session", generationLimiter, asyncRoute(async (req, res)
     },
     max_output_tokens: 2_048
   };
-  const form = new FormData();
-  form.set("sdp", sdp);
-  form.set("session", JSON.stringify(sessionConfig));
-  const upstream = await fetch("https://api.openai.com/v1/realtime/calls", {
-    method: "POST",
+  /* The Realtime endpoint requires each multipart field to carry its own
+     media type. The official SDK sends SDP as application/sdp and the session
+     configuration as application/json; plain FormData strings do not. */
+  const upstream = await openai().realtime.calls.create({ sdp, session: sessionConfig }, {
     headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       "OpenAI-Safety-Identifier": crypto.createHash("sha256").update(`mere-x:${req.user.id}`).digest("hex")
-    },
-    body: form
+    }
   });
   const answer = await upstream.text();
-  if (!upstream.ok) {
-    let message = "Mere X Voice could not start.";
-    try { message = JSON.parse(answer)?.error?.message || message; } catch { /* keep the safe fallback */ }
-    const error = new Error(message);
-    error.status = upstream.status >= 400 && upstream.status < 500 ? 400 : 502;
-    error.code = "realtime_connection_failed";
-    throw error;
-  }
   res.locals.mereXUsage = { model: "Mere X Voice" };
   res.setHeader("Cache-Control", "no-store");
   res.type("application/sdp").send(answer);

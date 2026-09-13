@@ -54,18 +54,21 @@ export async function query(text, values = []) {
   return execute(database(), text, values);
 }
 
-export async function transaction(work) {
-  const connection = await database().getConnection();
-  try {
-    await connection.beginTransaction();
-    const result = await work((text, values = []) => execute(connection, text, values));
-    await connection.commit();
-    return result;
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+export async function transaction(work, { maxRetries = 2 } = {}) {
+  for (let attempt = 0; ; attempt += 1) {
+    const connection = await database().getConnection();
+    try {
+      await connection.beginTransaction();
+      const result = await work((text, values = []) => execute(connection, text, values));
+      await connection.commit();
+      return result;
+    } catch (error) {
+      await connection.rollback();
+      if (error?.code !== "ER_LOCK_DEADLOCK" || attempt >= maxRetries) throw error;
+    } finally {
+      connection.release();
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
   }
 }
 

@@ -1,4 +1,3 @@
-const PENDING_PLAN_KEY = "mere-x.pending-plan";
 const THEME_STORAGE_KEY = "mere-x.theme";
 const PLAN_PRICES = Object.freeze({ Free: "0.00", Starter: "9.99", Plus: "19.99", Pro: "39.99", Max: "79.99" });
 
@@ -57,6 +56,14 @@ function closeCheckout() {
   checkoutModal.hidden = true;
   document.body.classList.remove("checkout-open");
   selectedPlan = "";
+  clearPlanIntent();
+}
+
+function clearPlanIntent() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("plan")) return;
+  url.searchParams.delete("plan");
+  history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 function setCheckoutStatus(message, tone = "") {
@@ -78,7 +85,6 @@ async function captureOrder(orderId) {
   setCheckoutStatus("Verifying your payment securely…");
   const result = await api(`/api/paypal/orders/${encodeURIComponent(orderId)}/capture`, { method: "POST" });
   user = { ...user, plan: result.plan };
-  try { localStorage.removeItem(PENDING_PLAN_KEY); } catch { /* storage is optional */ }
   renderCurrentPlan();
   closeCheckout();
   showToast(`Payment complete. Mere X ${result.plan} is active for 30 days.`);
@@ -104,7 +110,7 @@ async function setupPayPalButtons() {
     style: { layout: "vertical", shape: "pill", height: 46, label: "paypal" },
     createOrder: async () => createOrder(),
     onApprove: async ({ orderID }) => captureOrder(orderID),
-    onCancel: () => setCheckoutStatus("Checkout was cancelled. No payment was taken.", "neutral"),
+    onCancel: () => { clearPlanIntent(); setCheckoutStatus("Checkout was cancelled. No payment was taken.", "neutral"); },
     onError: (error) => setCheckoutStatus(error?.message || "PayPal could not complete this checkout.", "error")
   }).render(container);
 }
@@ -232,8 +238,8 @@ async function ensurePayPal() {
 
 async function openCheckout(plan) {
   if (!user) {
-    try { localStorage.setItem(PENDING_PLAN_KEY, plan); } catch { /* navigation still works */ }
-    window.location.assign("/app?auth=signin");
+    const returnTo = `/checkout?plan=${encodeURIComponent(plan)}`;
+    window.location.assign(`/login?returnTo=${encodeURIComponent(returnTo)}`);
     return;
   }
   if (plan === "Free") {
@@ -287,13 +293,21 @@ async function initialize() {
   user = session.user;
   paypalConfig = config;
   renderCurrentPlan();
-  let pending;
-  const requested = normalizedPlan(new URLSearchParams(window.location.search).get("plan"));
-  try {
-    if (requested !== "Free") localStorage.setItem(PENDING_PLAN_KEY, requested);
-    pending = requested !== "Free" ? requested : localStorage.getItem(PENDING_PLAN_KEY);
-  } catch { pending = requested !== "Free" ? requested : ""; }
-  if (user && Object.prototype.hasOwnProperty.call(PLAN_PRICES, pending) && pending !== normalizedPlan(user.plan)) await openCheckout(pending);
+  /* Remove the stale key used by older releases. Checkout intent now lives in
+     the URL, where it is explicit, inspectable, and cannot survive forever. */
+  try { localStorage.removeItem("mere-x.pending-plan"); } catch { /* storage is optional */ }
+  const requested = new URLSearchParams(window.location.search).get("plan");
+  if (!requested) return;
+  if (!Object.prototype.hasOwnProperty.call(PLAN_PRICES, requested) || requested === "Free") {
+    clearPlanIntent();
+    return;
+  }
+  if (requested === normalizedPlan(user?.plan)) {
+    clearPlanIntent();
+    showToast(`Mere X ${requested} is already your current plan.`);
+    return;
+  }
+  if (user) await openCheckout(requested);
 }
 
 initialize().catch((error) => showToast(error.message));

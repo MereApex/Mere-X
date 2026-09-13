@@ -228,6 +228,8 @@ let selectedModel = ["nyx", "orion", "apex"].includes(appState.settings["model-p
   : "apex";
 const MODEL_NAMES = Object.freeze({ nyx: "Mere Nyx 5.5", orion: "Mere Orion 5.5", apex: "Mere Apex 5.5" });
 let workspaceSyncTimer = 0;
+let pendingWorkspaceSync = null;
+let workspaceSyncInFlight = null;
 
 function persistedWorkspaceState() {
   return { ...appState, conversations: appState.conversations.filter((conversation) => !conversation.transient) };
@@ -235,18 +237,34 @@ function persistedWorkspaceState() {
 
 function queueWorkspaceSync() {
   if (!currentUser) return;
+  pendingWorkspaceSync = { userId: String(currentUser.id), state: persistedWorkspaceState() };
   clearTimeout(workspaceSyncTimer);
-  workspaceSyncTimer = window.setTimeout(async () => {
-    try {
-      await apiJson("/api/workspace", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: persistedWorkspaceState() })
-      });
-    } catch (error) {
-      showToast(`Workspace sync paused: ${error.message}`);
-    }
-  }, 450);
+  workspaceSyncTimer = window.setTimeout(flushWorkspaceSync, 450);
+}
+
+async function flushWorkspaceSync() {
+  clearTimeout(workspaceSyncTimer);
+  workspaceSyncTimer = 0;
+  if (!pendingWorkspaceSync || workspaceSyncInFlight) return;
+  if (!currentUser || pendingWorkspaceSync.userId !== String(currentUser.id)) {
+    pendingWorkspaceSync = null;
+    return;
+  }
+  const { state } = pendingWorkspaceSync;
+  pendingWorkspaceSync = null;
+  workspaceSyncInFlight = apiJson("/api/workspace", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ state })
+  });
+  try {
+    await workspaceSyncInFlight;
+  } catch (error) {
+    showToast(`Workspace sync paused: ${error.message}`);
+  } finally {
+    workspaceSyncInFlight = null;
+    if (pendingWorkspaceSync) flushWorkspaceSync();
+  }
 }
 
 function saveWorkspaceState() {
@@ -1788,7 +1806,6 @@ $("#effortHeading").addEventListener("click", () => {
 });
 
 applyEffort(effortIndex);
-refreshPluginStatus();
 
 function openSearch() {
   closePopovers();
@@ -4637,18 +4654,20 @@ async function enterWorkspace(user, message) {
   setAuthView("signin");
   if (window.location.pathname === "/login") {
     const requested = new URLSearchParams(window.location.search).get("returnTo") || "/app";
-    const returnTo = requested.startsWith("/app") || requested.startsWith("/console") ? requested : "/app";
+    const returnTo = /^\/(?:app|console)(?:[/?]|$)/.test(requested) || /^\/checkout(?:\?|$)/.test(requested)
+      ? requested
+      : "/app";
     window.location.replace(returnTo);
     return;
   }
+  /* Older checkout builds left this key behind after cancellation. Never let
+     stale pricing intent hijack an ordinary account login. */
+  try { localStorage.removeItem("mere-x.pending-plan"); } catch { /* storage is optional */ }
   renderWorkspace();
   renderSelectedModel();
   resetWorkspace(message);
   startProductRuntime();
-  try {
-    const pendingPlan = localStorage.getItem("mere-x.pending-plan");
-    if (pendingPlan) window.location.assign("/checkout");
-  } catch { /* continue into the workspace */ }
+  refreshPluginStatus();
 }
 
 async function signOut() {
