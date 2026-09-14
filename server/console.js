@@ -10,7 +10,7 @@ const WEBHOOK_EVENTS = new Set(["batch.completed", "batch.failed", "usage.thresh
 const SETTING_FIELDS = new Set(["defaultModel", "logRetentionDays", "zeroRetention", "promptCaching", "requireSso", "ipAllowlist"]);
 const BILLING_FIELDS = new Set(["autoReload", "reloadThresholdUsd", "reloadAmountUsd", "monthlyLimitUsd", "alertAtPct"]);
 const DEFAULT_SETTINGS = Object.freeze({
-  defaultModel: "mere-orion-5-5",
+  defaultModel: "mere-nyx-5-5",
   logRetentionDays: 30,
   zeroRetention: false,
   promptCaching: true,
@@ -116,7 +116,7 @@ function emptyUsage(days = 90) {
 
 function planLimits(plan) {
   const normalized = clean(plan, 40).toLowerCase();
-  const tier = normalized === "max" ? "Max" : normalized === "pro" ? "Pro" : "Free";
+  const tier = ({ starter: "Starter", plus: "Plus", pro: "Pro", max: "Max" })[normalized] || "Free";
   return { tier, rpm: 90, generationRpm: 20, authAttemptsPer15m: 30, paymentRpm: 30 };
 }
 
@@ -207,7 +207,7 @@ async function consoleState(req) {
     latency: Number(row.latency_ms || 0),
     input: Number(row.input_tokens || 0),
     output: Number(row.output_tokens || 0),
-    key: row.api_key_id ? keys.find((key) => key.id === row.api_key_id)?.name || "API key" : "Workspace",
+    key: row.api_key_id ? keys.find((key) => key.id === row.api_key_id)?.name || "API key" : "Studio",
     stop: row.stop_reason || null,
     error: row.error_code || null
   }));
@@ -219,7 +219,7 @@ async function consoleState(req) {
 
   return {
     org: {
-      name: workspace.name || `${req.user.name}'s workspace`,
+      name: (workspace.name || `${req.user.name}'s Studio`).replace(/ workspace$/i, " Studio"),
       id: workspace.id ? `org_${workspace.id}` : `user_${req.user.id}`,
       plan: req.user.plan || "Free",
       created: timestamp(workspace.created_at) || Date.now(),

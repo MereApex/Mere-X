@@ -115,7 +115,7 @@ export default {
 
         ${panel({
           title: "Usage by credential",
-          desc: "Recorded tokens by workspace session or API key",
+          desc: "Recorded tokens by Studio session or API key",
           body: byKey.length ? proportionBars(byKey, { format: (value) => `${compact(value, 1)} tokens` }).value : empty("No credential usage recorded in this period.")
         }).value}
 

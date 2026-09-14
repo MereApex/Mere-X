@@ -55,7 +55,8 @@ export function initReveal(scope = document) {
 /** Count-up animation driven by data-count / data-count-prefix / data-count-suffix. */
 export function animateCount(node) {
   const target = Number(node.dataset.count);
-  if (!Number.isFinite(target)) return;
+  if (!Number.isFinite(target) || node.dataset.countRunning === "true") return;
+  node.dataset.countRunning = "true";
   const duration = Number(node.dataset.countDuration || 1400);
   const start = performance.now();
 
@@ -68,6 +69,10 @@ export function animateCount(node) {
     const value = target * eased;
     node.textContent = countText(node, value);
     if (t < 1) requestAnimationFrame(step);
+    else {
+      node.textContent = countText(node, target);
+      delete node.dataset.countRunning;
+    }
   };
   requestAnimationFrame(step);
 }

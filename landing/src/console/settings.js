@@ -6,10 +6,11 @@ import { getState } from "../lib/store.js";
 import { icon } from "../lib/icons.js";
 import { toast } from "../lib/toast.js";
 import { consoleShell, panel } from "./shell.js";
+import { escapeHtml } from "../lib/dom.js";
 
 export default {
   title: "Settings",
-  description: "Account, workspace, security, and API version information.",
+  description: "Account, Studio, security, and API version information.",
 
   render() {
     const state = getState();
@@ -26,11 +27,11 @@ export default {
                 <div class="row" style="gap:12px">
                   <span class="avatar">${initials}</span>
                   <div>
-                    <div class="setting-label">${state.user.name}</div>
-                    <div class="setting-desc">${state.user.email} · ${state.user.role}</div>
+                    <div class="setting-label">${escapeHtml(state.user.name)}</div>
+                    <div class="setting-desc">${escapeHtml(state.user.email)} · ${escapeHtml(state.user.role)}</div>
                   </div>
                 </div>
-                <a class="btn btn-ghost btn-sm" href="/app">Open workspace</a>
+                <a class="btn btn-ghost btn-sm" href="/app">Open Studio</a>
               </div>
               <div class="setting-row">
                 <div><div class="setting-label">Session security</div><div class="setting-desc">Protected by an HttpOnly, same-site account session.</div></div>
@@ -39,18 +40,18 @@ export default {
           }).value}
 
           ${panel({
-            title: "Workspace",
+            title: "Studio",
             desc: "Stored in the Mere X database",
             flush: true,
             body: [
-              ["Workspace", state.org.name],
+              ["Studio", state.org.name],
               ["Organisation ID", state.org.id],
               ["Plan", state.org.plan],
               ["Region", state.org.region]
             ].map(([label, value]) => `
               <div class="setting-row">
                 <div class="setting-label">${label}</div>
-                <code class="mono small">${value}</code>
+              <code class="mono small">${escapeHtml(value)}</code>
               </div>`).join("")
           }).value}
         </div>

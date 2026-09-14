@@ -9,7 +9,7 @@ import { mereXSeal } from "../../components/orb.js";
 const PRODUCTS = [
   {
     icon: "sparkle", name: "Mere X", href: "/products/mere-x", tag: "For everyone",
-    tagline: "The assistant, with a workspace around it.",
+    tagline: "The assistant, with a complete Studio around it.",
     body: "Chat, deep research, canvas, projects, memory, and eighty connectors — the whole model family behind one calm interface.",
     points: ["Free tier, no card", "DEEP research mode", "Files, images, and voice", "Works on web, desktop, and mobile"]
   },

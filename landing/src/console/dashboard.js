@@ -8,6 +8,7 @@ import { compact, money, ms, pct, relative } from "../lib/format.js";
 import { consoleShell, panel, metric } from "./shell.js";
 import { areaChart, proportionBars, heatStrip, dayLabel } from "../components/charts.js";
 import { sparkline, button } from "../components/ui.js";
+import { escapeHtml } from "../lib/dom.js";
 
 const empty = (message, iconName = "activity") => `
   <div class="empty" style="border:0">
@@ -17,7 +18,7 @@ const empty = (message, iconName = "activity") => `
 
 export default {
   title: "Console",
-  description: "Your authenticated Mere X workspace, usage, keys, logs, and billing.",
+  description: "Your authenticated Mere X Studio, usage, keys, logs, and billing.",
 
   render() {
     const state = getState();
@@ -38,7 +39,7 @@ export default {
             <span class="log-status" style="color:${log.status < 400 ? "var(--positive)" : log.status === 429 ? "var(--warning)" : "var(--danger)"}">
               <i class="dot" style="background:currentColor"></i>${log.status}
             </span>
-            <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${log.endpoint} · <span class="muted">${log.model}</span></span>
+            <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(log.endpoint)} · <span class="muted">${escapeHtml(log.model)}</span></span>
             <span class="muted">${ms(log.latency)}</span>
             <span class="muted">${compact(log.input + log.output, 1)}</span>
           </div>`).join("")
@@ -49,8 +50,8 @@ export default {
           <div class="key-row" style="padding:13px 20px">
             <span class="key-icon">${icon("key").value}</span>
             <div style="min-width:0;flex:1 1 auto">
-              <div class="key-name">${key.name}</div>
-              <div class="key-value">${maskedKeyString(key)}</div>
+              <div class="key-name">${escapeHtml(key.name)}</div>
+              <div class="key-value">${escapeHtml(maskedKeyString(key))}</div>
             </div>
             <span class="badge badge-plain">${key.env}</span>
           </div>`).join("")
@@ -109,7 +110,7 @@ export default {
 
         <div class="stack stack-4">
           ${panel({
-            title: "Workspace",
+            title: "Studio",
             body: `
               <div class="stack stack-3">
                 <div class="between small"><span class="muted">Plan</span><strong>${state.org.plan}</strong></div>
@@ -139,8 +140,8 @@ export default {
 
           ${panel({
             title: "Open Mere X",
-            desc: "Use the authenticated creative workspace",
-            body: `<a class="btn btn-primary" href="/app">${icon("play", "icon").value}<span>Launch workspace</span></a>`
+            desc: "Use your authenticated creative Studio",
+            body: `<a class="btn btn-primary" href="/app">${icon("play", "icon").value}<span>Launch Studio</span></a>`
           }).value}
         </div>
       </div>
@@ -157,7 +158,7 @@ export default {
       active: "/console",
       title: `Welcome back, ${state.user.name.split(" ")[0]}`,
       sub: `${state.org.name} · ${state.org.plan}`,
-      actions: `${button({ label: "Workspace", href: "/app", variant: "secondary", size: "btn-sm", icon: "play" }).value}
+      actions: `${button({ label: "Studio", href: "/app", variant: "secondary", size: "btn-sm", icon: "play" }).value}
                 ${button({ label: "Create key", href: "/console/keys", size: "btn-sm", icon: "plus" }).value}`,
       body
     });

@@ -403,7 +403,7 @@ export const CONSUMER_PLANS = [
     price: 0,
     cadence: "forever",
     summary: "A calm place to start with Mere X's everyday intelligence.",
-    features: ["Mere Nyx 5.5 and limited Mere Orion 5.5", "Fast and Medium reasoning", "Personal workspace and projects", "Web search"],
+    features: ["Mere Nyx 5.5", "Fast, Medium, and High reasoning", "Essential chat access", "5-hour and weekly limits"],
     cta: "Start free"
   },
   {
@@ -411,7 +411,7 @@ export const CONSUMER_PLANS = [
     price: 9.99,
     cadence: "30 days",
     summary: "More room for writing, files, and daily focused work.",
-    features: ["Full Mere Orion 5.5 access", "File and image tools", "Expanded project limits", "Plugin connectors"],
+    features: ["Mere Nyx and Orion 5.5", "Mere X Studio and projects", "File and image tools", "Plugin connectors"],
     cta: "Choose Starter"
   },
   {
@@ -419,7 +419,7 @@ export const CONSUMER_PLANS = [
     price: 19.99,
     cadence: "30 days",
     featured: true,
-    summary: "Deeper thinking and higher limits across the workspace.",
+    summary: "Deeper thinking and higher limits across Mere X Studio.",
     features: ["Mere Apex 5.5 access", "DEEP reasoning mode", "Memory across conversations", "Canvas and deep research"],
     cta: "Choose Plus"
   },

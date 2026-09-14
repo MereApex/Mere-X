@@ -169,10 +169,10 @@ export const LEGAL_LINKS = [
 ];
 
 export const HERO_STATS = [
-  { value: 1, suffix: "M", label: "Token context", decimals: 0 },
-  { value: 99.98, suffix: "%", label: "API uptime", decimals: 2 },
-  { value: 4.1, suffix: "T", label: "Tokens served daily", decimals: 1 },
-  { value: 62, suffix: "", label: "Countries served", decimals: 0 }
+  { value: 3, suffix: "", label: "Mere models" },
+  { value: 4, suffix: "", label: "Reasoning depths" },
+  { value: 5, suffix: "h", label: "Rolling usage window" },
+  { value: 1, suffix: "", label: "Synchronized Studio" }
 ];
 
 export const TRUST_LOGOS = [
@@ -208,7 +208,7 @@ export const MILESTONES = [
   { date: "March 2023", title: "Mere X is founded", body: "Eleven researchers and engineers leave frontier labs to work on interpretable, reliable systems. The first office is a converted print shop in the Mission." },
   { date: "January 2024", title: "Mere 3.5 — internal only", body: "The first model in the family. Never released publicly; it existed to prove the training stack and the evaluation harness worked end to end." },
   { date: "September 2024", title: "Mere 4.0 and the first API", body: "A private beta with 40 companies. The reasoning-budget control that defines the family ships in its first, crude form." },
-  { date: "May 2025", title: "Mere 4.5 and the workspace", body: "The consumer product launches alongside the API. Connectors arrive; the model can finally act on the tools people already use." },
+  { date: "May 2025", title: "Mere 4.5 and Studio", body: "The consumer product launches alongside the API. Connectors arrive; the model can finally act on the tools people already use." },
   { date: "November 2025", title: "Mere 5.0 and the Responsible Scaling Policy", body: "We publish the commitments that gate every future release, and the evaluation suite that decides whether a model has met them." },
   { date: "June 2026", title: "Mere X 5.5", body: "Apex, Orion, and Nyx ship together with a million-token window, DEEP reasoning, and the agent stack that had been running internally for eight months." }
 ];
@@ -218,6 +218,6 @@ export const LEADERSHIP = [
   { name: "Marcus Adeyemi", role: "Co-founder & Chief Scientist", bio: "Works on interpretability and the internal geometry of large models. Believes an unexplained capability is an unfinished one." },
   { name: "Sana Ghorbani", role: "Chief Technology Officer", bio: "Built the training and serving stack. Cares more about the tail of the latency distribution than almost anyone should." },
   { name: "Peter Lindqvist", role: "Head of Safety", bio: "Runs the evaluation and red-team organisation. Holds the release gate, and has used it." },
-  { name: "Renata Oyelaran", role: "Head of Product", bio: "Shapes the workspace and the developer platform. Convinced that most AI products fail on ergonomics, not intelligence." },
+  { name: "Renata Oyelaran", role: "Head of Product", bio: "Shapes Studio and the developer platform. Convinced that most AI products fail on ergonomics, not intelligence." },
   { name: "Dai Watanabe", role: "General Counsel", bio: "Policy, privacy, and the long negotiations that make regulated deployments possible." }
 ];

@@ -146,7 +146,7 @@ export const CAREERS = [
   { title: "Member of Technical Staff, Inference", team: "Systems", location: "San Francisco · Tbilisi", type: "Full-time", level: "Senior" },
   { title: "Member of Technical Staff, Training Infrastructure", team: "Systems", location: "San Francisco", type: "Full-time", level: "Staff" },
   { title: "Software Engineer, Developer Platform", team: "Product", location: "Tbilisi · Remote (EU)", type: "Full-time", level: "Mid–Senior" },
-  { title: "Software Engineer, Mere X Workspace", team: "Product", location: "San Francisco · Remote (US)", type: "Full-time", level: "Mid–Senior" },
+  { title: "Software Engineer, Mere X Studio", team: "Product", location: "San Francisco · Remote (US)", type: "Full-time", level: "Mid–Senior" },
   { title: "Design Engineer", team: "Product", location: "Remote (EU/US)", type: "Full-time", level: "Senior" },
   { title: "Red Team Lead", team: "Safety", location: "London", type: "Full-time", level: "Staff" },
   { title: "Policy Manager, EU", team: "Policy", location: "Zürich", type: "Full-time", level: "Senior" },
@@ -203,7 +203,7 @@ export const STATUS_SERVICES = [
   { name: "Images", state: "operational", uptime: 99.94 },
   { name: "Realtime voice", state: "degraded", uptime: 99.61 },
   { name: "Developer console", state: "operational", uptime: 99.98 },
-  { name: "Mere X workspace", state: "operational", uptime: 99.96 }
+  { name: "Mere X Studio", state: "operational", uptime: 99.96 }
 ];
 
 export const STATUS_INCIDENTS = [
@@ -245,7 +245,7 @@ export const PROMPT_PATTERNS = [
 ];
 
 export const FAQ = [
-  { q: "Do you train on data sent through the API?", a: "No. API inputs and outputs are never used to train Mere X models. Consumer workspace conversations are also excluded by default; contributing them is opt-in and revocable, and revoking removes the data from future training runs." },
+  { q: "Do you train on data sent through the API?", a: "No. API inputs and outputs are never used to train Mere X models. Mere X conversations are also excluded by default; contributing them is opt-in and revocable, and revoking removes the data from future training runs." },
   { q: "How long is data retained?", a: "Thirty days by default, for abuse monitoring and debugging, then deleted. Zero-retention mode is available on request for eligible organisations and removes storage entirely — nothing is written to disk beyond the life of the request." },
   { q: "What happens when a model is deprecated?", a: "We announce deprecation at least six months before retirement, keep the model serving throughout that window, and publish a migration guide with behavioural diffs. Pinned snapshot IDs never change behaviour underneath you." },
   { q: "Can I run Mere X in my own environment?", a: "Enterprise customers can deploy into a dedicated tenancy with committed throughput, or into a private VPC in a supported cloud region. Fully air-gapped installations are available for a small number of workloads under separate agreement." },

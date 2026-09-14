@@ -2,10 +2,16 @@
 <html lang="en" class="auth-open">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#f7f4ee" />
-    <meta name="description" content="Mere X — an intelligent workspace powered by Mere Nyx, Orion, and Apex 5.5." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mere X" />
+    <meta name="description" content="Mere X — intelligent chat and Studio powered by Mere Nyx, Orion, and Apex 5.5." />
     <link rel="icon" type="image/png" href="/src/assets/mere-x-logo.png" />
+    <link rel="apple-touch-icon" href="/app/icons/mere-x-192.png" />
+    <link rel="manifest" href="/app/manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet" />
@@ -53,6 +59,8 @@
         <symbol id="i-code" viewBox="0 0 24 24"><path d="M8.4 7.2L3.6 12l4.8 4.8M15.6 7.2L20.4 12l-4.8 4.8M13.9 4.2l-3.8 15.6"/></symbol>
         <symbol id="i-chart" viewBox="0 0 24 24"><path d="M2.6 20.4h18.8"/><path d="M5 20.4V10.4M10 20.4V4.6M15 20.4v-7.4M20 20.4V7.4"/></symbol>
         <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9.2" y="2.8" width="5.6" height="11.2" rx="2.8"/><path d="M5.6 11.2a6.4 6.4 0 0012.8 0M12 17.6v3.6M8.6 21.2h6.8"/></symbol>
+        <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3.2 7.4h3.2l1.5-2.2h8.2l1.5 2.2h3.2v11.2H3.2z"/><circle cx="12" cy="13" r="3.6"/></symbol>
+        <symbol id="i-camera-off" viewBox="0 0 24 24"><path d="M4.2 7.4h2.2l1.5-2.2h8.2l1.5 2.2h3.2v9.8M5.2 18.6h-2V9.2M9.2 10.2a3.6 3.6 0 004.9 4.9M3.4 3.4l17.2 17.2"/></symbol>
         <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 9.6v4.8M7.5 6.2v11.6M12 3.4v17.2M16.5 6.2v11.6M21 9.6v4.8"/></symbol>
         <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 20.4V3.6M5.4 10.2L12 3.6l6.6 6.6"/></symbol>
         <symbol id="i-close" viewBox="0 0 24 24"><path d="M5.4 5.4l13.2 13.2M18.6 5.4L5.4 18.6"/></symbol>
@@ -108,7 +116,7 @@
         <div class="auth-showcase-copy">
           <p class="auth-showcase-eyebrow">MERE X INTELLIGENCE</p>
           <h2>Everything you make, in one considered place.</h2>
-          <p>Research, writing, code, and analysis — held together by a single model and a workspace that stays out of the way.</p>
+          <p>Research, writing, code, and analysis — held together by Mere X and a Studio that stays out of the way.</p>
           <ul class="auth-highlights">
             <li>
               <svg><use href="#i-check"></use></svg>
@@ -125,7 +133,7 @@
           </ul>
         </div>
 
-        <p class="auth-showcase-note">Secure cloud accounts, encrypted sessions, and a synchronized workspace.</p>
+        <p class="auth-showcase-note">Secure cloud accounts, encrypted sessions, and a synchronized Studio.</p>
         <span class="auth-showcase-glow" aria-hidden="true"></span>
       </section>
 
@@ -193,7 +201,7 @@
             <header class="auth-head">
               <p class="auth-eyebrow">GET STARTED</p>
               <h1>Create your account</h1>
-              <p class="auth-sub">A single workspace for research, writing, and code.</p>
+              <p class="auth-sub">One intelligent place for research, writing, and code.</p>
             </header>
 
             <div class="auth-social auth-social-google"><div class="google-signin-host" data-google-signin></div></div>
@@ -298,7 +306,7 @@
           </form>
         </div>
 
-        <p class="auth-legal">Your account and workspace are synchronized securely. Passwords are hashed server-side and private credentials never enter the browser.</p>
+        <p class="auth-legal">Your account and Studio are synchronized securely. Passwords are hashed server-side and private credentials never enter the browser.</p>
       </section>
     </div>
 
@@ -333,7 +341,7 @@
           </button>
           <button class="nav-item" id="projectButton" data-sidebar-view="projects">
             <span class="nav-icon"><svg><use href="#i-folder"></use></svg></span>
-            <span class="nav-label">Projects</span>
+            <span class="nav-label">Studio</span>
           </button>
           <button class="nav-item" id="agentButton" data-sidebar-view="agents">
             <span class="nav-icon"><svg><use href="#i-orbit"></use></svg></span>
@@ -376,9 +384,9 @@
               <svg><use href="#i-chevron"></use></svg>
             </button>
           </div>
-          <div class="workspace-switcher" id="workspaceSwitcher" role="tablist" aria-label="Workspace view">
+          <div class="workspace-switcher" id="workspaceSwitcher" role="tablist" aria-label="Mere X view">
             <button class="active" type="button" role="tab" aria-selected="true" data-workspace="chat">Chat</button>
-            <button type="button" role="tab" aria-selected="false" data-workspace="work">Workspace</button>
+            <button type="button" role="tab" aria-selected="false" data-workspace="work">Studio</button>
           </div>
           <div class="topbar-actions">
             <button class="topbar-button" id="shareButton" title="Share"><svg><use href="#i-share"></use></svg><span>Share</span></button>
@@ -412,7 +420,7 @@
               <span class="hero-contact-shadow"></span>
             </div>
             <h1>Where should we <em>begin</em>?</h1>
-            <p class="welcome-copy">One workspace for ideas, research, creation, and complex work.</p>
+            <p class="welcome-copy">One place for ideas, research, creation, and complex work.</p>
             <div class="agent-starters" id="agentStarters" hidden></div>
           </div>
 
@@ -504,18 +512,18 @@
         <button data-tool="Deep research"><svg><use href="#i-spark"></use></svg><span>Deep research</span></button>
         <button data-tool="Canvas"><svg><use href="#i-canvas"></use></svg><span>Canvas</span></button>
         <button data-tool="Images"><svg><use href="#i-image"></use></svg><span>Images</span></button>
-        <button data-tool="Code workspace"><svg><use href="#i-code"></use></svg><span>Code workspace</span></button>
+        <button data-tool="Code workspace"><svg><use href="#i-code"></use></svg><span>Code Studio</span></button>
         <button data-tool="Data analysis"><svg><use href="#i-chart"></use></svg><span>Data analysis</span></button>
         <button data-tool="File analysis"><svg><use href="#i-file"></use></svg><span>File analysis</span></button>
       </div>
     </div>
 
     <div class="popover more-popover" id="morePopover" hidden>
-      <div class="popover-heading"><span>More</span><small>Workspace tools</small></div>
+      <div class="popover-heading"><span>More</span><small>Studio tools</small></div>
       <div class="more-menu-list">
         <button data-more-action="automations"><span><svg><use href="#i-clock"></use></svg></span><span><strong>Automations</strong><small>Schedule recurring AI work</small></span></button>
         <button data-more-action="knowledge"><span><svg><use href="#i-database"></use></svg></span><span><strong>Knowledge</strong><small>Manage sources and memory</small></span></button>
-        <button data-more-action="analytics"><span><svg><use href="#i-chart"></use></svg></span><span><strong>Analytics</strong><small>Review workspace activity</small></span></button>
+        <button data-more-action="analytics"><span><svg><use href="#i-chart"></use></svg></span><span><strong>Analytics</strong><small>Review Studio activity</small></span></button>
         <button data-more-action="browser"><span><svg><use href="#i-cloud"></use></svg></span><span><strong>Web research</strong><small>Search controls and research history</small></span></button>
         <button data-more-action="storage"><span><svg><use href="#i-storage"></use></svg></span><span><strong>Storage</strong><small>Files and generated assets</small></span></button>
         <button data-more-action="archive"><span><svg><use href="#i-library"></use></svg></span><span><strong>Archived chats</strong><small>Review hidden conversations</small></span></button>
@@ -534,6 +542,7 @@
         <button data-open-settings="personalization"><svg><use href="#i-network"></use></svg><span>Personalization</span></button>
         <button data-open-settings="profile"><svg><use href="#i-user"></use></svg><span>Profile</span></button>
         <button data-open-settings="general"><svg><use href="#i-settings"></use></svg><span>Settings</span></button>
+        <button data-account-action="console"><svg><use href="#i-code"></use></svg><span>Console</span><svg class="account-chevron"><use href="#i-arrow-right"></use></svg></button>
       </div>
       <div class="account-divider"></div>
       <div class="account-menu-list">
@@ -628,6 +637,35 @@
         </figcaption>
       </figure>
     </div>
+
+    <section class="voice-stage" id="voiceStage" role="dialog" aria-modal="true" aria-labelledby="voiceStageTitle" hidden>
+      <div class="voice-stage-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
+      <header class="voice-stage-header">
+        <div><span class="voice-live-dot"></span><span id="voiceStageStatus">Connecting</span></div>
+        <button type="button" class="voice-stage-close" id="voiceStageClose" aria-label="End voice conversation"><svg><use href="#i-close"></use></svg></button>
+      </header>
+      <div class="voice-stage-main">
+        <div class="voice-transcript voice-transcript-user" id="voiceUserTranscript" hidden><small>YOU · NOW</small><p></p></div>
+        <div class="voice-orb" id="voiceOrb" aria-hidden="true">
+          <span class="voice-orb-aura"></span><span class="voice-orb-ring"></span><span class="voice-orb-ring voice-orb-ring-two"></span>
+          <span class="voice-orb-logo"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+        </div>
+        <h2 id="voiceStageTitle">Mere X Voice</h2>
+        <p class="voice-stage-copy">Speak naturally. Interrupt at any time.</p>
+        <div class="voice-waveform" aria-hidden="true"><i style="--wave:0"></i><i style="--wave:1"></i><i style="--wave:2"></i><i style="--wave:3"></i><i style="--wave:4"></i><i style="--wave:5"></i><i style="--wave:6"></i><i style="--wave:7"></i><i style="--wave:8"></i><i style="--wave:9"></i><i style="--wave:10"></i><i style="--wave:11"></i><i style="--wave:12"></i><i style="--wave:13"></i><i style="--wave:14"></i><i style="--wave:15"></i><i style="--wave:16"></i><i style="--wave:17"></i><i style="--wave:18"></i><i style="--wave:19"></i><i style="--wave:20"></i><i style="--wave:21"></i><i style="--wave:22"></i><i style="--wave:23"></i></div>
+        <div class="voice-transcript voice-transcript-assistant" id="voiceAssistantTranscript" hidden><small>MERE X · LIVE</small><p></p></div>
+      </div>
+      <div class="voice-camera-preview" id="voiceCameraPreview" hidden>
+        <video id="voiceCameraVideo" autoplay muted playsinline></video>
+        <span><i></i>Vision on</span>
+      </div>
+      <footer class="voice-stage-controls">
+        <button type="button" class="voice-control" id="voiceCameraButton" aria-label="Turn camera on" title="Show Mere X what you see"><svg><use href="#i-camera"></use></svg><span>Camera</span></button>
+        <button type="button" class="voice-control voice-control-primary" id="voiceMuteButton" aria-label="Mute microphone"><svg><use href="#i-mic"></use></svg><span>Mute</span></button>
+        <button type="button" class="voice-control voice-control-end" id="voiceEndButton" aria-label="End voice conversation"><svg><use href="#i-close"></use></svg><span>End</span></button>
+      </footer>
+      <canvas id="voiceCameraCanvas" hidden></canvas>
+    </section>
 
     <div class="toast" id="toast" role="status" aria-live="polite"><span class="toast-dot"></span><span id="toastText">UI ready</span></div>
 

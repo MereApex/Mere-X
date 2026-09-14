@@ -8,7 +8,7 @@ import { PUBLICATIONS, CUSTOMERS } from "../data/content.js";
 import { SAMPLES } from "../data/docs.js";
 import { icon, pillarIcon } from "../lib/icons.js";
 import { mereXOrb } from "../components/orb.js";
-import { splitWords, initOrbParallax, animateCount } from "../lib/motion.js";
+import { splitWords, initOrbParallax } from "../lib/motion.js";
 import { compact } from "../lib/format.js";
 import {
   button, textLink, sectionHead, featureCard, codeBlock, ctaBand, benchBars, entryList
@@ -58,7 +58,7 @@ export default {
             <div class="hero-meta">
               ${HERO_STATS.map((stat) => `
                 <div class="hero-meta-item">
-                  <span class="hero-meta-value" data-count="${stat.value}" data-count-decimals="${stat.decimals}" data-count-suffix="${stat.suffix}">0${stat.suffix}</span>
+                  <span class="hero-meta-value" data-reveal="fade">${stat.value}${stat.suffix}</span>
                   <span class="hero-meta-label">${stat.label}</span>
                 </div>`).join("")}
             </div>
@@ -358,7 +358,7 @@ export default {
     ${ctaBand({
       eyebrow: "Get started",
       title: "Turn an ambitious idea into something real.",
-      body: "Start in the Mere X workspace, or open the developer console to build through the API.",
+      body: "Start in Mere X Studio, or open the developer console to build through the API.",
       primary: { label: "Try Mere X", href: "/app", icon: "arrow-ne" },
       secondary: { label: "Developer console", href: "/console" }
     }).value}
@@ -368,11 +368,6 @@ export default {
   mount(root) {
     splitWords(root.querySelector("[data-hero-title]"), 52, 90, "intelligence");
 
-    // Hero counters sit at the fold; start them immediately rather than
-    // waiting for a scroll that may never happen.
-    root.querySelectorAll(".hero-meta-value[data-count]").forEach((node, index) => {
-      setTimeout(() => animateCount(node), 420 + index * 90);
-    });
     const stop = initOrbParallax(root);
 
     // Mode bars fill as the strip enters view.

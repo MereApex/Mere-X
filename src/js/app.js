@@ -86,8 +86,18 @@ const imageViewerImage = $("#imageViewerImage");
 const imageViewerDownload = $("#imageViewerDownload");
 const workspaceFileInput = $("#workspaceFileInput");
 const profilePhotoInput = $("#profilePhotoInput");
+const voiceStage = $("#voiceStage");
+const voiceStageStatus = $("#voiceStageStatus");
+const voiceUserTranscript = $("#voiceUserTranscript");
+const voiceAssistantTranscript = $("#voiceAssistantTranscript");
+const voiceCameraButton = $("#voiceCameraButton");
+const voiceMuteButton = $("#voiceMuteButton");
+const voiceCameraPreview = $("#voiceCameraPreview");
+const voiceCameraVideo = $("#voiceCameraVideo");
+const voiceCameraCanvas = $("#voiceCameraCanvas");
 
 let toastTimer;
+let deferredInstallPrompt = null;
 let currentUser = null;
 let currentConversationId = null;
 let currentLocalView = "chat";
@@ -227,9 +237,19 @@ let selectedModel = ["nyx", "orion", "apex"].includes(appState.settings["model-p
   ? appState.settings["model-profile"]
   : "apex";
 const MODEL_NAMES = Object.freeze({ nyx: "Mere Nyx 5.5", orion: "Mere Orion 5.5", apex: "Mere Apex 5.5" });
+const CLIENT_PLAN_RULES = Object.freeze({
+  Free: { studio: false, models: ["nyx"], defaultChatModel: "nyx", efforts: ["Fast", "Medium", "High"] },
+  Starter: { studio: true, models: ["nyx", "orion"], defaultChatModel: "orion", efforts: ["Fast", "Medium", "High"] },
+  Plus: { studio: true, models: ["nyx", "orion", "apex"], defaultChatModel: "orion", efforts: ["Fast", "Medium", "High", "DEEP"] },
+  Pro: { studio: true, models: ["nyx", "orion", "apex"], defaultChatModel: "apex", efforts: ["Fast", "Medium", "High", "DEEP"] },
+  Max: { studio: true, models: ["nyx", "orion", "apex"], defaultChatModel: "apex", efforts: ["Fast", "Medium", "High", "DEEP"] }
+});
+let accountEntitlements = { plan: "Free", ...CLIENT_PLAN_RULES.Free, limits: {} };
+let accountUsage = null;
 let workspaceSyncTimer = 0;
 let pendingWorkspaceSync = null;
 let workspaceSyncInFlight = null;
+let workspaceMutationVersion = 0;
 
 function persistedWorkspaceState() {
   return { ...appState, conversations: appState.conversations.filter((conversation) => !conversation.transient) };
@@ -260,7 +280,7 @@ async function flushWorkspaceSync() {
   try {
     await workspaceSyncInFlight;
   } catch (error) {
-    showToast(`Workspace sync paused: ${error.message}`);
+    showToast(`Cloud sync paused: ${error.message}`);
   } finally {
     workspaceSyncInFlight = null;
     if (pendingWorkspaceSync) flushWorkspaceSync();
@@ -268,6 +288,7 @@ async function flushWorkspaceSync() {
 }
 
 function saveWorkspaceState() {
+  workspaceMutationVersion += 1;
   try {
     localStorage.setItem(workspaceStorageKey, JSON.stringify(persistedWorkspaceState()));
     queueWorkspaceSync();
@@ -276,9 +297,12 @@ function saveWorkspaceState() {
   }
 }
 
-async function hydrateWorkspaceFromDatabase() {
+async function hydrateWorkspaceFromDatabase(ifUnchangedSince = workspaceMutationVersion) {
   if (!currentUser) return;
   const remote = await apiJson("/api/workspace");
+  /* A fast first message must win over a slower cloud read. The queued sync
+     will persist the newer local state instead of letting hydration erase it. */
+  if (workspaceMutationVersion !== ifUnchangedSince) return { skipped: true };
   if (remote?.state) {
     appState = normalizeWorkspaceState(remote.state);
   } else {
@@ -292,6 +316,65 @@ async function hydrateWorkspaceFromDatabase() {
   selectedModel = ["nyx", "orion", "apex"].includes(appState.settings["model-profile"])
     ? appState.settings["model-profile"]
     : "apex";
+}
+
+function localEntitlements(user = currentUser) {
+  const plan = Object.prototype.hasOwnProperty.call(CLIENT_PLAN_RULES, user?.plan) ? user.plan : "Free";
+  return { plan, ...CLIENT_PLAN_RULES[plan], limits: {} };
+}
+
+function canUseStudio() {
+  return accountEntitlements.studio === true;
+}
+
+function modelAvailable(model) {
+  return accountEntitlements.models.includes(model);
+}
+
+function applyEntitlementUI(persistCorrections = false) {
+  let corrected = false;
+  const allowedModels = accountEntitlements.models;
+  if (!allowedModels.includes(selectedModel)) {
+    selectedModel = accountEntitlements.defaultChatModel;
+    appState.settings["model-profile"] = selectedModel;
+    corrected = true;
+  }
+  if (!accountEntitlements.efforts.includes(selectedMode)) {
+    selectedMode = accountEntitlements.efforts.at(-1) || "Fast";
+    appState.settings["default-mode"] = selectedMode;
+    effortIndex = Math.max(0, EFFORT_LEVELS.findIndex((level) => level.name === selectedMode));
+    corrected = true;
+  }
+  const studioTab = workspaceSwitcher.querySelector('[data-workspace="work"]');
+  studioTab?.classList.toggle("is-locked", !canUseStudio());
+  studioTab?.setAttribute("aria-label", canUseStudio() ? "Open Studio" : "Studio requires a paid plan");
+  modelTrigger.hidden = false;
+  modelTrigger.classList.toggle("is-static", !workspaceMode);
+  modelTrigger.setAttribute("aria-disabled", String(!workspaceMode));
+  modelPopover.querySelectorAll(".model-choice[data-model]").forEach((choice) => {
+    const allowed = modelAvailable(choice.dataset.model);
+    choice.disabled = !allowed;
+    choice.classList.toggle("is-locked", !allowed);
+    choice.title = allowed ? "" : `${choice.querySelector("strong")?.textContent || "This model"} is not included with ${accountEntitlements.plan}`;
+  });
+  renderSelectedModel();
+  refreshEffortLock(false);
+  if (corrected && persistCorrections) saveWorkspaceState();
+  return corrected;
+}
+
+async function refreshAccountUsage() {
+  if (!currentUser) return;
+  try {
+    const result = await apiJson("/api/usage");
+    accountEntitlements = result?.entitlements || localEntitlements();
+    accountUsage = result?.usage || null;
+    applyEntitlementUI(!body.classList.contains("workspace-hydrating"));
+    if (!settingsModal.hidden && currentSettingsCategory === "usage") renderSettings("usage");
+  } catch {
+    accountEntitlements = localEntitlements();
+    applyEntitlementUI(!body.classList.contains("workspace-hydrating"));
+  }
 }
 
 function settingValue(key, fallback = "") {
@@ -309,8 +392,8 @@ function makeId(prefix) {
 
 const PRODUCT_UPDATE = {
   id: "workspace-capabilities-2026-09",
-  title: "Mere X workspace capabilities are ready",
-  body: "Automations, activity insights, research history, voice controls, storage cleanup, and safety preferences now work locally."
+  title: "Mere X Studio capabilities are ready",
+  body: "Automations, activity insights, research history, voice controls, generated assets, and safety preferences now synchronize with your account."
 };
 
 function recordActivity(type, detail = {}) {
@@ -438,7 +521,7 @@ function applyLanguagePreference() {
 
 function workspaceActionAllowed(action = "use Mere X") {
   if (!settingValue("parental-controls", false) || isWithinUsageSchedule(appState.usageSchedule)) return true;
-  showToast(`The workspace schedule does not allow you to ${action} right now`);
+  showToast(`Your usage schedule does not allow you to ${action} right now`);
   return false;
 }
 
@@ -460,6 +543,19 @@ function currentUsage() {
 }
 
 function usageCardHtml() {
+  if (accountUsage) {
+    const labels = { message: "Messages", image: "Images", voice: "Voice sessions", transcription: "Transcriptions" };
+    return '<div class="usage-live-grid">' + Object.entries(accountUsage).map(([category, item]) => {
+      const fivePercent = Math.min(100, Number(item.fiveHours || 0) / Math.max(1, Number(item.limits?.fiveHours || 1)) * 100);
+      const weekPercent = Math.min(100, Number(item.week || 0) / Math.max(1, Number(item.limits?.week || 1)) * 100);
+      const resetFive = item.resetFiveHoursAt ? new Date(item.resetFiveHoursAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "after your first use";
+      const resetWeek = item.resetWeekAt ? new Date(item.resetWeekAt).toLocaleDateString([], { month: "short", day: "numeric" }) : "after your first use";
+      return `<article class="usage-live-card"><header><small>${labels[category] || category}</small><strong>${item.remainingFiveHours} left</strong></header>` +
+        `<div class="usage-live-row"><span>5 hours</span><em>${item.fiveHours} / ${item.limits.fiveHours}</em><i><b style="width:${fivePercent}%"></b></i></div>` +
+        `<div class="usage-live-row"><span>7 days</span><em>${item.week} / ${item.limits.week}</em><i><b style="width:${weekPercent}%"></b></i></div>` +
+        `<footer>5h: ${resetFive} · week: ${resetWeek}</footer></article>`;
+    }).join("") + "</div>";
+  }
   const usage = currentUsage();
   const stats = [
     ["Prompts", usage.prompts, 100],
@@ -485,7 +581,7 @@ function mostUsed(field, fallback = "None yet") {
 function analyticsHtml() {
   const usage = currentUsage();
   if (!settingValue("activity-insights", true)) {
-    return '<div class="action-empty"><svg><use href="#i-chart"></use></svg><strong>Activity insights are off</strong><p>Enable them below to see private workspace patterns.</p></div>';
+    return '<div class="action-empty"><svg><use href="#i-chart"></use></svg><strong>Activity insights are off</strong><p>Enable them below to see private Studio patterns.</p></div>';
   }
   const average = usage.replies.length
     ? Math.round(usage.replies.reduce((sum, item) => sum + Number(item.durationMs || 0), 0) / usage.replies.length / 100) / 10
@@ -517,7 +613,7 @@ function maybeIssueUsageAlerts() {
   for (const [metric, limit] of Object.entries(limits)) {
     if (Number(usage[metric] || 0) < limit * .8 || appState.usageAlerts[key][metric]) continue;
     appState.usageAlerts[key][metric] = true;
-    pushNotification("Workspace usage alert", `${metric === "totalTokens" ? "Tokens" : metric[0].toUpperCase() + metric.slice(1)} reached 80% of the local summary target.`, { type: "usage_alert", tag: `${key}:${metric}` });
+    pushNotification("Studio usage alert", `${metric === "totalTokens" ? "Tokens" : metric[0].toUpperCase() + metric.slice(1)} reached 80% of the local summary target.`, { type: "usage_alert", tag: `${key}:${metric}` });
   }
 }
 
@@ -532,7 +628,7 @@ function maybeGenerateDigests() {
     const key = periodKey(digest);
     if (appState.digestState.workspace !== `${digest}:${key}`) {
       appState.digestState.workspace = `${digest}:${key}`;
-      pushNotification(`${digest} workspace digest`, digestCopy(digest === "Weekly" ? "Last 7 days" : "Last 30 days"), { type: "digest", tag: `digest:${digest}:${key}` });
+      pushNotification(`${digest} Studio digest`, digestCopy(digest === "Weekly" ? "Last 7 days" : "Last 30 days"), { type: "digest", tag: `digest:${digest}:${key}` });
     }
   }
   if (settingValue("weekly-summary", false)) {
@@ -779,40 +875,142 @@ function finishRealtimeAssistant() {
   settleFeedAtBottom(wasAtBottom);
 }
 
-function handleRealtimeEvent(event) {
+function persistVoiceUserTranscript(transcript) {
+  const normalized = String(transcript || "").trim();
+  if (!normalized || !settingValue("voice-transcripts", true)) return;
+  const conversation = ensureVoiceConversation(normalized.slice(0, 54));
+  const message = { id: makeId("message"), role: "user", text: normalized, attachments: [], createdAt: new Date().toISOString() };
+  conversation.messages.push(message);
+  conversation.updatedAt = new Date().toISOString();
+  renderMessage(message);
+  conversationCanvas.classList.add("has-conversation");
+  conversationCanvas.setAttribute("aria-label", "Voice conversation");
+  if (!conversation.transient) saveWorkspaceState();
+  renderRecents();
+  conversationFeed.scrollTop = conversationFeed.scrollHeight;
+}
+
+function finishLiveUserTranscript(session = realtimeVoice) {
+  if (!session) return;
+  clearTimeout(session.userTranscriptTimer);
+  session.userTranscriptTimer = 0;
+  const transcript = String(session.userTranscript || "").trim();
+  session.userTranscript = "";
+  persistVoiceUserTranscript(transcript);
+}
+
+function appendRealtimeAssistant(delta) {
+  if (!delta) return;
+  if (!realtimeAssistant) {
+    const conversation = ensureVoiceConversation();
+    const message = { id: makeId("message"), role: "assistant", text: "", attachments: [], createdAt: new Date().toISOString() };
+    conversation.messages.push(message);
+    const article = renderMessage(message);
+    article.classList.add("is-streaming");
+    realtimeAssistant = { conversation, message, article };
+  }
+  realtimeAssistant.message.text += delta;
+  paintAssistantBody(realtimeAssistant.article, realtimeAssistant.message.text);
+  conversationFeed.scrollTop = conversationFeed.scrollHeight;
+}
+
+function handleRealtimeEvent(event, session = realtimeVoice) {
+  if (!event || !session || realtimeVoice !== session) return;
+  if (event.type === "session.started") {
+    voiceStageStatus.textContent = "Live";
+    voiceStage.classList.add("is-live");
+  }
+  if (event.type === "session.input_transcript.delta") {
+    const delta = String(event.delta || "");
+    if (!delta) return;
+    if (!session.userTranscript) voiceUserTranscript.querySelector("p").textContent = "";
+    voiceStageStatus.textContent = "Listening";
+    voiceStage.classList.add("is-listening");
+    voiceStage.classList.remove("is-speaking");
+    voiceUserTranscript.hidden = false;
+    voiceUserTranscript.querySelector("p").textContent += delta;
+    session.userTranscript = `${session.userTranscript || ""}${delta}`;
+    clearTimeout(session.userTranscriptTimer);
+    session.userTranscriptTimer = window.setTimeout(() => finishLiveUserTranscript(session), 900);
+    return;
+  }
+  if (event.type === "session.output_transcript.delta") {
+    const delta = String(event.delta || "");
+    if (!delta) return;
+    finishLiveUserTranscript(session);
+    if (!realtimeAssistant) {
+      voiceAssistantTranscript.querySelector("p").textContent = "";
+    }
+    voiceStageStatus.textContent = "Speaking";
+    voiceStage.classList.add("is-speaking");
+    voiceStage.classList.remove("is-listening");
+    voiceAssistantTranscript.hidden = false;
+    voiceAssistantTranscript.querySelector("p").textContent += delta;
+    if (settingValue("voice-transcripts", true)) appendRealtimeAssistant(delta);
+    clearTimeout(session.assistantTranscriptTimer);
+    session.assistantTranscriptTimer = window.setTimeout(() => {
+      finishRealtimeAssistant();
+      voiceStageStatus.textContent = "Live";
+      voiceStage.classList.remove("is-speaking");
+    }, 900);
+    return;
+  }
+  if (event.type === "response.event") {
+    const nestedType = String(event.event?.type || "");
+    if (["response.completed", "response.failed", "response.incomplete"].includes(nestedType)) {
+      session.cameraAnalysisPending = false;
+      clearTimeout(session.cameraAnalysisTimer);
+      session.cameraAnalysisTimer = 0;
+    }
+  }
+  if (event.type === "session.closed") {
+    stopRealtimeVoice(false);
+    return;
+  }
+  if (event.type === "input_audio_buffer.speech_started") {
+    voiceStageStatus.textContent = "Listening";
+    voiceStage.classList.add("is-listening");
+    voiceStage.classList.remove("is-speaking");
+  }
+  if (event.type === "input_audio_buffer.speech_stopped") {
+    voiceStageStatus.textContent = "Thinking";
+    voiceStage.classList.remove("is-listening");
+  }
+  if (event.type === "conversation.item.input_audio_transcription.delta") {
+    voiceUserTranscript.hidden = false;
+    voiceUserTranscript.querySelector("p").textContent += String(event.delta || "");
+  }
+  if (event.type === "conversation.item.input_audio_transcription.completed") {
+    voiceUserTranscript.hidden = false;
+    voiceUserTranscript.querySelector("p").textContent = String(event.transcript || "").trim();
+  }
+  if (event.type === "response.output_audio_transcript.delta" || event.type === "response.audio_transcript.delta") {
+    voiceStageStatus.textContent = "Speaking";
+    voiceStage.classList.add("is-speaking");
+    voiceStage.classList.remove("is-listening");
+    voiceAssistantTranscript.hidden = false;
+    voiceAssistantTranscript.querySelector("p").textContent += String(event.delta || "");
+  }
+  if (event.type === "response.created") {
+    voiceAssistantTranscript.querySelector("p").textContent = "";
+    voiceAssistantTranscript.hidden = true;
+  }
+  if (event.type === "response.done") {
+    voiceStageStatus.textContent = "Live";
+    voiceStage.classList.remove("is-speaking");
+  }
   if (!settingValue("voice-transcripts", true)
     && (event.type === "conversation.item.input_audio_transcription.completed"
       || event.type.startsWith("response.output_audio_transcript"))) return;
   if (event.type === "conversation.item.input_audio_transcription.completed") {
     const transcript = String(event.transcript || "").trim();
-    if (!transcript) return;
-    const conversation = ensureVoiceConversation(transcript.slice(0, 54));
-    const message = { id: makeId("message"), role: "user", text: transcript, attachments: [], createdAt: new Date().toISOString() };
-    conversation.messages.push(message);
-    conversation.updatedAt = new Date().toISOString();
-    renderMessage(message);
-    conversationCanvas.classList.add("has-conversation");
-    conversationCanvas.setAttribute("aria-label", "Voice conversation");
-    if (!conversation.transient) saveWorkspaceState();
-    renderRecents();
-    conversationFeed.scrollTop = conversationFeed.scrollHeight;
+    persistVoiceUserTranscript(transcript);
     return;
   }
 
   if (event.type === "response.output_audio_transcript.delta") {
     const delta = String(event.delta || "");
-    if (!delta) return;
-    if (!realtimeAssistant) {
-      const conversation = ensureVoiceConversation();
-      const message = { id: makeId("message"), role: "assistant", text: "", attachments: [], createdAt: new Date().toISOString() };
-      conversation.messages.push(message);
-      const article = renderMessage(message);
-      article.classList.add("is-streaming");
-      realtimeAssistant = { conversation, message, article };
-    }
-    realtimeAssistant.message.text += delta;
-    paintAssistantBody(realtimeAssistant.article, realtimeAssistant.message.text);
-    conversationFeed.scrollTop = conversationFeed.scrollHeight;
+    appendRealtimeAssistant(delta);
     return;
   }
 
@@ -827,10 +1025,24 @@ function stopRealtimeVoice(announce = true) {
   try { session.channel?.close(); } catch { /* already closed */ }
   try { session.peer?.close(); } catch { /* already closed */ }
   session.stream?.getTracks().forEach((track) => track.stop());
+  session.cameraStream?.getTracks().forEach((track) => track.stop());
+  clearInterval(session.cameraTimer);
+  clearTimeout(session.cameraAnalysisTimer);
+  clearTimeout(session.userTranscriptTimer);
+  clearTimeout(session.assistantTranscriptTimer);
+  voiceCameraVideo.srcObject = null;
+  voiceCameraPreview.hidden = true;
+  voiceCameraButton.classList.remove("active");
+  voiceCameraButton.querySelector("use").setAttribute("href", "#i-camera");
+  voiceCameraButton.querySelector("span").textContent = "Camera";
+  voiceMuteButton.classList.remove("active");
+  voiceMuteButton.querySelector("span").textContent = "Mute";
   if (session.audio) session.audio.srcObject = null;
   finishRealtimeAssistant();
   composerForm.classList.remove("is-live-voice");
   body.classList.remove("voice-session-active");
+  voiceStage.hidden = true;
+  voiceStage.classList.remove("is-live", "is-listening", "is-speaking");
   syncComposer();
   if (announce) showToast("Voice conversation ended");
 }
@@ -844,8 +1056,27 @@ async function startRealtimeVoice() {
   sendButton.setAttribute("aria-label", "End voice conversation");
   sendButton.setAttribute("title", "End voice conversation");
   showToast("Connecting to Mere X Voice…");
+  voiceStage.hidden = false;
+  voiceStageStatus.textContent = "Connecting";
+  voiceUserTranscript.hidden = true;
+  voiceAssistantTranscript.hidden = true;
+  voiceUserTranscript.querySelector("p").textContent = "";
+  voiceAssistantTranscript.querySelector("p").textContent = "";
 
-  const session = { peer: null, channel: null, stream: null, audio: null };
+  const session = {
+    peer: null,
+    channel: null,
+    stream: null,
+    cameraStream: null,
+    cameraTimer: 0,
+    cameraAnalysisPending: false,
+    cameraAnalysisTimer: 0,
+    userTranscript: "",
+    userTranscriptTimer: 0,
+    assistantTranscriptTimer: 0,
+    audio: null,
+    protocol: "live"
+  };
   realtimeVoice = session;
   try {
     const voice = VOICE_IDS[settingValue("voice", "Marin")] || "marin";
@@ -871,10 +1102,12 @@ async function startRealtimeVoice() {
 
     session.channel = session.peer.createDataChannel("oai-events");
     session.channel.addEventListener("message", (messageEvent) => {
-      try { handleRealtimeEvent(JSON.parse(messageEvent.data)); } catch { /* ignore malformed transport events */ }
+      try { handleRealtimeEvent(JSON.parse(messageEvent.data), session); } catch { /* ignore malformed transport events */ }
     });
     session.channel.addEventListener("open", () => {
       body.classList.add("voice-session-active");
+      voiceStage.classList.add("is-live");
+      voiceStageStatus.textContent = "Live";
       showToast("Voice conversation is live");
     });
     session.channel.addEventListener("close", () => {
@@ -907,6 +1140,9 @@ async function startRealtimeVoice() {
       body: JSON.stringify({
         sdp,
         voice,
+        surface: (workspaceMode || agent || project) ? "studio" : "chat",
+        model: selectedModel,
+        effort: selectedMode,
         language: settingValue("voice-language", "Auto-detect"),
         responseStyle: settingValue("response-style", "Balanced"),
         sensitiveContent: settingValue("sensitive-content", "Standard"),
@@ -923,12 +1159,99 @@ async function startRealtimeVoice() {
       try { payload = await answer.json(); } catch { /* response was not JSON */ }
       throw new Error(payload?.error?.message || `Mere X Voice connection failed (${answer.status})`);
     }
+    session.protocol = answer.headers.get("X-Mere-X-Voice-Protocol") || "live";
     await session.peer.setRemoteDescription({ type: "answer", sdp: await answer.text() });
+    refreshAccountUsage();
   } catch (error) {
     if (realtimeVoice === session) stopRealtimeVoice(false);
     showToast(error.name === "NotAllowedError" ? "Microphone permission was denied" : error.message);
   }
 }
+
+function shareVoiceCameraFrame(session = realtimeVoice) {
+  if (!session?.cameraStream || session.cameraAnalysisPending || session.channel?.readyState !== "open" || !voiceCameraVideo.videoWidth) return;
+  const scale = Math.min(1, 1024 / voiceCameraVideo.videoWidth);
+  voiceCameraCanvas.width = Math.max(1, Math.round(voiceCameraVideo.videoWidth * scale));
+  voiceCameraCanvas.height = Math.max(1, Math.round(voiceCameraVideo.videoHeight * scale));
+  voiceCameraCanvas.getContext("2d", { alpha: false }).drawImage(voiceCameraVideo, 0, 0, voiceCameraCanvas.width, voiceCameraCanvas.height);
+  const imageUrl = voiceCameraCanvas.toDataURL("image/jpeg", .72);
+  session.cameraAnalysisPending = true;
+  clearTimeout(session.cameraAnalysisTimer);
+  session.cameraAnalysisTimer = window.setTimeout(() => {
+    session.cameraAnalysisPending = false;
+    session.cameraAnalysisTimer = 0;
+  }, 15_000);
+  session.channel.send(JSON.stringify({
+    type: "response.item.create",
+    item: {
+      type: "message",
+      role: "user",
+      content: [
+        { type: "input_text", text: "Inspect this current camera frame and return concise private visual context to the voice model. Do not address the user until they ask about what they are showing." },
+        { type: "input_image", image_url: imageUrl, detail: "low" }
+      ]
+    }
+  }));
+  session.channel.send(JSON.stringify({ type: "response.create" }));
+}
+
+async function toggleVoiceCamera() {
+  const session = realtimeVoice;
+  if (!session) return;
+  if (session.cameraStream) {
+    session.cameraStream.getTracks().forEach((track) => track.stop());
+    session.cameraStream = null;
+    clearInterval(session.cameraTimer);
+    clearTimeout(session.cameraAnalysisTimer);
+    session.cameraTimer = 0;
+    session.cameraAnalysisTimer = 0;
+    session.cameraAnalysisPending = false;
+    voiceCameraVideo.srcObject = null;
+    voiceCameraPreview.hidden = true;
+    voiceCameraButton.classList.remove("active");
+    voiceCameraButton.querySelector("use").setAttribute("href", "#i-camera");
+    voiceCameraButton.querySelector("span").textContent = "Camera";
+    showToast("Camera stopped");
+    return;
+  }
+  try {
+    session.cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    if (realtimeVoice !== session) {
+      session.cameraStream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    voiceCameraVideo.srcObject = session.cameraStream;
+    await voiceCameraVideo.play();
+    voiceCameraPreview.hidden = false;
+    voiceCameraButton.classList.add("active");
+    voiceCameraButton.querySelector("use").setAttribute("href", "#i-camera-off");
+    voiceCameraButton.querySelector("span").textContent = "Stop camera";
+    shareVoiceCameraFrame(session);
+    session.cameraTimer = window.setInterval(() => shareVoiceCameraFrame(session), 6_000);
+    showToast("Vision is on — Mere X can see camera snapshots");
+  } catch (error) {
+    session.cameraStream = null;
+    showToast(error.name === "NotAllowedError" ? "Camera permission was denied" : "The camera could not start");
+  }
+}
+
+function toggleVoiceMute() {
+  const track = realtimeVoice?.stream?.getAudioTracks?.()[0];
+  if (!track) return;
+  track.enabled = !track.enabled;
+  const muted = !track.enabled;
+  voiceMuteButton.classList.toggle("active", muted);
+  voiceMuteButton.querySelector("span").textContent = muted ? "Unmute" : "Mute";
+  voiceStageStatus.textContent = muted ? "Muted" : "Live";
+}
+
+voiceCameraButton.addEventListener("click", toggleVoiceCamera);
+voiceMuteButton.addEventListener("click", toggleVoiceMute);
+$("#voiceEndButton").addEventListener("click", () => stopRealtimeVoice());
+$("#voiceStageClose").addEventListener("click", () => stopRealtimeVoice());
 
 sendButton.addEventListener("click", (event) => {
   if (currentReply()) return;
@@ -940,6 +1263,7 @@ sendButton.addEventListener("click", (event) => {
 $("#dictateButton").addEventListener("click", startDictation);
 
 modelTrigger.addEventListener("click", (event) => {
+  if (!workspaceMode) return;
   event.stopPropagation();
   togglePopover(modelPopover, modelTrigger);
 });
@@ -1100,7 +1424,7 @@ function renderProjectGallery() {
     .sort((a, b) => Number(b.pinned === true) - Number(a.pinned === true) || new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
 
   workspaceView.innerHTML =
-    '<header class="workspace-head"><div><small>WORKSPACE</small><h1>Projects</h1>' +
+    '<header class="workspace-head"><div><small>MERE X STUDIO</small><h1>Projects</h1>' +
     "<p>Every project keeps its own chats, files, notes and plugins. Open one to work inside it.</p></div>" +
     '<div class="project-gallery-actions"><label class="local-search"><svg><use href="#i-search"></use></svg><input type="search" data-project-search placeholder="Search projects" /></label>' +
     '<button type="button" class="local-primary" data-project-action="new"><svg><use href="#i-plus"></use></svg>New project</button></div></header>' +
@@ -1144,7 +1468,7 @@ function renderProjectOverview(project) {
       '<button type="button" data-project-action="new-note"><svg><use href="#i-database"></use></svg><span>Add text source</span></button>' +
     "</div>" +
     projectSection("Instructions", project.instructions
-      ? `<div class="project-instructions"><p>${escapeHtml(project.instructions)}</p><small>${project.memoryMode === "workspace" ? "Project and workspace memory" : "Project-only memory"}</small></div>`
+      ? `<div class="project-instructions"><p>${escapeHtml(project.instructions)}</p><small>${project.memoryMode === "workspace" ? "Project and Studio memory" : "Project-only memory"}</small></div>`
       : '<p class="project-empty">Add instructions for the goals, tone, rules, or output format every chat in this project should follow.</p>',
       '<button type="button" data-project-action="edit">Edit</button>') +
     projectSection("Recent chats", chats.length
@@ -1224,7 +1548,7 @@ function renderAgentSurface() {
     agentStarters.replaceChildren();
     if (!workspaceMode) {
       $(".welcome-block h1").innerHTML = "Where should we <em>begin</em>?";
-      $(".welcome-copy").textContent = "One workspace for ideas, research, creation, and complex work.";
+      $(".welcome-copy").textContent = "One place for ideas, research, creation, and complex work.";
     }
     return;
   }
@@ -1251,6 +1575,7 @@ function renderAgentSurface() {
 }
 
 function openAgentChat(agentOrId, { preserveConversation = false } = {}) {
+  if (!canUseStudio()) return requestStudioUpgrade();
   const agent = typeof agentOrId === "string" ? appState.agents.find((item) => item.id === agentOrId) : agentOrId;
   if (!agent || agent.enabled === false) return;
   if (workspaceMode) setWorkspaceMode(false);
@@ -1338,6 +1663,10 @@ function clearConversationSurface() {
 }
 
 function setWorkspaceMode(on) {
+  if (on && !canUseStudio()) {
+    requestStudioUpgrade();
+    return false;
+  }
   if (workspaceMode === on) {
     /* Already on this side: the switcher still walks you back out of a
        full-page view like Plugins or Library. */
@@ -1345,7 +1674,7 @@ function setWorkspaceMode(on) {
       showChatSurface();
       renderWorkspace();
     }
-    return;
+    return true;
   }
 
   /* Each side keeps its own conversation: switching never drags a plain chat
@@ -1359,6 +1688,9 @@ function setWorkspaceMode(on) {
     currentConversationId = lastChatConversationId;
   }
   workspaceMode = on;
+  modelTrigger.hidden = false;
+  modelTrigger.classList.toggle("is-static", !workspaceMode);
+  modelTrigger.setAttribute("aria-disabled", String(!workspaceMode));
 
   workspaceSwitcher.querySelectorAll("[data-workspace]").forEach((option) => {
     const selected = option.dataset.workspace === (on ? "work" : "chat");
@@ -1381,7 +1713,7 @@ function setWorkspaceMode(on) {
     : "Where should we <em>begin</em>?";
   $(".welcome-copy").textContent = on
     ? "Plan, create, and organize ambitious work with Mere X."
-    : "One workspace for ideas, research, creation, and complex work.";
+    : "One place for ideas, research, creation, and complex work.";
 
   promptInput.value = "";
   syncComposer();
@@ -1389,9 +1721,23 @@ function setWorkspaceMode(on) {
   renderWorkspace();
   renderAgentSurface();
   renderRecents();
+  renderSelectedModel();
+  return true;
+}
+
+function requestStudioUpgrade() {
+  closePopovers();
+  openActionModal({
+    eyebrow: "MERE X STUDIO",
+    title: "Build bigger in Studio",
+    content: '<p class="action-copy">Studio brings model selection, projects, specialized agents, shared sources, and long-running creative work together. It is included with every paid Mere X plan.</p>',
+    submitLabel: "View plans",
+    onSubmit: () => { window.location.assign("/checkout"); return false; }
+  });
 }
 
 function openProject(id, tab = "overview") {
+  if (!canUseStudio()) return requestStudioUpgrade();
   const project = appState.projects.find((item) => item.id === id);
   if (!project) return;
   clearConversationSurface();
@@ -1756,15 +2102,14 @@ const LOCKED_EFFORT = EFFORT_LEVELS.length - 1;
 let effortIndex = Math.max(0, EFFORT_LEVELS.findIndex((level) => level.name === selectedMode));
 
 function effortIsLocked() {
-  const plan = currentUser?.plan ?? "Free";
-  return plan === "Free" || plan === "Explorer";
+  return !accountEntitlements.efforts.includes("DEEP");
 }
 
 function maxEffortIndex() {
   return effortIsLocked() ? LOCKED_EFFORT - 1 : LOCKED_EFFORT;
 }
 
-function applyEffort(index, announce = false) {
+function applyEffort(index, announce = false, persist = true) {
   effortIndex = Math.max(0, Math.min(index, maxEffortIndex()));
   const level = EFFORT_LEVELS[effortIndex];
   selectedMode = level.name;
@@ -1775,13 +2120,13 @@ function applyEffort(index, announce = false) {
   effortRange.value = String(effortIndex);
   const defaultMode = $("#defaultMode");
   if (defaultMode) defaultMode.value = selectedMode;
-  setSetting("default-mode", selectedMode);
+  if (persist) setSetting("default-mode", selectedMode);
   if (announce) showToast(`${level.name} thinking effort`);
 }
 
-function refreshEffortLock() {
+function refreshEffortLock(persist = true) {
   effortSlider.dataset.locked = String(effortIsLocked());
-  applyEffort(effortIndex);
+  applyEffort(effortIndex, false, persist);
 }
 
 effortRange.addEventListener("input", () => {
@@ -1840,7 +2185,7 @@ globalSearch.addEventListener("input", () => {
     (projects.length ? '<p>Projects</p>' + projects.map((project) => `<button type="button" data-search-project="${project.id}"><span><svg><use href="#i-folder"></use></svg>${escapeHtml(project.name)}</span><small>Project</small></button>`).join("") : "") +
     (knowledge.length ? '<p>Knowledge</p>' + knowledge.map((item) => `<button type="button" data-search-view="knowledge"><span><svg><use href="#i-database"></use></svg>${escapeHtml(item.title)}</span><small>Knowledge note</small></button>`).join("") : "") +
     (automations.length ? '<p>Automations</p>' + automations.map((item) => `<button type="button" data-search-view="automations"><span><svg><use href="#i-clock"></use></svg>${escapeHtml(item.name)}</span><small>${escapeHtml(item.schedule)}</small></button>`).join("") : "") +
-    (!chats.length && !agents.length && !projects.length && !knowledge.length && !automations.length ? '<p class="search-empty">No matching workspace content</p>' : "");
+    (!chats.length && !agents.length && !projects.length && !knowledge.length && !automations.length ? '<p class="search-empty">No matching Studio content</p>' : "");
 });
 
 searchResults.addEventListener("click", (event) => {
@@ -2397,6 +2742,7 @@ function replyContext(conversation = currentConversation(), overrides = {}) {
   return {
     effort: selectedMode,
     model: selectedModel,
+    surface: (workspaceMode || agent || project) ? "studio" : "chat",
     tool: activeTool.hidden ? (agent?.defaultTool || "") : activeToolText.textContent,
     agent: agent ? {
       id: agent.id,
@@ -2552,6 +2898,7 @@ async function requestReply(conversation) {
     renderRecents();
     conversation.updatedAt = new Date().toISOString();
     if (libraryChanged || !conversation.transient) saveWorkspaceState();
+    refreshAccountUsage();
     settleFeedAtBottom(wasAtBottom);
   }
 }
@@ -2732,6 +3079,7 @@ function openConversation(id) {
   if (!conversation) return;
   const agent = conversation.agentId ? appState.agents.find((item) => item.id === conversation.agentId && item.enabled !== false) : null;
   if (agent) {
+    if (!canUseStudio()) return requestStudioUpgrade();
     if (workspaceMode) setWorkspaceMode(false);
     leaveConversation();
     activeAgentId = agent.id;
@@ -2756,6 +3104,7 @@ function openConversation(id) {
   }
   const project = conversation.projectId ? appState.projects.find((item) => item.id === conversation.projectId) : null;
   if (project) {
+    if (!canUseStudio()) return requestStudioUpgrade();
     activeAgentId = "";
     if (!workspaceMode) setWorkspaceMode(true);
     appState.workspaceProject = project.id;
@@ -3201,7 +3550,7 @@ function renderAgentDetail(agent) {
         `<button type="button" data-local-action="edit-agent" data-id="${agent.id}">Edit</button></header>` +
         `<p class="agent-instructions">${escapeHtml(agent.instructions || "No instructions yet.")}</p>` +
         `<div class="agent-capabilities">${capabilities.map((label) => `<span>${escapeHtml(label)}</span>`).join("") || "<span>No tools enabled</span>"}</div>` +
-        `<div class="agent-runtime-summary"><span><strong>${escapeHtml(agent.effort)}</strong> reasoning</span><span><strong>${escapeHtml(agent.defaultTool || "Automatic")}</strong> default tool</span><span><strong>${agent.memoryMode === "workspace" ? "Workspace" : "Agent-only"}</strong> memory</span></div>` +
+        `<div class="agent-runtime-summary"><span><strong>${escapeHtml(agent.effort)}</strong> reasoning</span><span><strong>${escapeHtml(agent.defaultTool || "Automatic")}</strong> default tool</span><span><strong>${agent.memoryMode === "workspace" ? "Studio" : "Agent-only"}</strong> memory</span></div>` +
       "</section>" +
       '<section class="agent-panel"><header><div><small>START HERE</small><h2>Conversation starters</h2></div></header>' +
         ((agent.starters || []).length ? `<div class="agent-detail-starters">${agent.starters.map((starter) => `<button type="button" data-local-action="start-agent-with" data-id="${agent.id}" data-starter="${escapeHtml(starter)}"><svg><use href="#i-arrow-ne"></use></svg>${escapeHtml(starter)}</button>`).join("")}</div>` : '<p class="project-empty">Add up to four starters in the Builder.</p>') +
@@ -3216,7 +3565,7 @@ function renderAgentDetail(agent) {
       '<section class="agent-panel agent-panel-wide"><header><div><small>HISTORY</small><h2>Recent chats</h2></div></header>' +
         (chats.length ? `<div class="agent-chat-list">${chats.slice(0, 8).map((chat) => `<button type="button" data-local-action="open-chat" data-id="${chat.id}"><svg><use href="#i-chat"></use></svg><span><strong>${escapeHtml(chat.title)}</strong><small>${countLabel(chat.messages?.length || 0, "message")} · ${formatDate(chat.updatedAt)}</small></span><svg><use href="#i-arrow-ne"></use></svg></button>`).join("")}</div>` : '<p class="project-empty">No conversations yet.</p>') +
       "</section>" +
-      `<section class="agent-panel agent-danger-zone"><header><div><small>MANAGE</small><h2>Agent controls</h2></div></header><p>Deleting this agent also removes its local conversation history. Export your workspace first if you need a backup.</p><button type="button" class="danger-link" data-local-action="delete-agent" data-id="${agent.id}">Delete agent</button></section>` +
+      `<section class="agent-panel agent-danger-zone"><header><div><small>MANAGE</small><h2>Agent controls</h2></div></header><p>Deleting this agent also removes its local conversation history. Export your Studio first if you need a backup.</p><button type="button" class="danger-link" data-local-action="delete-agent" data-id="${agent.id}">Delete agent</button></section>` +
     "</div>" +
   "</div>";
 }
@@ -3248,11 +3597,11 @@ function editAgent(agent = null, draft = {}) {
         `<label class="action-field"><span>Icon</span><select name="icon">${iconOptions}</select></label>` +
       "</div>" +
       `<label class="action-field"><span>Description</span><textarea name="description" rows="2" maxlength="240" placeholder="What is this agent excellent at?">${escapeHtml(value.description)}</textarea></label>` +
-      `<label class="action-field"><span>Agent instructions</span><textarea name="instructions" rows="9" required maxlength="12000" placeholder="Define its role, workflow, standards, boundaries, and ideal output…">${escapeHtml(value.instructions)}</textarea><small>These instructions guide every response from this agent and take priority over general workspace preferences.</small></label>` +
+      `<label class="action-field"><span>Agent instructions</span><textarea name="instructions" rows="9" required maxlength="12000" placeholder="Define its role, workflow, standards, boundaries, and ideal output…">${escapeHtml(value.instructions)}</textarea><small>These instructions guide every response from this agent and take priority over general Studio preferences.</small></label>` +
       '<div class="action-field-row agent-builder-runtime">' +
         `<label class="action-field"><span>Reasoning</span><select name="effort">${effortOptions}</select></label>` +
         `<label class="action-field"><span>Default tool</span><select name="defaultTool">${toolOptions}</select></label>` +
-        `<label class="action-field"><span>Memory</span><select name="memoryMode"><option value="agent-only"${value.memoryMode === "agent-only" ? " selected" : ""}>Agent only</option><option value="workspace"${value.memoryMode === "workspace" ? " selected" : ""}>Agent + workspace</option></select></label>` +
+        `<label class="action-field"><span>Memory</span><select name="memoryMode"><option value="agent-only"${value.memoryMode === "agent-only" ? " selected" : ""}>Agent only</option><option value="workspace"${value.memoryMode === "workspace" ? " selected" : ""}>Agent + Studio</option></select></label>` +
       "</div>" +
       `<label class="action-field"><span>Conversation starters</span><textarea name="starters" rows="4" maxlength="760" placeholder="One useful starter per line">${escapeHtml(value.starters.join("\n"))}</textarea><small>Up to four prompts that make the agent's purpose immediately clear.</small></label>` +
       `<fieldset class="agent-builder-fieldset"><legend>Capabilities</legend><div class="agent-check-grid">${capabilityFields}</div></fieldset>` +
@@ -3436,18 +3785,18 @@ function renderLocalView(view) {
         const sourceCount = (project.files || []).length + (project.notes || []).length;
         const search = escapeHtml(`${project.name} ${project.description || ""} ${project.instructions || ""}`.toLowerCase());
         return `<article class="local-card${project.pinned ? " is-pinned" : ""}" data-search-text="${search}"><span class="local-card-icon"><svg><use href="#i-folder"></use></svg></span><div><strong>${project.pinned ? '<svg class="project-pin"><use href="#i-pin"></use></svg>' : ""}${escapeHtml(project.name)}</strong><small>${escapeHtml(project.description || "No description")} · ${countLabel(projectConversations(project).length, "chat")} · ${countLabel(sourceCount, "source")}</small></div><div class="local-card-actions"><button data-local-action="open-project" data-id="${project.id}">Open</button><button data-local-action="pin-project" data-id="${project.id}">${project.pinned ? "Unpin" : "Pin"}</button><button data-local-action="edit-project" data-id="${project.id}">Edit</button><button class="danger-link" data-local-action="delete-project" data-id="${project.id}">Delete</button></div></article>`;
-      }).join("")}</div>` : emptyLocalState("i-folder", "No projects yet", "Create a project to keep related workspace material together.", '<button class="local-primary" data-local-action="new-project">Create project</button>'));
+      }).join("")}</div>` : emptyLocalState("i-folder", "No projects yet", "Create a project to keep related Studio material together.", '<button class="local-primary" data-local-action="new-project">Create project</button>'));
     return;
   }
 
   if (view === "help") {
-    localView.innerHTML = localViewHeader("Support", "Help center", "Quick answers and shortcuts for your Mere X workspace.") + '<div class="help-grid"><details open><summary>How do I start a new conversation?</summary><p>Use New conversation in the sidebar or press Ctrl/⌘ + N.</p></details><details><summary>Where are my chats saved?</summary><p>Signed-in workspaces are synchronized to the Mere X database; this browser keeps a local cache for speed.</p></details><details><summary>How do I change the theme?</summary><p>Open Settings → General and choose Light, Dark, or System.</p></details><details><summary>How do I export my workspace?</summary><p>Open Settings → Data controls and choose Export.</p></details></div>';
+    localView.innerHTML = localViewHeader("Support", "Help center", "Quick answers and shortcuts for Mere X.") + '<div class="help-grid"><details open><summary>How do I start a new conversation?</summary><p>Use New conversation in the sidebar or press Ctrl/⌘ + N.</p></details><details><summary>Where are my chats saved?</summary><p>Signed-in accounts are synchronized to the Mere X database; this browser keeps a local cache for speed.</p></details><details><summary>How do I change the theme?</summary><p>Open Settings → General and choose Light, Dark, or System.</p></details><details><summary>How do I export my Studio?</summary><p>Open Settings → Data controls and choose Export.</p></details></div>';
     return;
   }
 
   if (view === "automations") {
     localView.innerHTML = localViewHeader("Workflow", "Automations", "Schedule recurring AI work and keep every result as a conversation.", '<button class="local-primary" data-local-action="new-automation"><svg><use href="#i-plus"></use></svg>New automation</button>') +
-      (appState.automations.length ? `<div class="local-grid">${appState.automations.map((item) => `<article class="local-card${item.lastStatus === "running" ? " is-running" : ""}"><span class="local-card-icon"><svg><use href="#i-clock"></use></svg></span><div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.prompt.slice(0, 100))}</small><small>${escapeHtml(item.schedule)} at ${escapeHtml(item.time)} · ${escapeHtml(item.mode)}${item.tool ? ` · ${escapeHtml(item.tool)}` : ""}</small><small class="automation-status">${escapeHtml(automationScheduleText(item))}</small></div><div class="local-card-actions"><button data-local-action="run-automation" data-id="${item.id}"${item.lastStatus === "running" ? " disabled" : ""}>${item.lastStatus === "running" ? "Running" : "Run now"}</button>${item.lastConversationId ? `<button data-local-action="open-automation-result" data-id="${item.id}">Result</button>` : ""}<button data-local-action="edit-automation" data-id="${item.id}">Edit</button><button data-local-action="toggle-automation" data-id="${item.id}">${item.enabled ? "Pause" : "Enable"}</button><button class="danger-link" data-local-action="delete-automation" data-id="${item.id}">Delete</button></div></article>`).join("")}</div>` : emptyLocalState("i-clock", "No automations", "Create a recurring task and Mere X will run it while the workspace is open.", '<button class="local-primary" data-local-action="new-automation">Create automation</button>'));
+      (appState.automations.length ? `<div class="local-grid">${appState.automations.map((item) => `<article class="local-card${item.lastStatus === "running" ? " is-running" : ""}"><span class="local-card-icon"><svg><use href="#i-clock"></use></svg></span><div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.prompt.slice(0, 100))}</small><small>${escapeHtml(item.schedule)} at ${escapeHtml(item.time)} · ${escapeHtml(item.mode)}${item.tool ? ` · ${escapeHtml(item.tool)}` : ""}</small><small class="automation-status">${escapeHtml(automationScheduleText(item))}</small></div><div class="local-card-actions"><button data-local-action="run-automation" data-id="${item.id}"${item.lastStatus === "running" ? " disabled" : ""}>${item.lastStatus === "running" ? "Running" : "Run now"}</button>${item.lastConversationId ? `<button data-local-action="open-automation-result" data-id="${item.id}">Result</button>` : ""}<button data-local-action="edit-automation" data-id="${item.id}">Edit</button><button data-local-action="toggle-automation" data-id="${item.id}">${item.enabled ? "Pause" : "Enable"}</button><button class="danger-link" data-local-action="delete-automation" data-id="${item.id}">Delete</button></div></article>`).join("")}</div>` : emptyLocalState("i-clock", "No automations", "Create a recurring task and Mere X will run it while Studio is open.", '<button class="local-primary" data-local-action="new-automation">Create automation</button>'));
     return;
   }
 
@@ -3465,12 +3814,16 @@ function renderLocalView(view) {
   }
 
   if (view === "storage") {
-    localView.innerHTML = localViewHeader("Workspace", "Storage", `Review ${appState.files.length} indexed file${appState.files.length === 1 ? "" : "s"} and ${appState.images.length} generated asset${appState.images.length === 1 ? "" : "s"}.`, '<div class="local-header-actions"><button data-local-action="clean-previews">Clean old previews</button><button class="local-primary" data-local-action="upload-files"><svg><use href="#i-plus"></use></svg>Add files</button></div>') +
+    localView.innerHTML = localViewHeader("Studio", "Storage", `Review ${appState.files.length} indexed file${appState.files.length === 1 ? "" : "s"} and ${appState.images.length} generated asset${appState.images.length === 1 ? "" : "s"}.`, '<div class="local-header-actions"><button data-local-action="clean-previews">Clean old previews</button><button class="local-primary" data-local-action="upload-files"><svg><use href="#i-plus"></use></svg>Add files</button></div>') +
       (appState.files.length ? `<div class="local-grid">${appState.files.map((file) => `<article class="local-card"><span class="local-card-icon"><svg><use href="#i-file"></use></svg></span><div><strong>${escapeHtml(file.name)}</strong><small>${formatBytes(file.size)} · ${escapeHtml(file.type || "File")}</small></div><div class="local-card-actions"><button class="danger-link" data-local-action="remove-file" data-id="${file.id}">Remove</button></div></article>`).join("")}</div>` : emptyLocalState("i-storage", "Storage is empty", "Add files from the composer or this page.", '<button class="local-primary" data-local-action="upload-files">Add files</button>'));
   }
 }
 
 function showLocalView(view) {
+  if (new Set(["projects", "agents", "automations", "knowledge"]).has(view) && !canUseStudio()) {
+    requestStudioUpgrade();
+    return;
+  }
   currentLocalView = view;
   projectBar.hidden = true;
   agentBar.hidden = true;
@@ -3545,7 +3898,7 @@ function editProject(project = null, onSaved = null) {
     content: `<label class="action-field"><span>Name</span><input name="name" required maxlength="60" value="${escapeHtml(project?.name || "")}" placeholder="Project name" /></label>` +
       `<label class="action-field"><span>Description</span><textarea name="description" rows="3" maxlength="240" placeholder="What belongs in this project?">${escapeHtml(project?.description || "")}</textarea></label>` +
       `<label class="action-field"><span>Project instructions</span><textarea name="instructions" rows="6" maxlength="8000" placeholder="Tell Mere X how to work in every chat in this project.">${escapeHtml(project?.instructions || "")}</textarea><small>These instructions apply to all project chats and take priority over general custom instructions.</small></label>` +
-      `<label class="action-field"><span>Memory</span><select name="memoryMode"><option value="project-only"${memoryMode === "project-only" ? " selected" : ""}>Project only</option><option value="workspace"${memoryMode === "workspace" ? " selected" : ""}>Project and workspace</option></select><small>Project-only keeps chat memory and saved context isolated from other projects.</small></label>`,
+      `<label class="action-field"><span>Memory</span><select name="memoryMode"><option value="project-only"${memoryMode === "project-only" ? " selected" : ""}>Project only</option><option value="workspace"${memoryMode === "workspace" ? " selected" : ""}>Project and Studio</option></select><small>Project-only keeps chat memory and saved context isolated from other projects.</small></label>`,
     submitLabel: project ? "Save changes" : "Create project",
     onSubmit: (data) => {
       const name = String(data.get("name") || "").trim();
@@ -3800,7 +4153,7 @@ localView.addEventListener("click", (event) => {
     });
   }
   if (name === "create-image") {
-    resetWorkspace("Image workspace ready");
+    resetWorkspace("Image Studio ready");
     setTool("Images");
     return;
   }
@@ -3978,15 +4331,16 @@ const settingUI = {
 
 const settingsPanels = {
   general: () =>
-    settingUI.header("Workspace", "General", "Core preferences for your Mere X experience.") +
+    settingUI.header("Studio", "General", "Core preferences for your Mere X experience.") +
     settingUI.group(
       settingUI.row("Language", "Primary interface language.", settingUI.select("language", LANGUAGE_NAMES, "English")) +
       settingUI.row("Default response mode", "Choose how Mere X starts each new conversation.", settingUI.select("default-mode", EFFORT_LEVELS.map((level) => level.name), selectedMode, "defaultMode")) +
-      settingUI.row("Appearance", "Choose a carefully tuned light or dark workspace.", settingUI.themePicker(themePreference))
+      settingUI.row("Appearance", "Choose a carefully tuned light or dark Studio.", settingUI.themePicker(themePreference))
     ) +
     settingUI.group(
-      settingUI.row("Compact sidebar", "Create more room for your active workspace.", settingUI.toggle("compact-sidebar", body.classList.contains("sidebar-collapsed"))) +
-      settingUI.row("Reduced motion", "Minimize non-essential interface animation.", settingUI.toggle("reduced-motion"))
+      settingUI.row("Compact sidebar", "Create more room for your active Studio.", settingUI.toggle("compact-sidebar", body.classList.contains("sidebar-collapsed"))) +
+      settingUI.row("Reduced motion", "Minimize non-essential interface animation.", settingUI.toggle("reduced-motion")) +
+      settingUI.row("Install Mere X", "Add a full-screen Mere X app to this device.", settingUI.action("Install app", "install-app", "primary-action"))
     , "Interface"),
 
   notifications: () =>
@@ -3999,7 +4353,7 @@ const settingsPanels = {
       settingUI.row("Product updates", "Receive news about new Mere X capabilities.", settingUI.toggle("product-updates", true))
     ) +
     settingUI.group(
-      settingUI.row("Workspace digest", "Save a concise activity summary in your notification center.", settingUI.select("email-digest", ["Off", "Weekly", "Monthly"], "Off"))
+      settingUI.row("Studio digest", "Save a concise activity summary in your notification center.", settingUI.select("email-digest", ["Off", "Weekly", "Monthly"], "Off"))
     , "Summaries"),
 
   personalization: () =>
@@ -4022,22 +4376,22 @@ const settingsPanels = {
 
   billing: () =>
     settingUI.header("Account", "Billing", "Manage your plan, payment details, and invoices.") +
-    '<div class="plan-card"><span class="plan-mark"><svg><use href="#i-spark"></use></svg></span><span class="plan-copy"><strong>Mere X ' + escapeHtml(currentUser?.plan ?? "Free") + '</strong><small>Your current workspace plan</small></span><button data-setting-action="manage-plan">Manage plan</button></div>' +
+    '<div class="plan-card"><span class="plan-mark"><svg><use href="#i-spark"></use></svg></span><span class="plan-copy"><strong>Mere X ' + escapeHtml(currentUser?.plan ?? "Free") + '</strong><small>Your current Mere X plan</small></span><button data-setting-action="manage-plan">Manage plan</button></div>' +
     settingUI.group(
       settingUI.row("Payment method", "Managed securely by your billing provider.", settingUI.action("Manage", "payment-method")) +
       settingUI.row("Billing history", "View and download previous invoices.", settingUI.action("View invoices", "billing-history"))
     , "Billing details"),
 
   usage: () =>
-    settingUI.header("Account", "Usage", "Review workspace limits and current consumption.") +
+    settingUI.header("Account", "Usage", "Review 5-hour and weekly limits with current consumption.") +
     usageCardHtml() +
     settingUI.group(
-      settingUI.row("Usage cycle", "Choose the period shown in workspace summaries.", settingUI.select("usage-cycle", ["Current cycle", "Last 7 days", "Last 30 days"], "Current cycle")) +
+      settingUI.row("Usage cycle", "Choose the period shown in private activity summaries.", settingUI.select("usage-cycle", ["Current cycle", "Last 7 days", "Last 30 days"], "Current cycle")) +
       settingUI.row("Usage alerts", "Notify when a category reaches 80% of its local summary target.", settingUI.toggle("usage-alerts", true))
     ),
 
   analytics: () =>
-    settingUI.header("Insights", "Analytics", "Understand how your workspace is being used.") +
+      settingUI.header("Insights", "Analytics", "Understand how your Studio is being used.") +
     analyticsHtml() +
     settingUI.group(
       settingUI.row("Activity insights", "Show private summaries of tools and modes you use.", settingUI.toggle("activity-insights", true)) +
@@ -4053,7 +4407,7 @@ const settingsPanels = {
       settingUI.row("Export data", "Download a copy of your conversations and files.", settingUI.action('<svg><use href="#i-download"></use></svg> Export', "export-data"))
     ) +
     settingUI.group(
-      settingUI.row("Delete all conversations", "Permanently remove conversation history from this workspace.", settingUI.action('<svg><use href="#i-trash"></use></svg> Delete all', "delete-chats", "danger-action"))
+      settingUI.row("Delete all conversations", "Permanently remove conversation history from this Studio.", settingUI.action('<svg><use href="#i-trash"></use></svg> Delete all', "delete-chats", "danger-action"))
     , "Danger zone"),
 
   browser: () =>
@@ -4065,12 +4419,12 @@ const settingsPanels = {
     ),
 
   storage: () =>
-    settingUI.header("Workspace", "Storage", "Review files, generated assets, and cached previews.") +
+      settingUI.header("Studio", "Storage", "Review files, generated assets, and cached previews.") +
     (() => { const bytes = appState.files.reduce((total, file) => total + Number(file.size || 0), 0); return '<div class="usage-card"><div class="usage-stat"><small>Indexed storage</small><strong>' + formatBytes(bytes) + '</strong><div class="usage-meter"><span style="width:' + Math.min(100, bytes / (1024 * 1024)) + '%"></span></div></div><div class="usage-stat"><small>Files</small><strong>' + appState.files.length + '</strong></div><div class="usage-stat"><small>Generated assets</small><strong>' + appState.images.length + '</strong></div></div>'; })() +
     settingUI.group(
       settingUI.row("Auto-clean previews", "Remove cached previews after 30 days.", settingUI.toggle("clean-previews", true)) +
       settingUI.row("Clean now", "Remove generated previews older than 30 days immediately.", settingUI.action("Clean", "clean-previews")) +
-      settingUI.row("Manage files", "Review all files saved to your workspace.", settingUI.action("Open storage", "manage-storage"))
+      settingUI.row("Manage files", "Review all files saved to your Studio.", settingUI.action("Open storage", "manage-storage"))
     ),
 
   safety: () =>
@@ -4095,13 +4449,13 @@ const settingsPanels = {
     settingUI.group(
       settingUI.row("Parental controls", settingValue("parental-controls", false) ? "Content limits and the usage schedule are enforced." : "Turn on local family safeguards.", settingUI.toggle("parental-controls")) +
       settingUI.row("Content restrictions", "Choose age-appropriate content limits.", settingUI.select("content-restrictions", ["Standard", "Teen", "Child"], "Standard")) +
-      settingUI.row("Usage schedule", "Set times when this workspace can be used.", settingUI.action("Configure", "usage-schedule"))
+      settingUI.row("Usage schedule", "Set times when this Studio can be used.", settingUI.action("Configure", "usage-schedule"))
     ),
 
   profile: () =>
     settingUI.header("Account", "Profile", "Manage your personal information and public identity.") +
     settingUI.group(
-      settingUI.row("Display name", "Shown throughout your Mere X workspace.", '<input class="settings-text-field" data-profile-field="name" value="' + escapeHtml(currentUser?.name ?? "") + '" aria-label="Display name" />') +
+      settingUI.row("Display name", "Shown throughout Mere X.", '<input class="settings-text-field" data-profile-field="name" value="' + escapeHtml(currentUser?.name ?? "") + '" aria-label="Display name" />') +
       settingUI.row("Username", "Your unique Mere X identity.", '<input class="settings-text-field" data-profile-field="username" value="' + escapeHtml(appState.username || usernameFor(currentUser)) + '" aria-label="Username" />') +
       settingUI.row("Profile photo", "Upload or replace your account image.", settingUI.action("Change photo", "change-photo")) +
       settingUI.row("Public profile", "Allow others to find your shared work.", settingUI.toggle("public-profile"))
@@ -4149,6 +4503,7 @@ accountPopover.addEventListener("click", (event) => {
   if (!accountAction) return;
   if (accountAction.dataset.accountAction === "profile") openSettings("profile");
   if (accountAction.dataset.accountAction === "upgrade") window.location.assign("/checkout");
+  if (accountAction.dataset.accountAction === "console") window.location.assign("/console");
   if (accountAction.dataset.accountAction === "help") {
     showLocalView("help");
   }
@@ -4222,6 +4577,19 @@ async function showInvoices() {
 
 function handleSettingAction(action) {
   const name = action.dataset.settingAction;
+  if (name === "install-app") {
+    if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true) {
+      showToast("Mere X is already installed");
+      return;
+    }
+    if (!deferredInstallPrompt) {
+      showToast("Use your browser menu and choose Add to Home Screen");
+      return;
+    }
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.finally(() => { deferredInstallPrompt = null; });
+    return;
+  }
   if (name === "mark-notifications-read") {
     appState.notifications.forEach((item) => { item.read = true; });
     saveWorkspaceState();
@@ -4257,10 +4625,10 @@ function handleSettingAction(action) {
     return;
   }
   if (name === "export-data") {
-    downloadJson("mere-x-workspace-export.json", { exportedAt: new Date().toISOString(), profile: { name: currentUser?.name, email: currentUser?.email, username: appState.username }, ...appState });
+    downloadJson("mere-x-studio-export.json", { exportedAt: new Date().toISOString(), profile: { name: currentUser?.name, email: currentUser?.email, username: appState.username }, ...appState });
     return;
   }
-  if (name === "delete-chats") return confirmAction("Delete all conversations", "Every saved and archived conversation will be removed from your synchronized workspace.", "Delete all", () => { appState.conversations = []; currentConversationId = null; saveWorkspaceState(); renderRecents(); resetWorkspace("All conversations deleted"); renderSettings("data"); });
+  if (name === "delete-chats") return confirmAction("Delete all conversations", "Every saved and archived conversation will be removed from your synchronized Studio.", "Delete all", () => { appState.conversations = []; currentConversationId = null; saveWorkspaceState(); renderRecents(); resetWorkspace("All conversations deleted"); renderSettings("data"); });
   if (name === "browser-sessions") {
     const sessions = appState.activity.filter((item) => item.type === "assistant_completed" && (item.tool === "Web search" || item.tool === "Deep research"));
     openActionModal({ eyebrow: "RESEARCH", title: "Research history", content: sessions.length
@@ -4406,7 +4774,7 @@ $("#shareButton").addEventListener("click", async () => {
   const conversation = appState.conversations.find((item) => item.id === currentConversationId);
   const shareText = conversation
     ? `${conversation.title}\n\n${conversation.messages.map((message) => message.text).join("\n\n")}`
-    : "Mere X workspace";
+    : "Mere X Studio";
   try {
     await navigator.clipboard.writeText(shareText);
     showToast("Conversation copied to clipboard");
@@ -4422,6 +4790,7 @@ $("#uploadFileButton").addEventListener("click", () => {
 
 $("#chooseProjectButton").addEventListener("click", () => {
   closePopovers();
+  if (!canUseStudio()) return requestStudioUpgrade();
   if (!appState.projects.length) {
     editProject();
     return;
@@ -4429,7 +4798,7 @@ $("#chooseProjectButton").addEventListener("click", () => {
   openActionModal({
     eyebrow: "PROJECTS",
     title: "Choose a project",
-    content: '<div class="action-check-list">' + appState.projects.map((project, index) => `<label><input type="radio" name="project" value="${project.id}"${index === 0 ? " checked" : ""} /><span><strong>${escapeHtml(project.name)}</strong><small>${escapeHtml(project.description || "Project workspace")}</small></span></label>`).join("") + '</div>',
+    content: '<div class="action-check-list">' + appState.projects.map((project, index) => `<label><input type="radio" name="project" value="${project.id}"${index === 0 ? " checked" : ""} /><span><strong>${escapeHtml(project.name)}</strong><small>${escapeHtml(project.description || "Studio project")}</small></span></label>`).join("") + '</div>',
     submitLabel: "Use project",
     onSubmit: (data) => {
       const project = appState.projects.find((item) => item.id === data.get("project"));
@@ -4443,12 +4812,13 @@ $("#chooseProjectButton").addEventListener("click", () => {
 });
 
 function renderSelectedModel() {
-  const name = MODEL_NAMES[selectedModel] || MODEL_NAMES.apex;
+  const effectiveModel = workspaceMode ? selectedModel : accountEntitlements.defaultChatModel;
+  const name = MODEL_NAMES[effectiveModel] || MODEL_NAMES.nyx;
   const [brand, profile, version] = name.split(" ");
   const label = $("#modelTriggerLabel");
   if (label) label.innerHTML = `${brand} ${profile} <strong>${version}</strong>`;
   modelPopover.querySelectorAll(".model-choice").forEach((choice) => {
-    const selected = choice.dataset.model === selectedModel;
+    const selected = choice.dataset.model === effectiveModel;
     choice.classList.toggle("selected", selected);
     choice.setAttribute("aria-pressed", String(selected));
   });
@@ -4457,6 +4827,12 @@ function renderSelectedModel() {
 modelPopover.addEventListener("click", (event) => {
   const choice = event.target.closest(".model-choice[data-model]");
   if (!choice) return;
+  if (!workspaceMode) return closePopovers();
+  if (!modelAvailable(choice.dataset.model)) {
+    closePopovers();
+    window.location.assign("/checkout");
+    return;
+  }
   selectedModel = choice.dataset.model;
   setSetting("model-profile", selectedModel);
   renderSelectedModel();
@@ -4484,6 +4860,7 @@ document.addEventListener("keydown", (event) => {
     resetWorkspace();
   }
   if (event.key === "Escape") {
+    if (realtimeVoice) stopRealtimeVoice();
     closePopovers();
     closeMobileSidebar();
     if (!searchModal.hidden) closeSearch();
@@ -4533,12 +4910,14 @@ function usernameFor(user) {
 function applyIdentity(user) {
   currentUser = user;
   if (!user) return;
+  accountEntitlements = localEntitlements(user);
+  accountUsage = null;
   const initials = initialsFor(user.name);
   $$("[data-identity-avatar]").forEach((node) => { node.textContent = initials; });
   $$("[data-identity-name]").forEach((node) => { node.textContent = user.name; });
   $$("[data-identity-plan]").forEach((node) => { node.textContent = user.plan; });
   applyProfilePhoto();
-  refreshEffortLock();
+  applyEntitlementUI();
 }
 
 function setFieldError(input, message = "") {
@@ -4631,19 +5010,16 @@ async function runSubmit(form, work) {
 }
 
 async function enterWorkspace(user, message) {
-  applyIdentity(user);
   workspaceStorageKey = `${APP_STATE_KEY}:${user.id}`;
+  applyIdentity(user);
   try {
     const cached = localStorage.getItem(workspaceStorageKey);
     if (cached) appState = normalizeWorkspaceState(JSON.parse(cached));
   } catch { /* the database remains the source of truth */ }
-  try {
-    await hydrateWorkspaceFromDatabase();
-    localStorage.setItem(workspaceStorageKey, JSON.stringify(persistedWorkspaceState()));
-    localStorage.removeItem(APP_STATE_KEY);
-  } catch (error) {
-    showToast(`Cloud sync unavailable: ${error.message}`);
-  }
+  selectedMode = appState.settings["default-mode"] || "High";
+  selectedModel = ["nyx", "orion", "apex"].includes(appState.settings["model-profile"])
+    ? appState.settings["model-profile"]
+    : accountEntitlements.defaultChatModel;
   Object.values(authForms).forEach((form) => {
     form.reset();
     clearFormFeedback(form);
@@ -4651,23 +5027,50 @@ async function enterWorkspace(user, message) {
   resetPasswordFields();
   renderStrength("");
   document.documentElement.classList.remove("auth-open");
+  registerMereXServiceWorker();
   setAuthView("signin");
   if (window.location.pathname === "/login") {
     const requested = new URLSearchParams(window.location.search).get("returnTo") || "/app";
     const returnTo = /^\/(?:app|console)(?:[/?]|$)/.test(requested) || /^\/checkout(?:\?|$)/.test(requested)
       ? requested
       : "/app";
-    window.location.replace(returnTo);
-    return;
+    if (!returnTo.startsWith("/app")) {
+      window.location.replace(returnTo);
+      return;
+    }
+    history.replaceState({}, "", returnTo);
   }
   /* Older checkout builds left this key behind after cancellation. Never let
      stale pricing intent hijack an ordinary account login. */
   try { localStorage.removeItem("mere-x.pending-plan"); } catch { /* storage is optional */ }
   renderWorkspace();
-  renderSelectedModel();
+  applyEntitlementUI();
   resetWorkspace(message);
   startProductRuntime();
   refreshPluginStatus();
+
+  /* Show the cached app immediately; cloud hydration runs behind a subtle
+     sync state instead of making Google sign-in feel frozen. */
+  const hydrationVersion = workspaceMutationVersion;
+  body.classList.add("workspace-hydrating");
+  const [workspaceResult] = await Promise.allSettled([
+    hydrateWorkspaceFromDatabase(hydrationVersion),
+    refreshAccountUsage()
+  ]);
+  if (workspaceResult.status === "fulfilled") {
+    const corrected = applyEntitlementUI(false);
+    try {
+      localStorage.setItem(workspaceStorageKey, JSON.stringify(persistedWorkspaceState()));
+      localStorage.removeItem(APP_STATE_KEY);
+    } catch { /* local cache is an optimization */ }
+    if (corrected) queueWorkspaceSync();
+    renderWorkspace();
+    renderRecents();
+  } else {
+    showToast(`Cloud sync unavailable: ${workspaceResult.reason?.message || "try again shortly"}`);
+  }
+  body.classList.remove("workspace-hydrating");
+  syncComposer();
 }
 
 async function signOut() {
@@ -4850,7 +5253,8 @@ async function loadGoogleIdentity() {
   });
   $$('[data-google-signin]').forEach((host) => {
     host.replaceChildren();
-    window.google.accounts.id.renderButton(host, { type: "standard", theme: document.documentElement.dataset.theme === "dark" ? "filled_black" : "outline", size: "large", shape: "pill", text: "continue_with", width: 360 });
+    const availableWidth = Math.max(220, Math.floor(host.getBoundingClientRect().width || Math.min(360, window.innerWidth - 64)));
+    window.google.accounts.id.renderButton(host, { type: "standard", theme: document.documentElement.dataset.theme === "dark" ? "filled_black" : "outline", size: "large", shape: "pill", text: "continue_with", width: Math.min(360, availableWidth) });
   });
 }
 
@@ -4865,6 +5269,9 @@ async function initializeSession() {
   } else {
     setAuthView("signin");
   }
+  /* Load Google's identity library alongside the session lookup instead of
+     serially afterwards, so the account button is ready as soon as login is. */
+  const googleIdentity = loadGoogleIdentity().catch((error) => console.warn(error.message));
   try {
     const result = await apiJson("/api/auth/session");
     if (result.user && !resetToken) await enterWorkspace(result.user, `Welcome back, ${result.user.name.split(" ")[0]}`);
@@ -4873,7 +5280,7 @@ async function initializeSession() {
     document.documentElement.classList.add("auth-open");
     showToast(error.message);
   }
-  try { await loadGoogleIdentity(); } catch (error) { console.warn(error.message); }
+  await googleIdentity;
 }
 
 initializeSession();
@@ -4891,3 +5298,20 @@ async function refreshMereXStatus() {
 }
 
 refreshMereXStatus();
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  showToast("Mere X installed");
+});
+
+function registerMereXServiceWorker() {
+  if (!("serviceWorker" in navigator) || (location.protocol !== "https:" && location.hostname !== "localhost")) return;
+  navigator.serviceWorker.register("/app/sw.js", { scope: "/app/" }).catch(() => {
+    /* The online app remains fully functional when installation is unavailable. */
+  });
+}

@@ -9,18 +9,18 @@ import { codeBlock } from "../components/ui.js";
 
 export default {
   title: "Playground",
-  description: "Open the authenticated Mere X workspace or use a scoped API key.",
+  description: "Open the authenticated Mere X Studio or use a scoped API key.",
 
   render() {
     const state = getState();
     const body = `
       <div class="grid g-2" style="gap:16px;align-items:start">
         ${panel({
-          title: "Mere X workspace",
+          title: "Mere X Studio",
           desc: "Run real conversations with your account, projects, files, tools, and Live Voice.",
           body: `
             <div class="stack stack-4">
-              <p class="small muted">The workspace uses your authenticated account and stores its state in the Mere X database.</p>
+              <p class="small muted">Studio uses your authenticated account and stores its state in the Mere X database.</p>
               <a class="btn btn-primary" href="/app">${icon("play", "icon").value}<span>Open Mere X</span></a>
             </div>`
         }).value}

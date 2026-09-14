@@ -102,6 +102,7 @@ route("/console/playground", consolePage(() => import("./console/playground.js")
 route("/console/usage", consolePage(() => import("./console/usage.js")));
 route("/console/logs", consolePage(() => import("./console/logs.js")));
 route("/console/billing", consolePage(() => import("./console/billing.js")));
+route("/console/webhooks", consolePage(() => import("./console/webhooks.js")));
 route("/console/limits", consolePage(() => import("./console/limits.js")));
 route("/console/organization", consolePage(() => import("./console/organization.js")));
 route("/console/settings", consolePage(() => import("./console/settings.js")));

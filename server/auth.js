@@ -7,6 +7,7 @@ import { Resend } from "resend";
 
 import "./env.js";
 import { query } from "./database.js";
+import { effectivePlan } from "./entitlements.js";
 
 const scrypt = promisify(crypto.scrypt);
 const SESSION_COOKIE = "mere_x_session";
@@ -29,13 +30,14 @@ function nameFromEmail(value) {
 }
 
 function publicUser(row) {
+  const plan = effectivePlan(row);
   return {
     id: row.id,
     email: row.email,
     name: row.name,
     avatarUrl: row.avatar_url || "",
-    plan: row.plan || "Free",
-    planExpiresAt: row.plan_expires_at || null,
+    plan,
+    planExpiresAt: plan === "Free" ? null : row.plan_expires_at || null,
     emailVerified: Boolean(row.email_verified_at)
   };
 }
@@ -103,7 +105,7 @@ async function passwordMatches(password, stored) {
 async function ensureWorkspace(userId, name) {
   await query(
     `INSERT INTO workspaces (owner_id, name) VALUES ($1, $2) ON DUPLICATE KEY UPDATE owner_id = VALUES(owner_id)`,
-    [userId, `${name}'s workspace`.slice(0, 160)]
+    [userId, `${name}'s Studio`.slice(0, 160)]
   );
 }
 
@@ -114,8 +116,11 @@ async function createSession(req, res, user, remember = true) {
     `INSERT INTO auth_sessions (user_id, token_hash, expires_at, user_agent, ip_hash) VALUES ($1, $2, $3, $4, $5)`,
     [user.id, tokenHash(token), expiresAt, clean(req.headers["user-agent"], 500), requestIpHash(req)]
   );
-  await query(`DELETE FROM auth_sessions WHERE expires_at < now()`);
   setSessionCookie(req, res, token, remember);
+  /* Expired-session housekeeping must never delay a successful login. */
+  void query(`DELETE FROM auth_sessions WHERE expires_at < now()`).catch((error) => {
+    console.warn("Mere X session cleanup paused:", error?.code || error?.message);
+  });
 }
 
 async function userForRequest(req) {
@@ -255,6 +260,7 @@ export function createAuthRouter() {
   });
 
   router.get("/session", asyncRoute(async (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
     const row = await userForRequest(req);
     if (!row) return res.json({ user: null });
     res.json({ user: publicUser(row) });
@@ -323,21 +329,42 @@ export function createAuthRouter() {
       return res.status(409).json({ error: { code: "identity_conflict", message: "This email is linked to a different Google account." } });
     }
     if (row) {
+      const avatarUrl = clean(payload.picture, 1_000) || row.avatar_url || null;
+      const resolvedName = row.name || userName;
       await query(
         `UPDATE users SET google_sub = COALESCE(google_sub, $2), name = COALESCE(NULLIF(name, ''), $3), avatar_url = COALESCE($4, avatar_url), email_verified_at = COALESCE(email_verified_at, now()), last_login_at = now(), updated_at = now() WHERE id = $1`,
-        [row.id, payload.sub, userName, clean(payload.picture, 1_000) || null]
+        [row.id, payload.sub, userName, avatarUrl]
       );
-      result = await query(`SELECT * FROM users WHERE id = $1`, [row.id]);
+      row = {
+        ...row,
+        google_sub: row.google_sub || payload.sub,
+        name: resolvedName,
+        avatar_url: avatarUrl,
+        email_verified_at: row.email_verified_at || new Date(),
+        last_login_at: new Date()
+      };
     } else {
       const created = await query(
         `INSERT INTO users (email, name, google_sub, avatar_url, email_verified_at, last_login_at) VALUES ($1, $2, $3, $4, now(), now())`,
         [userEmail, userName, payload.sub, clean(payload.picture, 1_000) || null]
       );
-      result = await query(`SELECT * FROM users WHERE id = $1`, [created.insertId]);
+      row = {
+        id: created.insertId,
+        email: userEmail,
+        name: userName,
+        google_sub: payload.sub,
+        avatar_url: clean(payload.picture, 1_000) || null,
+        email_verified_at: new Date(),
+        plan: "Free",
+        plan_expires_at: null
+      };
     }
-    row = result.rows[0];
-    await ensureWorkspace(row.id, row.name);
     await createSession(req, res, row, true);
+    /* The Studio row is idempotent and the workspace API can create it too;
+       do not make Google sign-in wait on a second non-critical write. */
+    void ensureWorkspace(row.id, row.name).catch((error) => {
+      console.warn("Mere X Studio provisioning paused:", error?.code || error?.message);
+    });
     res.json({ user: publicUser(row) });
   }));
 

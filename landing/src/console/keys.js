@@ -8,7 +8,7 @@ import {
 } from "../lib/store.js";
 import { icon } from "../lib/icons.js";
 import { dateShort, relative } from "../lib/format.js";
-import { copyText } from "../lib/dom.js";
+import { copyText, escapeHtml } from "../lib/dom.js";
 import { toast, modal } from "../lib/toast.js";
 import { consoleShell, panel } from "./shell.js";
 import { codeBlock } from "../components/ui.js";
@@ -18,22 +18,22 @@ const SCOPES = [
   { id: "messages", label: "Messages", desc: "Use the authenticated chat endpoint" },
   { id: "embeddings", label: "Embeddings", desc: "Create embeddings" },
   { id: "audio", label: "Audio", desc: "Transcribe, synthesise, and open realtime sessions" },
-  { id: "files", label: "Files", desc: "Upload and access workspace files" },
+  { id: "files", label: "Files", desc: "Upload and access Studio files" },
   { id: "admin", label: "Admin", desc: "Use all currently available developer API endpoints" }
 ];
 
 function keyRow(key) {
   const revoked = key.status === "revoked";
   return `
-    <div class="key-row" data-key="${key.id}" style="${revoked ? "opacity:.55" : ""}">
+    <div class="key-row" data-key="${escapeHtml(key.id)}" style="${revoked ? "opacity:.55" : ""}">
       <span class="key-icon">${icon(revoked ? "lock" : "key").value}</span>
       <div style="min-width:0;flex:1 1 240px">
         <div class="key-name">
-          ${key.name}
-          <span class="badge badge-plain" style="margin-left:8px">${key.env}</span>
+          ${escapeHtml(key.name)}
+          <span class="badge badge-plain" style="margin-left:8px">${escapeHtml(key.env)}</span>
           ${revoked ? '<span class="badge badge-danger" style="margin-left:4px">revoked</span>' : ""}
         </div>
-        <div class="key-value"><code>${maskedKeyString(key)}</code></div>
+        <div class="key-value"><code>${escapeHtml(maskedKeyString(key))}</code></div>
       </div>
       <div class="key-meta" style="flex:0 0 auto;text-align:right">
         <div>${key.lastUsed ? `Used ${relative(key.lastUsed)}` : "Never used"}</div>
@@ -171,7 +171,7 @@ export default {
           await modal({
             title: "Copy your key now",
             body: `<p class="small ink-3" style="margin-bottom:16px">This is the only time the full key is shown. Store it in a secret manager.</p>
-                   <div class="secret-reveal" id="new-key-value">${fullKeyString(created)}</div>
+                   <div class="secret-reveal" id="new-key-value">${escapeHtml(fullKeyString(created))}</div>
                    <button class="btn btn-secondary btn-sm" id="copy-new-key" type="button" style="margin-top:14px">Copy to clipboard</button>`,
             actions: [{ label: "Done", value: "done", class: "btn-primary" }]
           });
@@ -199,7 +199,7 @@ export default {
 
       if (event.target.closest("[data-revoke]")) {
         const choice = await modal({
-          title: `Revoke “${key.name}”?`,
+          title: `Revoke “${escapeHtml(key.name)}”?`,
           body: '<p class="small ink-3">The key cannot be reactivated. Future requests using it will be rejected.</p>',
           actions: [{ label: "Cancel", value: "cancel", class: "btn-ghost" }, { label: "Revoke key", value: "revoke", class: "btn-danger" }]
         });
@@ -212,7 +212,7 @@ export default {
       if (event.target.closest("[data-delete]")) {
         const choice = await modal({
           title: "Delete permanently?",
-          body: `<p class="small ink-3">This permanently removes the revoked credential record for <strong>${key.name}</strong>.</p>`,
+          body: `<p class="small ink-3">This permanently removes the revoked credential record for <strong>${escapeHtml(key.name)}</strong>.</p>`,
           actions: [{ label: "Cancel", value: "cancel", class: "btn-ghost" }, { label: "Delete", value: "delete", class: "btn-danger" }]
         });
         if (choice === "delete") {

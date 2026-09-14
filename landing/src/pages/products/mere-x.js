@@ -41,7 +41,7 @@ export default {
               <h1 class="hero-title" style="font-size:var(--t-h1)">Everything you make, in one considered place.</h1>
               <p class="lead hero-lead">
                 Research, writing, code, and analysis — held together by a single model and a
-                workspace that stays out of the way.
+                Studio that stays out of the way.
               </p>
               <ul class="stack stack-3" style="margin-top:28px;max-width:46ch">
                 ${HIGHLIGHTS.map((item) => `
@@ -54,9 +54,9 @@ export default {
                 ${button({ label: "Try Mere X", href: "/app", icon: "arrow-ne", magnetic: true }).value}
                 ${textLink("Compare plans", "/pricing").value}
               </div>
-              <p class="xs muted" style="margin-top:20px">No card required. Free forever on Nyx and limited Orion.</p>
+              <p class="xs muted" style="margin-top:20px">No card required. Free forever on Mere Nyx 5.5.</p>
             </div>
-            ${mereXOrb({ label: "Mere X 5.5 · workspace" }).value}
+            ${mereXOrb({ label: "Mere X 5.5 · Studio" }).value}
           </div>
         </div>
       </section>
@@ -65,7 +65,7 @@ export default {
       <section class="section section-line">
         <div class="shell shell-wide">
           ${sectionHead({
-            eyebrow: "The workspace",
+            eyebrow: "The Studio",
             title: "Eight surfaces, one context.",
             lead: "Move between chat, a document, a research report, and a voice call without re-explaining anything. They all read from the same project."
           }).value}

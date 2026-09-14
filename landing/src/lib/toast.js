@@ -21,7 +21,10 @@ export function toast(message, { icon: name = "check", duration = 2800 } = {}) {
   const host = ensureStack();
   const node = document.createElement("div");
   node.className = "toast";
-  node.innerHTML = `${icon(name).value}<span>${message}</span>`;
+  node.innerHTML = icon(name).value;
+  const copy = document.createElement("span");
+  copy.textContent = String(message ?? "");
+  node.append(copy);
   host.append(node);
 
   const remove = () => {

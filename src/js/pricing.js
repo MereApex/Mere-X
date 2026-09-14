@@ -268,7 +268,7 @@ document.querySelectorAll("[data-select-plan]").forEach((button) => {
 });
 document.querySelectorAll("[data-close-checkout]").forEach((button) => button.addEventListener("click", closeCheckout));
 document.querySelector("[data-contact-sales]")?.addEventListener("click", () => {
-  showToast("Business onboarding is handled personally. Contact the Mere X team from your workspace.");
+  showToast("Business onboarding is handled personally. Contact the Mere X team through Support.");
 });
 cardCheckout.addEventListener("submit", async (event) => {
   event.preventDefault();

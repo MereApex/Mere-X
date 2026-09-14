@@ -4,7 +4,7 @@
 
 import { getState } from "../lib/store.js";
 import { icon } from "../lib/icons.js";
-import { raw } from "../lib/dom.js";
+import { raw, escapeHtml } from "../lib/dom.js";
 
 export const RAIL = [
   {
@@ -27,6 +27,7 @@ export const RAIL = [
     title: "Manage",
     links: [
       { href: "/console/billing", label: "Billing", icon: "card" },
+      { href: "/console/webhooks", label: "Webhooks", icon: "webhook" },
       { href: "/console/organization", label: "Organisation", icon: "users" },
       { href: "/console/settings", label: "Settings", icon: "settings" }
     ]
@@ -40,10 +41,10 @@ function rail(active) {
   return `
     <aside class="console-rail">
       <button class="rail-org" type="button">
-        <span class="rail-org-mark">${initials}</span>
+        <span class="rail-org-mark">${escapeHtml(initials)}</span>
         <span style="min-width:0;text-align:left">
-          <span class="rail-org-name" style="display:block">${state.org.name}</span>
-          <span class="rail-org-plan" style="display:block">${state.org.plan} · ${state.limits.tier}</span>
+          <span class="rail-org-name" style="display:block">${escapeHtml(state.org.name)}</span>
+          <span class="rail-org-plan" style="display:block">${escapeHtml(state.org.plan)} · ${escapeHtml(state.limits.tier)}</span>
         </span>
         <span class="spacer"></span>
         ${icon("chevron-down", "icon").value}
@@ -75,8 +76,8 @@ export function consoleShell({ active, title, sub, actions, body }) {
       <div class="console-main">
         <div class="console-head">
           <div>
-            <h1 class="console-title">${title}</h1>
-            ${sub ? `<p class="console-sub">${sub}</p>` : ""}
+            <h1 class="console-title">${escapeHtml(title)}</h1>
+            ${sub ? `<p class="console-sub">${escapeHtml(sub)}</p>` : ""}
           </div>
           ${actions ? `<div class="row row-tight">${actions}</div>` : ""}
         </div>

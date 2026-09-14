@@ -53,7 +53,7 @@ export default {
 
         ${panel({
           title: "Daily recorded volume",
-          desc: "Authenticated requests stored for this workspace, last 14 days",
+          desc: "Authenticated requests stored for this Studio, last 14 days",
           body: barChart(rows.map((row) => ({ label: dayLabel(row.date), value: row.requests })), { height: 210, format: (value) => compact(value, 0) }).value
         }).value}
 
@@ -77,7 +77,7 @@ export default {
           ${panel({
             title: "What is measured",
             body: `
-              <p class="small muted">The recent peak is calculated only from request records stored for this authenticated workspace. It is not an invented utilisation estimate and may be lower than the server's per-IP counter when several accounts share one network.</p>
+              <p class="small muted">The recent peak is calculated only from request records stored for this authenticated Studio. It is not an invented utilisation estimate and may be lower than the server's per-IP counter when several accounts share one network.</p>
               <p class="small muted" style="margin-top:12px">Token-per-minute and batch quotas are not displayed until those controls are actually enforced by the service.</p>`
           }).value}
         </div>

@@ -2,7 +2,7 @@
    UI — shared building blocks used across every page
    ============================================================ */
 
-import { html, raw, map, when } from "../lib/dom.js";
+import { html, raw, map, when, escapeHtml, copyText } from "../lib/dom.js";
 import { icon } from "../lib/icons.js";
 import { highlight } from "../lib/highlight.js";
 
@@ -126,7 +126,6 @@ export function mountCodeBlocks(root, onCopy) {
       const copy = event.target.closest("[data-copy]");
       if (copy) {
         const visible = panels.find((panel) => !panel.hidden);
-        const { copyText } = await import("../lib/dom.js");
         const ok = await copyText(visible ? visible.textContent : "");
         copy.querySelector("span").textContent = ok ? "Copied" : "Press ⌘C";
         setTimeout(() => { copy.querySelector("span").textContent = "Copy"; }, 1600);
@@ -145,7 +144,7 @@ export function dataTable({ columns, rows, hint }) {
         <table class="data">
           <thead><tr>${columns.map((col) => `<th class="${col.align === "right" ? "num" : ""}">${col.label}</th>`).join("")}</tr></thead>
           <tbody>
-            ${rows.map((row) => `<tr>${columns.map((col) => `<td class="${col.align === "right" ? "num" : ""}">${col.render ? col.render(row) : row[col.key] ?? "—"}</td>`).join("")}</tr>`).join("")}
+            ${rows.map((row) => `<tr>${columns.map((col) => `<td class="${col.align === "right" ? "num" : ""}">${col.render ? col.render(row) : escapeHtml(row[col.key] ?? "—")}</td>`).join("")}</tr>`).join("")}
           </tbody>
         </table>
       </div>

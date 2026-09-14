@@ -142,7 +142,7 @@ export async function initDatabase() {
     CREATE TABLE IF NOT EXISTS workspaces (
       id bigint unsigned NOT NULL AUTO_INCREMENT,
       owner_id bigint unsigned NOT NULL,
-      name varchar(160) NOT NULL DEFAULT 'My Mere X workspace',
+      name varchar(160) NOT NULL DEFAULT 'My Mere X Studio',
       created_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
       updated_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
       PRIMARY KEY (id),
@@ -221,6 +221,20 @@ export async function initDatabase() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
   await query(`
+    CREATE TABLE IF NOT EXISTS generated_assets (
+      id char(36) NOT NULL,
+      user_id bigint unsigned NOT NULL,
+      filename varchar(255) NOT NULL,
+      mime_type varchar(160) NOT NULL,
+      size_bytes bigint unsigned NOT NULL,
+      content longblob NOT NULL,
+      created_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      PRIMARY KEY (id),
+      KEY generated_assets_user_idx (user_id, created_at),
+      CONSTRAINT generated_assets_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await query(`
     CREATE TABLE IF NOT EXISTS payments (
       id bigint unsigned NOT NULL AUTO_INCREMENT,
       user_id bigint unsigned NOT NULL,
@@ -241,6 +255,21 @@ export async function initDatabase() {
       UNIQUE KEY payments_capture_uidx (provider_capture_id),
       KEY payments_user_idx (user_id, created_at),
       CONSTRAINT payments_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS usage_events (
+      id bigint unsigned NOT NULL AUTO_INCREMENT,
+      user_id bigint unsigned NOT NULL,
+      category enum('message', 'image', 'voice', 'transcription') NOT NULL,
+      model_profile enum('nyx', 'orion', 'apex'),
+      effort enum('Fast', 'Medium', 'High', 'DEEP'),
+      units smallint unsigned NOT NULL DEFAULT 1,
+      metadata json NOT NULL,
+      created_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      PRIMARY KEY (id),
+      KEY usage_events_window_idx (user_id, category, created_at),
+      CONSTRAINT usage_events_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
   await query(`

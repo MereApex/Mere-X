@@ -5,14 +5,14 @@
 import { getState } from "../lib/store.js";
 import { icon } from "../lib/icons.js";
 import { dateShort, nf } from "../lib/format.js";
-import { copyText } from "../lib/dom.js";
+import { copyText, escapeHtml } from "../lib/dom.js";
 import { toast } from "../lib/toast.js";
 import { consoleShell, panel, metric } from "./shell.js";
 import { dataTable } from "../components/ui.js";
 
 export default {
   title: "Organisation",
-  description: "The members, identifiers, and administrative events stored for this workspace.",
+  description: "The members, identifiers, and administrative events stored for this Studio.",
 
   render() {
     const state = getState();
@@ -21,8 +21,8 @@ export default {
       ? dataTable({
           columns: [
             { key: "at", label: "When", render: (row) => dateShort(row.at) },
-            { key: "actor", label: "Actor", render: (row) => `<code class="mono small">${row.actor}</code>` },
-            { key: "action", label: "Action", render: (row) => `<span class="badge badge-plain mono" style="font-size:10px">${row.action}</span>` },
+            { key: "actor", label: "Actor", render: (row) => `<code class="mono small">${escapeHtml(row.actor)}</code>` },
+            { key: "action", label: "Action", render: (row) => `<span class="badge badge-plain mono" style="font-size:10px">${escapeHtml(row.action)}</span>` },
             { key: "target", label: "Detail" }
           ],
           rows: state.audit
@@ -40,18 +40,18 @@ export default {
       <div class="stack stack-4">
         ${panel({
           title: "Members",
-          desc: "Accounts currently stored for this workspace",
+          desc: "Accounts currently stored for this Studio",
           flush: true,
           body: active.map((member) => {
             const initials = member.name.split(" ").filter(Boolean).map((word) => word[0]).join("").slice(0, 2);
             return `
               <div class="key-row">
-                <span class="avatar">${initials}</span>
+                <span class="avatar">${escapeHtml(initials)}</span>
                 <div style="min-width:0;flex:1 1 220px">
-                  <div class="key-name">${member.name}</div>
-                  <div class="key-value" style="font-family:var(--font-ui);font-size:var(--t-2xs)">${member.email}</div>
+                  <div class="key-name">${escapeHtml(member.name)}</div>
+                  <div class="key-value" style="font-family:var(--font-ui);font-size:var(--t-2xs)">${escapeHtml(member.email)}</div>
                 </div>
-                <span class="badge badge-plain">${member.role}</span>
+                <span class="badge badge-plain">${escapeHtml(member.role)}</span>
                 <div class="key-meta" style="min-width:110px;text-align:right">Added ${dateShort(member.added)}</div>
               </div>`;
           }).join("")
@@ -64,7 +64,7 @@ export default {
         }).value}
 
         ${panel({
-          title: "Workspace identifiers",
+          title: "Studio identifiers",
           flush: true,
           body: [
             ["Organisation ID", state.org.id],
@@ -75,8 +75,8 @@ export default {
             <div class="setting-row">
               <div class="setting-label">${label}</div>
               <div class="row row-tight">
-                <code class="mono small">${value}</code>
-                <button class="icon-btn" data-copy="${value}" title="Copy" style="width:28px;height:28px;flex-basis:28px">${icon("copy").value}</button>
+                <code class="mono small">${escapeHtml(value)}</code>
+                <button class="icon-btn" data-copy="${escapeHtml(value)}" title="Copy" style="width:28px;height:28px;flex-basis:28px">${icon("copy").value}</button>
               </div>
             </div>`).join("")
         }).value}

@@ -38,7 +38,7 @@ function uptimeStrip(service) {
 
 export default {
   title: "Status",
-  description: "Live platform health for the Mere X API, console, and workspace.",
+  description: "Live platform health for the Mere X API, console, and Studio.",
 
   render() {
     const degraded = STATUS_SERVICES.filter((s) => s.state !== "operational");

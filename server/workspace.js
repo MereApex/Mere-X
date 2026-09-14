@@ -92,11 +92,11 @@ export function createWorkspaceRouter() {
   router.put("/", asyncRoute(async (req, res) => {
     const state = req.body?.state;
     if (!state || typeof state !== "object" || Array.isArray(state)) {
-      return res.status(400).json({ error: { code: "invalid_workspace", message: "Workspace state must be an object." } });
+      return res.status(400).json({ error: { code: "invalid_workspace", message: "Studio state must be an object." } });
     }
     const serialized = JSON.stringify(state);
     if (Buffer.byteLength(serialized, "utf8") > MAX_STATE_BYTES) {
-      return res.status(413).json({ error: { code: "workspace_too_large", message: "This workspace snapshot is too large to sync." } });
+      return res.status(413).json({ error: { code: "workspace_too_large", message: "This Studio snapshot is too large to sync." } });
     }
     const id = await workspaceId(req.user.id);
     try {

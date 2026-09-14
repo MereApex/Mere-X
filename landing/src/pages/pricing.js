@@ -60,7 +60,7 @@ export default {
               </article>`).join("")}
           </div>
           <p class="xs muted center" style="margin-top:26px">
-            Paid individual plans include 30 days of access. All plans include the Mere X 5.5 family, connectors, and the workspace.
+            Paid individual plans include 30 days of access and Mere X Studio. Starter includes Nyx and Orion; Plus, Pro, and Max include the full Mere X 5.5 family. Free includes Mere Nyx 5.5 chat.
             Education and non-profit pricing is available — <a class="link-plain" href="/company/contact">ask us</a>.
           </p>
         </div>

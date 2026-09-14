@@ -5,7 +5,7 @@
 import { getState } from "../lib/store.js";
 import { icon } from "../lib/icons.js";
 import { nf, compact, dateTime, relative, ms } from "../lib/format.js";
-import { copyText } from "../lib/dom.js";
+import { copyText, escapeHtml } from "../lib/dom.js";
 import { toast } from "../lib/toast.js";
 import { consoleShell, panel, metric } from "./shell.js";
 
@@ -28,17 +28,17 @@ function detailFor(log) {
   return `
     <div class="log-detail" style="padding:16px 20px">
       <div class="grid g-2" style="gap:10px 28px">
-        ${fields.map(([label, value]) => `<div class="between xs" style="gap:16px"><span class="muted">${label}</span><span class="mono" style="text-align:right;overflow-wrap:anywhere">${value}</span></div>`).join("")}
+        ${fields.map(([label, value]) => `<div class="between xs" style="gap:16px"><span class="muted">${label}</span><span class="mono" style="text-align:right;overflow-wrap:anywhere">${escapeHtml(value)}</span></div>`).join("")}
       </div>
       <div class="row" style="margin-top:14px">
-        <button class="btn btn-ghost btn-sm" data-copy-id="${log.id}">${icon("copy", "icon").value}<span>Copy request ID</span></button>
+        <button class="btn btn-ghost btn-sm" data-copy-id="${escapeHtml(log.id)}">${icon("copy", "icon").value}<span>Copy request ID</span></button>
       </div>
     </div>`;
 }
 
 export default {
   title: "Request logs",
-  description: "Inspect request metadata recorded by your authenticated workspace.",
+  description: "Inspect request metadata recorded by your authenticated Studio.",
 
   render(ctx) {
     const state = getState();
@@ -67,7 +67,7 @@ export default {
         desc: `${nf(logs.length)} matching · newest first`,
         actions: `
           <div class="row row-tight">
-            <input class="input" data-search value="${search}" placeholder="Filter by ID, model, endpoint…" style="width:230px;padding-block:7px">
+            <input class="input" data-search value="${escapeHtml(search)}" placeholder="Filter by ID, model, endpoint…" style="width:230px;padding-block:7px">
             <div class="seg">
               <span class="seg-thumb" style="display:none"></span>
               ${[["all", "All"], ["ok", "2xx/3xx"], ["errors", "Errors"]].map(([id, label]) => `
@@ -81,17 +81,17 @@ export default {
               <span>Time</span><span>Status</span><span>Endpoint · model</span><span>Latency</span><span>Tokens</span>
             </div>
             ${logs.length ? logs.slice(0, 80).map((log) => `
-              <div class="log-row" data-log="${log.id}">
+              <div class="log-row" data-log="${escapeHtml(log.id)}">
                 <span class="muted" title="${dateTime(log.at)}">${relative(log.at)}</span>
                 <span class="log-status" style="color:${statusColor(log.status)}"><i class="dot" style="background:currentColor"></i>${log.status}</span>
                 <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                  ${log.endpoint} · <span class="muted">${log.model}</span>
-                  ${log.error ? `<span class="badge badge-danger" style="margin-left:8px">${log.error}</span>` : ""}
+                  ${escapeHtml(log.endpoint)} · <span class="muted">${escapeHtml(log.model)}</span>
+                  ${log.error ? `<span class="badge badge-danger" style="margin-left:8px">${escapeHtml(log.error)}</span>` : ""}
                 </span>
                 <span class="muted">${ms(log.latency)}</span>
                 <span class="muted">${compact(log.input + log.output, 1)}</span>
               </div>
-              <div data-detail-for="${log.id}" hidden></div>`).join("")
+              <div data-detail-for="${escapeHtml(log.id)}" hidden></div>`).join("")
               : `<div class="empty" style="border:0">${icon("search").value}<p>No requests match this filter.</p></div>`}
           </div>`,
         foot: "Request and response bodies are not stored in developer request logs."
