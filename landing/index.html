@@ -1,37 +1,29 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f6f3ec" />
-    <meta name="description" content="Mere X is an AI research and product company. We build Mere X — a frontier model family engineered for reasoning, safety, and real work." />
-    <meta property="og:title" content="Mere X — Building intelligence that advances humanity" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="Mere X is an AI research and product company. Future forward intelligence — the Mere X model family, engineered for reasoning, safety, and real work." />
+    <meta property="og:title" content="Mere X — Future Forward Intelligence" />
     <meta property="og:description" content="Frontier AI research, the Mere X model family, and a developer platform built for production." />
     <meta property="og:type" content="website" />
+    <meta property="og:image" content="/hero/mere-x-hero-base.webp" />
     <link rel="icon" type="image/png" href="/brand/favicon.png" />
     <link rel="apple-touch-icon" href="/brand/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-    <title>Mere X — Building intelligence that advances humanity</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="preload" as="image" href="/hero/mere-x-hero-base.webp" media="(min-width: 1024px)" />
+    <link rel="preload" as="image" href="/hero/mere-x-hero-reveal.webp" media="(min-width: 1024px)" />
+    <title>Mere X — Future Forward Intelligence</title>
     <script>
       (function () {
         try {
-          var requested = new URLSearchParams(location.search).get("theme");
-          var saved = requested === "dark" || requested === "light"
-            ? requested
-            : (localStorage.getItem("mere-x.theme") || "light");
-          var resolved = saved === "system"
-            ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-            : saved;
-          document.documentElement.dataset.theme = resolved;
-          document.documentElement.dataset.themePreference = saved;
-        } catch (e) {
-          document.documentElement.dataset.theme = "light";
-        }
-        if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          document.documentElement.dataset.motion = "reduced";
-        }
+          if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            document.documentElement.dataset.motion = "reduced";
+          }
+        } catch (e) { /* motion preference is optional */ }
       })();
     </script>
     <script type="module" src="/src/main.js"></script>
@@ -39,7 +31,6 @@
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <div id="app" aria-busy="true"></div>
-    <div class="page-grain" aria-hidden="true"></div>
     <noscript>
       <div style="padding:48px;font-family:system-ui">
         Mere X requires JavaScript to render the platform. Please enable it and reload.

@@ -1,6 +1,6 @@
 /* ============================================================
    ICONS — a single hairline stroke set, 24x24, drawn to sit
-   comfortably next to Outfit at 300 weight.
+   comfortably next to Plus Jakarta Sans at 400 weight.
    ============================================================ */
 
 import { raw } from "./dom.js";
@@ -120,10 +120,59 @@ export function icon(name, className = "icon") {
   );
 }
 
+/* ============================================================
+   COMPOSITION MARKS — the corner brackets, the checkerboard and
+   the wireframe globe that frame the home composition.
+   ============================================================ */
+
+const CORNER_PATHS = {
+  tl: "M0 11.5V0.5H11.5",
+  tr: "M0.5 0.5H11.5V11.5",
+  bl: "M0 0.5V11.5H11.5",
+  br: "M0.5 11.5H11.5V0.5"
+};
+
+/** One L-shaped corner bracket: tl / tr / bl / br. */
+export function cornerMark(pos = "tl", className = "") {
+  return raw(`<svg class="corner corner-${pos} ${className}" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="${CORNER_PATHS[pos] || CORNER_PATHS.tl}"/></svg>`);
+}
+
+/** All four brackets, for a `.framed` container. */
+export function cornerFrame() {
+  return raw(["tl", "tr", "bl", "br"].map((pos) => cornerMark(pos).value).join(""));
+}
+
+/** Checkerboard: four rows of 3.8 squares on a 4.5 pitch, alternate cells filled. */
+export function checkerMark() {
+  let cells = "";
+  for (let row = 0; row < 4; row += 1) {
+    for (let col = 0; col < 8; col += 1) {
+      if ((row + col) % 2) continue;
+      cells += `<rect x="${(col * 4.5).toFixed(2)}" y="${(row * 4.5).toFixed(2)}" width="3.8" height="3.8"/>`;
+    }
+  }
+  return raw(`<svg class="checker" viewBox="0 0 36 18" aria-hidden="true" focusable="false">${cells}</svg>`);
+}
+
+/** Wireframe globe: outer circle, equator, two horizontal and two vertical ellipses, one meridian. */
+export function globeMark() {
+  return raw(`<svg class="globe" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+    <circle cx="32" cy="32" r="28"/>
+    <path d="M4 32h56"/>
+    <ellipse cx="32" cy="32" rx="28" ry="10"/>
+    <ellipse cx="32" cy="32" rx="28" ry="20"/>
+    <g class="spin">
+      <path d="M32 4v56"/>
+      <ellipse cx="32" cy="32" rx="10" ry="28"/>
+      <ellipse cx="32" cy="32" rx="20" ry="28"/>
+    </g>
+  </svg>`);
+}
+
 /** The master Mere X monogram. Its colour is controlled by CSS per theme. */
 export function mereXMark(height = 32) {
-  return raw(`<img class="brand-glyph" src="/brand/mere-x-mark.png" alt=""
-    width="1536" height="1024" style="--glyph-h:${height}px" decoding="async" />`);
+  return raw(`<img class="brand-glyph" src="/brand/mere-x-mark-web.png" alt=""
+    width="960" height="640" style="--glyph-h:${height}px" decoding="async" />`);
 }
 
 /** A crisp text wordmark that remains sharp at every viewport size. */

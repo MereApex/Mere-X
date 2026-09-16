@@ -80,22 +80,22 @@ export default {
               <div>
                 <p class="eyebrow">The gate</p>
                 <h2 style="margin-top:18px;font-size:var(--t-h2)">We have used it.</h2>
-                <p style="margin-top:20px;color:rgba(246,243,236,.66);line-height:1.68;max-width:52ch">
+                <p style="margin-top:20px;color:rgba(255,255,255,.66);line-height:1.68;max-width:52ch">
                   Mere X 5.5 slipped six weeks because a red-team finding on long tool-use chains had no
                   mitigation we were confident in. The finding, the delay, and the eventual fix are all
                   in the system card. A gate that has never been closed is decoration.
                 </p>
                 <div class="row" style="margin-top:26px;gap:18px">
-                  <a class="link" href="/safety/system-cards" style="color:#f6f3ec"><span>Read the system card</span>${icon("arrow-ne", "icon").value}</a>
-                  <a class="link" href="/safety/scaling-policy" style="color:#f6f3ec"><span>The policy</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/safety/system-cards" style="color:#fff"><span>Read the system card</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/safety/scaling-policy" style="color:#fff"><span>The policy</span>${icon("arrow-ne", "icon").value}</a>
                 </div>
               </div>
               <div class="stack stack-2">
                 ${SAFETY_EVALS.map((row) => `
-                  <div style="padding:14px 16px;border:1px solid rgba(246,243,236,.14);border-radius:var(--r-sm)">
+                  <div style="padding:14px 16px;border:1px solid rgba(255,255,255,.14);border-radius:var(--r-sm)">
                     <div class="between" style="gap:14px">
-                      <span class="xs" style="color:rgba(246,243,236,.72);line-height:1.4">${row.name}</span>
-                      <span class="mono" style="font-size:var(--t-sm);color:#f6f3ec">${pct(row.value, 1)}</span>
+                      <span class="xs" style="color:rgba(255,255,255,.72);line-height:1.4">${row.name}</span>
+                      <span class="mono" style="font-size:var(--t-sm);color:#fff">${pct(row.value, 1)}</span>
                     </div>
                   </div>`).join("")}
               </div>

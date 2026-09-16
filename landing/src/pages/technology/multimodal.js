@@ -8,22 +8,22 @@ import { pageHead, sectionHead, textLink, button, codeBlock, ctaBand, calloutBox
 
 const MODALITIES = [
   {
-    icon: "file", title: "Documents", model: "Vision 2 · Apex · Orion",
+    icon: "file", title: "Documents", model: "Iris · Apex · Orion",
     body: "Send a PDF directly — no OCR step, no chunking strategy. The encoder preserves layout, so tables stay tables, footnotes stay attached to their anchors, and page numbers survive into citations.",
     specs: [["Max pages", "3,000"], ["Max size", "512 MB via Files"], ["Formats", "PDF, DOCX, PPTX, XLSX"], ["Layout", "Preserved with coordinates"]]
   },
   {
-    icon: "image", title: "Images", model: "Vision 2 · Apex · Orion · Nyx",
+    icon: "image", title: "Images", model: "Iris · Apex · Orion · Nyx",
     body: "Screenshots, photographs of whiteboards, engineering drawings, medical charts, and hand annotation. The model reads what is written on a diagram, not just what the diagram depicts.",
     specs: [["Max resolution", "8000 × 8000"], ["Images per request", "100"], ["Formats", "PNG, JPEG, WebP, GIF, HEIC"], ["Token cost", "~1,600 per megapixel"]]
   },
   {
-    icon: "wand", title: "Image generation", model: "Vision 2",
+    icon: "wand", title: "Image generation", model: "Iris",
     body: "Generation and targeted editing with instruction-level control. Masked edits change only what you asked for, and the model can read its own output back to check it did.",
     specs: [["Sizes", "Up to 1536 × 1536"], ["Editing", "Masked and instruction-based"], ["Output", "Production-ready images"], ["Typical latency", "2.4 s"]]
   },
   {
-    icon: "wave", title: "Audio", model: "Voice 1",
+    icon: "wave", title: "Audio", model: "Lyra",
     body: "Transcription with word-level timestamps, speech synthesis in eight voices, and a duplex realtime mode that handles interruption the way a person does.",
     specs: [["Transcription", "99 languages"], ["Realtime latency", "290 ms"], ["Max audio", "500 MB"], ["Voices", "8, plus custom on request"]]
   }
@@ -49,8 +49,8 @@ export default {
         eyebrow: "Vision, documents & audio",
         title: "Everything goes in the same message array.",
         lead: "A PDF, a photograph, an audio file, and a question — one request, one model, one billing line. No separate OCR service, no transcription step you have to orchestrate.",
-        actions: `${button({ label: "Vision 2 model card", href: "/technology/models/mere-vision-5-5", icon: "arrow-right" }).value}
-                  ${button({ label: "Voice 1 model card", href: "/technology/models/mere-voice-5-5", variant: "secondary", icon: "wave" }).value}`
+        actions: `${button({ label: "Iris model card", href: "/technology/models/mere-iris", icon: "arrow-right" }).value}
+                  ${button({ label: "Lyra model card", href: "/technology/models/mere-lyra", variant: "secondary", icon: "wave" }).value}`
       }).value}
 
       <section class="section">

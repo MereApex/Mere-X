@@ -125,7 +125,7 @@
 }
 .metric:hover { border-color: var(--line-strong); box-shadow: var(--shadow-sm); }
 .metric-label { font-size: var(--t-2xs); text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
-.metric-value { font-size: 1.85rem; font-weight: 300; letter-spacing: -0.032em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.metric-value { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; letter-spacing: 0.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
 .metric-value small { font-size: 0.5em; color: var(--muted); margin-left: 3px; }
 .metric-delta { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-2xs); font-family: var(--font-mono); }
 .metric-delta.up { color: var(--positive); }
@@ -173,8 +173,8 @@
   display: flex; align-items: center; gap: 10px;
   padding: 14px 16px;
   border-radius: var(--r-sm);
-  background: #14140f;
-  color: #ded9cd;
+  background: #000000;
+  color: #e5e7eb;
   font-family: var(--font-mono);
   font-size: var(--t-xs);
   word-break: break-all;
@@ -207,7 +207,7 @@
   background: var(--paper-sunken);
   color: var(--muted);
 }
-.pg-msg.assistant .pg-role { background: #111110; color: #f6f3ec; border-color: transparent; }
+.pg-msg.assistant .pg-role { background: #000000; color: #ffffff; border-color: transparent; }
 .pg-bubble { font-size: var(--t-sm); line-height: 1.62; color: var(--ink-2); padding-top: 3px; min-width: 0; }
 .pg-bubble p + p { margin-top: 0.8em; }
 .pg-bubble strong { color: var(--ink); font-weight: 500; }
@@ -294,7 +294,7 @@
   transition: color var(--d-fast) var(--ease-out), background var(--d-fast) var(--ease-out);
 }
 .docs-nav a:hover { color: var(--ink); background: var(--paper-sunken); }
-.docs-nav a.is-active { color: var(--ink); background: var(--paper-sunken); font-weight: 400; box-shadow: inset 2px 0 0 var(--ink); }
+.docs-nav a.is-active { color: var(--ink); background: var(--paper-sunken); font-weight: 600; box-shadow: inset 2px 0 0 var(--ink); }
 
 .docs-toc { position: sticky; top: calc(var(--nav-h) + 20px); font-size: var(--t-xs); }
 .docs-toc-title { font-size: var(--t-2xs); text-transform: uppercase; letter-spacing: 0.11em; color: var(--faint); margin-bottom: 10px; font-weight: 500; }

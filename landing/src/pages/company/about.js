@@ -158,22 +158,22 @@ export default {
               <div>
                 <p class="eyebrow">Structure</p>
                 <h2 style="margin-top:18px;font-size:var(--t-h2)">A public benefit corporation, with a long-term trust.</h2>
-                <p style="margin-top:20px;color:rgba(246,243,236,.66);line-height:1.68;max-width:52ch">
+                <p style="margin-top:20px;color:rgba(255,255,255,.66);line-height:1.68;max-width:52ch">
                   Mere X is incorporated as a public benefit corporation, which obliges the board to
                   weigh the mission alongside shareholder return. A separate long-term benefit trust
                   holds a class of shares with the right to appoint a minority of directors — a structural
                   brake that does not depend on any individual continuing to care.
                 </p>
                 <div class="row" style="margin-top:26px;gap:18px">
-                  <a class="link" href="/safety" style="color:#f6f3ec"><span>Our safety approach</span>${icon("arrow-ne", "icon").value}</a>
-                  <a class="link" href="/company/trust" style="color:#f6f3ec"><span>Trust centre</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/safety" style="color:#fff"><span>Our safety approach</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/company/trust" style="color:#fff"><span>Trust centre</span>${icon("arrow-ne", "icon").value}</a>
                 </div>
               </div>
               <div class="grid g-2" style="gap:12px">
                 ${[["PBC", "Corporate form"], ["Trust", "Appoints directors"], ["$1.4B", "Series C, March 2026"], ["100%", "Employees hold equity"]].map(([v, l]) => `
-                  <div style="padding:18px;border:1px solid rgba(246,243,236,.14);border-radius:var(--r-md)">
+                  <div style="padding:18px;border:1px solid rgba(255,255,255,.14);border-radius:var(--r-md)">
                     <div style="font-size:1.5rem;font-weight:300;letter-spacing:-.03em">${v}</div>
-                    <div class="xs" style="color:rgba(246,243,236,.5);margin-top:3px">${l}</div>
+                    <div class="xs" style="color:rgba(255,255,255,.5);margin-top:3px">${l}</div>
                   </div>`).join("")}
               </div>
             </div>

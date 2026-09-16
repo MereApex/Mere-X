@@ -21,7 +21,7 @@ export function toast(message, { icon: name = "check", duration = 2800 } = {}) {
   const host = ensureStack();
   const node = document.createElement("div");
   node.className = "toast";
-  node.innerHTML = icon(name).value;
+  node.innerHTML = icon(name, name === "check" ? "icon" : "icon icon-alert").value;
   const copy = document.createElement("span");
   copy.textContent = String(message ?? "");
   node.append(copy);

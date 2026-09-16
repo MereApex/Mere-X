@@ -9,6 +9,7 @@ import { MODELS } from "../data/models.js";
 import { PUBLICATIONS, NEWS, RECIPES, CAREERS, CONNECTORS } from "../data/content.js";
 import { icon } from "../lib/icons.js";
 import { pageHead } from "../components/ui.js";
+import { onLeave } from "../lib/router.js";
 
 /* Flatten everything searchable into one index. */
 function buildIndex() {
@@ -135,7 +136,7 @@ function renderResults(query) {
 
 export default {
   title: "Search",
-  description: "Search everything on mere-x.com — docs, models, research, and the console.",
+  description: "Search everything on merex.ai — docs, models, research, and the console.",
 
   render(ctx) {
     const query = (ctx.query.get("q") || "").trim();
@@ -194,7 +195,10 @@ export default {
       if (event.key === "Escape") { input.value = ""; run(""); }
     };
     document.addEventListener("keydown", onKey);
-    import("../lib/router.js").then(({ onLeave }) => onLeave(() => document.removeEventListener("keydown", onKey)));
+    onLeave(() => {
+      clearTimeout(timer);
+      document.removeEventListener("keydown", onKey);
+    });
 
     input.focus();
   }

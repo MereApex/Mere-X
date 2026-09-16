@@ -13,10 +13,10 @@ export const COMPANY = {
   mission:
     "Mere X exists to make advanced AI a dependable part of human work — capable enough to matter, and understood well enough to trust.",
   model: "Mere X",
-  email: "hello@mere-x.com",
-  press: "press@mere-x.com",
-  security: "security@mere-x.com",
-  support: "support@mere-x.com"
+  email: "hello@merex.ai",
+  press: "press@merex.ai",
+  security: "security@merex.ai",
+  support: "support@merex.ai"
 };
 
 export const NAV = [
@@ -132,8 +132,8 @@ export const FOOTER = [
       { label: "Mere Apex 5.5", href: "/technology/models/mere-apex-5-5" },
       { label: "Mere Orion 5.5", href: "/technology/models/mere-orion-5-5" },
       { label: "Mere Nyx 5.5", href: "/technology/models/mere-nyx-5-5" },
-      { label: "Mere Vision 5.5", href: "/technology/models/mere-vision-5-5" },
-      { label: "Mere Voice 5.5", href: "/technology/models/mere-voice-5-5" },
+      { label: "Mere Iris", href: "/technology/models/mere-iris" },
+      { label: "Mere Lyra", href: "/technology/models/mere-lyra" },
       { label: "Benchmarks", href: "/technology/benchmarks" }
     ]
   },

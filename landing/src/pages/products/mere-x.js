@@ -4,9 +4,7 @@
 
 import { MODES } from "../../data/models.js";
 import { CONNECTORS, FAQ } from "../../data/content.js";
-import { icon } from "../../lib/icons.js";
-import { mereXOrb } from "../../components/orb.js";
-import { initOrbParallax } from "../../lib/motion.js";
+import { icon, cornerFrame } from "../../lib/icons.js";
 import { sectionHead, textLink, button, ctaBand, accordion } from "../../components/ui.js";
 
 const SURFACES = [
@@ -56,7 +54,11 @@ export default {
               </div>
               <p class="xs muted" style="margin-top:20px">No card required. Free forever on Mere Nyx 5.5.</p>
             </div>
-            ${mereXOrb({ label: "Mere X 5.5 · Studio" }).value}
+            <div class="hero-still" data-reveal="fade">
+              ${cornerFrame().value}
+              <div class="hero-still-img" style="background-image:url('/hero/mere-x-hero-reveal.webp')" role="img" aria-label="Mere X Studio"></div>
+              <span class="hero-still-caption">Mere X 5.5 · Studio</span>
+            </div>
           </div>
         </div>
       </section>
@@ -131,21 +133,21 @@ export default {
               <div>
                 <p class="eyebrow">Privacy</p>
                 <h2 style="margin-top:18px;font-size:var(--t-h2)">Your conversations are not training data.</h2>
-                <p style="margin-top:20px;color:rgba(246,243,236,.66);line-height:1.68;max-width:52ch">
+                <p style="margin-top:20px;color:rgba(255,255,255,.66);line-height:1.68;max-width:52ch">
                   Not by default, not with an obscure toggle buried three settings deep. Contributing
                   conversations to training is opt-in, revocable, and revoking removes the data from
                   future runs. API traffic is excluded entirely, with no opt-in available.
                 </p>
                 <div class="row" style="margin-top:28px;gap:18px">
-                  <a class="link" href="/legal/privacy" style="color:#f6f3ec"><span>Privacy policy</span>${icon("arrow-ne", "icon").value}</a>
-                  <a class="link" href="/company/trust" style="color:#f6f3ec"><span>Trust centre</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/legal/privacy" style="color:#fff"><span>Privacy policy</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/company/trust" style="color:#fff"><span>Trust centre</span>${icon("arrow-ne", "icon").value}</a>
                 </div>
               </div>
               <div class="grid g-2" style="gap:12px">
                 ${[["Opt-in", "Training contribution"], ["30 days", "Default retention"], ["0 days", "Zero-retention mode"], ["Any time", "Delete everything"]].map(([v, l]) => `
-                  <div style="padding:18px;border:1px solid rgba(246,243,236,.14);border-radius:var(--r-md)">
+                  <div style="padding:18px;border:1px solid rgba(255,255,255,.14);border-radius:var(--r-md)">
                     <div style="font-size:1.4rem;font-weight:300;letter-spacing:-.02em">${v}</div>
-                    <div class="xs" style="color:rgba(246,243,236,.5);margin-top:3px">${l}</div>
+                    <div class="xs" style="color:rgba(255,255,255,.5);margin-top:3px">${l}</div>
                   </div>`).join("")}
               </div>
             </div>
@@ -181,10 +183,5 @@ export default {
         secondary: { label: "Mere X for Work", href: "/products/work" }
       }).value}
     `;
-  },
-
-  mount(root) {
-    const stop = initOrbParallax(root);
-    import("../../lib/router.js").then(({ onLeave }) => onLeave(stop));
   }
 };

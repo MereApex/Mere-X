@@ -135,20 +135,20 @@ export default {
               <div>
                 <p class="eyebrow">Open</p>
                 <h2 style="margin-top:18px;font-size:var(--t-h2)">The tooling is public, not just the papers.</h2>
-                <p style="margin-top:20px;color:rgba(246,243,236,.66);line-height:1.68;max-width:52ch">
+                <p style="margin-top:20px;color:rgba(255,255,255,.66);line-height:1.68;max-width:52ch">
                   Our circuit-tracing library, the attribution-graph viewer, 1,400 annotated circuits, and the
                   evaluation harness are all open source. A method nobody else can run is a claim, not a result.
                 </p>
                 <div class="row" style="margin-top:26px;gap:18px">
-                  <a class="link" href="/research/interpretability" style="color:#f6f3ec"><span>Interpretability tooling</span>${icon("arrow-ne", "icon").value}</a>
-                  <a class="link" href="/docs/cookbook" style="color:#f6f3ec"><span>Evaluation harness</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/research/interpretability" style="color:#fff"><span>Interpretability tooling</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/docs/cookbook" style="color:#fff"><span>Evaluation harness</span>${icon("arrow-ne", "icon").value}</a>
                 </div>
               </div>
               <div class="grid g-2" style="gap:12px">
                 ${[["1,400", "Annotated circuits"], ["Open", "Tracing library"], ["8", "Public eval suites"], ["41", "Publications"]].map(([v, l]) => `
-                  <div style="padding:18px;border:1px solid rgba(246,243,236,.14);border-radius:var(--r-md)">
+                  <div style="padding:18px;border:1px solid rgba(255,255,255,.14);border-radius:var(--r-md)">
                     <div style="font-size:1.5rem;font-weight:300;letter-spacing:-.03em">${v}</div>
-                    <div class="xs" style="color:rgba(246,243,236,.5);margin-top:3px">${l}</div>
+                    <div class="xs" style="color:rgba(255,255,255,.5);margin-top:3px">${l}</div>
                   </div>`).join("")}
               </div>
             </div>

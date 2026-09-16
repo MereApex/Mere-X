@@ -8,6 +8,7 @@ import { RECIPES, PROMPT_PATTERNS } from "../data/content.js";
 import { icon } from "../lib/icons.js";
 import { slugify } from "../lib/format.js";
 import { codeBlock, dataTable, calloutBox, textLink, ctaBand, button } from "../components/ui.js";
+import { onLeave } from "../lib/router.js";
 
 /* ---------- block renderer ---------- */
 
@@ -53,7 +54,7 @@ function renderApiReference() {
   return `
     <h1>API reference</h1>
     <p class="lead" style="margin-bottom:26px">
-      Base URL <code class="inline">https://api.mere-x.com</code>. Every request needs an
+      Base URL <code class="inline">https://api.merex.ai</code>. Every request needs an
       <code class="inline">x-api-key</code> header and a <code class="inline">mere-x-version</code> header.
     </p>
 
@@ -388,6 +389,6 @@ export default {
     }, { rootMargin: "-80px 0px -70% 0px", threshold: 0 });
 
     targets.forEach((target) => observer.observe(target));
-    import("../lib/router.js").then(({ onLeave }) => onLeave(() => observer.disconnect()));
+    onLeave(() => observer.disconnect());
   }
 };

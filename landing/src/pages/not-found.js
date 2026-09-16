@@ -3,7 +3,7 @@ import { icon } from "../lib/icons.js";
 
 export default {
   title: "Page not found",
-  description: "That page does not exist on mere-x.com.",
+  description: "That page does not exist on merex.ai.",
   render(ctx) {
     return `
       ${pageHead({

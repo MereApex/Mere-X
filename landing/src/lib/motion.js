@@ -1,5 +1,5 @@
 /* ============================================================
-   MOTION — scroll reveal, counters, parallax, magnetism, tilt.
+   MOTION — scroll reveal, counters, parallax, magnetism.
    Every effect degrades to "no motion" when the user asks for it.
    ============================================================ */
 
@@ -77,52 +77,6 @@ export function animateCount(node) {
   requestAnimationFrame(step);
 }
 
-/** Pointer-following spotlight for `.card-spot`. */
-export function initSpotlights(scope = document) {
-  if (reduced()) return () => {};
-  const handler = (event) => {
-    const card = event.target instanceof Element ? event.target.closest(".card-spot") : null;
-    if (!card) return;
-    const rect = card.getBoundingClientRect();
-    card.style.setProperty("--mx", `${((event.clientX - rect.left) / rect.width) * 100}%`);
-    card.style.setProperty("--my", `${((event.clientY - rect.top) / rect.height) * 100}%`);
-  };
-  scope.addEventListener("pointermove", handler, { passive: true });
-  return () => scope.removeEventListener("pointermove", handler);
-}
-
-/** Subtle parallax + 3D tilt for the hero orb. */
-export function initOrbParallax(root) {
-  const orb = root.querySelector("[data-orb]");
-  if (!orb || reduced()) return () => {};
-
-  let raf = 0;
-  let targetX = 0;
-  let targetY = 0;
-  let x = 0;
-  let y = 0;
-
-  const onMove = (event) => {
-    const rect = orb.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    targetX = Math.max(-1, Math.min(1, (event.clientX - cx) / (window.innerWidth / 2)));
-    targetY = Math.max(-1, Math.min(1, (event.clientY - cy) / (window.innerHeight / 2)));
-    if (!raf) raf = requestAnimationFrame(tick);
-  };
-
-  const tick = () => {
-    x += (targetX - x) * 0.06;
-    y += (targetY - y) * 0.06;
-    orb.style.transform = `rotateY(${x * 9}deg) rotateX(${-y * 7}deg) translate3d(${x * 10}px, ${y * 8}px, 0)`;
-    if (Math.abs(targetX - x) > 0.001 || Math.abs(targetY - y) > 0.001) raf = requestAnimationFrame(tick);
-    else raf = 0;
-  };
-
-  window.addEventListener("pointermove", onMove, { passive: true });
-  return () => { window.removeEventListener("pointermove", onMove); if (raf) cancelAnimationFrame(raf); };
-}
-
 /** Slight scroll-linked drift for anything with [data-parallax="0.2"]. */
 export function initScrollParallax(root) {
   if (reduced()) return () => {};
@@ -174,50 +128,6 @@ export function initMagnetic(root) {
     };
   });
   return () => cleanups.forEach((fn) => fn());
-}
-
-/** The soft light that trails the cursor across the page. */
-export function initCursorGlow() {
-  if (reduced() || matchMedia("(pointer: coarse)").matches) return () => {};
-  const glow = document.createElement("div");
-  glow.className = "cursor-glow";
-  document.body.append(glow);
-
-  let raf = 0;
-  let tx = 0; let ty = 0; let cx = 0; let cy = 0;
-  const move = (event) => {
-    tx = event.clientX; ty = event.clientY;
-    glow.classList.add("is-on");
-    if (!raf) raf = requestAnimationFrame(tick);
-  };
-  const tick = () => {
-    cx += (tx - cx) * 0.09;
-    cy += (ty - cy) * 0.09;
-    glow.style.transform = `translate3d(${cx}px, ${cy}px, 0)`;
-    raf = Math.abs(tx - cx) > 0.4 || Math.abs(ty - cy) > 0.4 ? requestAnimationFrame(tick) : 0;
-  };
-  const leave = () => glow.classList.remove("is-on");
-
-  window.addEventListener("pointermove", move, { passive: true });
-  document.addEventListener("pointerleave", leave);
-  return () => {
-    window.removeEventListener("pointermove", move);
-    document.removeEventListener("pointerleave", leave);
-    if (raf) cancelAnimationFrame(raf);
-    glow.remove();
-  };
-}
-
-/** Split a heading into per-word spans that rise in sequence. */
-export function splitWords(node, step = 55, offset = 90, accent = null) {
-  if (!node) return;
-  const words = node.textContent.trim().split(/\s+/);
-  node.innerHTML = words
-    .map((word, index) => {
-      const isAccent = accent && word.replace(/[^A-Za-z]/g, "").toLowerCase() === accent.toLowerCase();
-      return `<span class="word" style="--wd:${offset + index * step}ms">${isAccent ? `<span class="hl">${word}</span>` : word}</span>`;
-    })
-    .join(" ");
 }
 
 /** Type a string into a node, resolving when finished. */

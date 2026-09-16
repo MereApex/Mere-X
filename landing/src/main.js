@@ -7,14 +7,14 @@
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/components.css";
+import "./styles/shell.css";
 import "./styles/site.css";
-import "./styles/hero-cinematic.css";
 import "./styles/console.css";
 
 import { renderNav, mountNav } from "./components/nav.js";
 import { renderFooter } from "./components/footer.js";
 import { route, fallback, start, onNavigate } from "./lib/router.js";
-import { initReveal, initSpotlights, initCursorGlow, initMagnetic, initScrollParallax } from "./lib/motion.js";
+import { initReveal, initMagnetic, initScrollParallax } from "./lib/motion.js";
 import { mountCodeBlocks, mountAccordions } from "./components/ui.js";
 import { hydrateConsole } from "./lib/store.js";
 
@@ -31,6 +31,15 @@ app.innerHTML = `
 app.removeAttribute("aria-busy");
 
 mountNav(app);
+
+/* The home composition fills exactly one viewport beneath the header,
+   so the header's rendered height is published as a custom property. */
+const header = app.querySelector("#siteNav");
+const publishHeaderHeight = () => {
+  document.documentElement.style.setProperty("--header-h", `${header.offsetHeight}px`);
+};
+window.addEventListener("resize", publishHeaderHeight, { passive: true });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(publishHeaderHeight);
 
 /* ------------------------------------------------------------
    Routes
@@ -114,12 +123,20 @@ fallback(() => import("./pages/not-found.js"));
    ------------------------------------------------------------ */
 const main = document.getElementById("main");
 let pageCleanups = [];
+let motionFrame = 0;
 
-onNavigate(() => {
+onNavigate((ctx) => {
+  document.body.dataset.route = ctx.path === "/" ? "home" : "page";
+  publishHeaderHeight();
+
   pageCleanups.forEach((fn) => { try { fn(); } catch { /* ignore */ } });
   pageCleanups = [];
 
-  requestAnimationFrame(() => {
+  // A navigation that lands before the previous frame fires must not
+  // arm motion against a view that has already been replaced.
+  if (motionFrame) cancelAnimationFrame(motionFrame);
+  motionFrame = requestAnimationFrame(() => {
+    motionFrame = 0;
     pageCleanups.push(initReveal(main));
     pageCleanups.push(initScrollParallax(main));
     pageCleanups.push(initMagnetic(main));
@@ -128,7 +145,7 @@ onNavigate(() => {
   });
 });
 
-initSpotlights(document);
-initCursorGlow();
+document.body.dataset.route = location.pathname.replace(/\/+$/, "") === "" ? "home" : "page";
+publishHeaderHeight();
 
 start({ mount: main, progress: document.getElementById("routeProgress") });

@@ -1,7 +1,5 @@
-const THEME_STORAGE_KEY = "mere-x.theme";
 const PLAN_PRICES = Object.freeze({ Free: "0.00", Starter: "9.99", Plus: "19.99", Pro: "39.99", Max: "79.99" });
 
-const themeToggle = document.querySelector("#themeToggle");
 const currentPlanChip = document.querySelector("#currentPlanChip");
 const pricingToast = document.querySelector("#pricingToast");
 const pricingToastText = document.querySelector("#pricingToastText");
@@ -119,7 +117,7 @@ async function setupCardFields() {
   if (!window.paypal.CardFields) return;
   cardFields = window.paypal.CardFields({
     style: {
-      input: { "font-family": "Outfit, sans-serif", "font-size": "15px", color: document.documentElement.dataset.theme === "dark" ? "#f1ede4" : "#151510" },
+      input: { "font-family": "'Plus Jakarta Sans', sans-serif", "font-size": "15px", color: "#000000" },
       ".invalid": { color: "#b72b2b" }
     },
     createOrder: async () => createOrder(),
@@ -278,14 +276,6 @@ cardCheckout.addEventListener("submit", async (event) => {
   setCheckoutStatus("Submitting your card securely…");
   try { await cardFields.submit(); } catch (error) { setCheckoutStatus(error.message || "Check your card details and try again.", "error"); }
   finally { button.disabled = false; }
-});
-
-themeToggle.addEventListener("click", () => {
-  const nextTheme = document.documentElement.dataset.theme === "dark" ? "cream" : "dark";
-  document.documentElement.dataset.theme = nextTheme;
-  document.documentElement.dataset.themePreference = nextTheme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", nextTheme === "dark" ? "#151613" : "#f7f4ee");
-  try { localStorage.setItem(THEME_STORAGE_KEY, nextTheme); } catch { /* theme can remain session-only */ }
 });
 
 async function initialize() {

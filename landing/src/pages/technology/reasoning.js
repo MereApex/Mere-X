@@ -6,6 +6,7 @@ import { MODES } from "../../data/models.js";
 import { icon } from "../../lib/icons.js";
 import { moveSegThumb } from "../../lib/motion.js";
 import { pageHead, sectionHead, textLink, button, codeBlock, ctaBand, calloutBox, accordion } from "../../components/ui.js";
+import { onLeave } from "../../lib/router.js";
 
 const DETAIL = {
   Fast: {
@@ -149,7 +150,7 @@ print(message.content[0].text)         # the answer`,
 console.log(message.usage.thinking_tokens);
 console.log(message.thinking.summary);
 console.log(message.content[0].text);`,
-                cURL: `curl https://api.mere-x.com/v1/messages \\
+                cURL: `curl https://api.merex.ai/v1/messages \\
   -H "x-api-key: $MERE_X_API_KEY" \\
   -H "mere-x-version: 2026-06-18" \\
   -d '{
@@ -247,7 +248,12 @@ console.log(message.content[0].text);`,
     });
 
     paint("Medium");
-    requestAnimationFrame(() => moveSegThumb(seg));
-    window.addEventListener("resize", () => moveSegThumb(seg), { passive: true });
+    const thumbFrame = requestAnimationFrame(() => moveSegThumb(seg));
+    const onResize = () => moveSegThumb(seg);
+    window.addEventListener("resize", onResize, { passive: true });
+    onLeave(() => {
+      cancelAnimationFrame(thumbFrame);
+      window.removeEventListener("resize", onResize);
+    });
   }
 };

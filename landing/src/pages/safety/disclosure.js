@@ -147,7 +147,7 @@ Credit
 
 mQINBGa1xQ0BEADQ7vK9mF2xJnT8pR4wYcL6dHsA1oE3bN5uZqW0kXfV9jGtMpRy
 ... (truncated for display — download the full key from
-    https://mere-x.com/.well-known/security.txt)
+    https://merex.ai/.well-known/security.txt)
 
 Fingerprint:
   8F2A 41C9 B7E0 4D3B  A651 2CF0 E93D 7A18 4B22 9E60

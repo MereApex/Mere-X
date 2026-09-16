@@ -7,6 +7,7 @@ import { icon } from "../lib/icons.js";
 import { money, dateShort } from "../lib/format.js";
 import { consoleShell, panel, metric } from "./shell.js";
 import { dataTable, calloutBox } from "../components/ui.js";
+import { onLeave } from "../lib/router.js";
 
 export default {
   title: "Billing",
@@ -80,6 +81,6 @@ export default {
     };
     apply();
     window.addEventListener("resize", apply, { passive: true });
-    import("../lib/router.js").then(({ onLeave }) => onLeave(() => window.removeEventListener("resize", apply)));
+    onLeave(() => window.removeEventListener("resize", apply));
   }
 };

@@ -1,9 +1,8 @@
 /* ============================================================
-   FOOTER — sitemap, status pill, legal, oversized wordmark
+   FOOTER — sitemap, status, legal, and the outlined wordmark
    ============================================================ */
 
 import { FOOTER, LEGAL_LINKS, COMPANY } from "../data/site.js";
-import { icon, mereXMark, mereXWordmark } from "../lib/icons.js";
 
 export function renderFooter() {
   const year = new Date().getFullYear();
@@ -12,19 +11,13 @@ export function renderFooter() {
       <div class="shell shell-wide">
         <div class="footer-top">
           <div>
-            <a class="brand" href="/" style="margin-bottom:18px">
-              <span class="brand-mark">${mereXMark(30).value}</span><span class="brand-word">${mereXWordmark(15).value}</span><span class="sr-only">Mere X</span>
+            <a class="brand" href="/" aria-label="Mere X home" style="font-size:clamp(1.1rem,0.8vw+0.8rem,1.5rem)">
+              <span>MERE X</span><span class="brand-deg" aria-hidden="true">˚</span>
             </a>
-            <p class="small muted measure-sm" style="max-width:34ch">${COMPANY.mission}</p>
-            <a class="badge badge-plain" href="/status" style="margin-top:20px;gap:8px">
+            <p class="footer-mission">${COMPANY.mission}</p>
+            <a class="badge" href="/status" style="margin-top:20px;gap:8px">
               <span class="dot dot-live"></span> All systems operational
             </a>
-            <div class="row row-tight" style="margin-top:22px">
-              <a class="icon-btn" href="/company/contact" aria-label="Contact">${icon("mail").value}</a>
-              <a class="icon-btn" href="/changelog" aria-label="Changelog">${icon("list").value}</a>
-              <a class="icon-btn" href="/docs" aria-label="Documentation">${icon("book").value}</a>
-              <a class="icon-btn" href="/console" aria-label="Console">${icon("terminal").value}</a>
-            </div>
           </div>
           ${FOOTER.map((col) => `
             <div class="footer-col">
@@ -36,9 +29,9 @@ export function renderFooter() {
         <div class="footer-word" aria-hidden="true">Mere X</div>
 
         <div class="footer-bottom">
-          <span>© ${year} ${COMPANY.name}, PBC · ${COMPANY.hq}</span>
+          <span>Mere X © ${year} — Future Forward Intelligence</span>
           <div class="row row-tight">
-            ${LEGAL_LINKS.map((link) => `<a href="${link.href}" class="link-plain">${link.label}</a>`).join('<span class="nav-sep"></span>')}
+            ${LEGAL_LINKS.map((link) => `<a href="${link.href}" class="link-plain">${link.label}</a>`).join('<span class="nav-sep" aria-hidden="true">|</span>')}
           </div>
         </div>
       </div>

@@ -125,7 +125,7 @@ export const NEWS = [
   { date: "2026-07-30", kind: "Safety", title: "Mere X 5.5 system card, second revision", summary: "Updated with post-launch evaluation data, three newly discovered failure modes, and the mitigations shipped for each." },
   { date: "2026-07-14", kind: "Product", title: "Connectors reaches 80 integrations", summary: "Databricks, Snowflake, and ServiceNow join the directory, alongside a public MCP connector specification." },
   { date: "2026-06-18", kind: "Product", title: "Mere X 5.5 is here", summary: "Apex, Orion, and Nyx ship together with a million-token context window, DEEP reasoning, and a rebuilt agent stack." },
-  { date: "2026-05-14", kind: "Product", title: "Mere Voice 5.5 enters general availability", summary: "Sub-300 ms duplex speech with the same tool-calling surface as the text models." },
+  { date: "2026-05-14", kind: "Product", title: "Mere Lyra enters general availability", summary: "Sub-300 ms duplex speech with the same tool-calling surface as the text models." },
   { date: "2026-04-22", kind: "Research", title: "We are releasing our circuit-tracing tooling", summary: "The attribution-graph tooling behind our interpretability work is now open source, with 1,400 annotated circuits." },
   { date: "2026-03-03", kind: "Company", title: "Series C: $1.4B to scale training and safety", summary: "The round funds our next training cluster and doubles the size of the evaluation organisation." }
 ];
@@ -133,7 +133,7 @@ export const NEWS = [
 export const CUSTOMERS = [
   { name: "Northwind Health", sector: "Healthcare", quote: "Clinical documentation that used to take our physicians ninety minutes a day now takes eleven. The part that mattered was Mere X knowing when to leave a field blank.", person: "Dr. Marta Kovač, Chief Medical Information Officer", metric: "87%", metricLabel: "reduction in documentation time" },
   { name: "Aster Financial", sector: "Financial services", quote: "We run every draft disclosure through Apex in DEEP mode before it reaches counsel. It has caught inconsistencies our own review process missed for years.", person: "Julian Reyes, Head of Regulatory Reporting", metric: "3.2×", metricLabel: "faster filing cycle" },
-  { name: "Helios Robotics", sector: "Manufacturing", quote: "Vision 2 reads our technicians' hand-annotated schematics. That was the blocker for eighteen months, and it stopped being one in a weekend.", person: "Anke Lindholm, VP Engineering", metric: "94%", metricLabel: "schematic extraction accuracy" },
+  { name: "Helios Robotics", sector: "Manufacturing", quote: "Iris reads our technicians' hand-annotated schematics. That was the blocker for eighteen months, and it stopped being one in a weekend.", person: "Anke Lindholm, VP Engineering", metric: "94%", metricLabel: "schematic extraction accuracy" },
   { name: "Larkspur Legal", sector: "Legal", quote: "A million tokens means the whole matter fits. No chunking strategy, no retrieval tuning, no arguing about what got left out.", person: "Devon Marsh, Partner", metric: "1M", metricLabel: "token matters, single pass" },
   { name: "Quillon Media", sector: "Media", quote: "Nyx sits in the editing surface and never makes anyone wait. Orion does the heavy passes overnight on the Batch API at half price.", person: "Ravi Chandrasekar, CTO", metric: "$0.31", metricLabel: "cost per finished article" },
   { name: "Orbital Freight", sector: "Logistics", quote: "The agent stack handles exception routing end to end — reads the email, checks the manifest, calls the carrier API, and escalates when it genuinely should.", person: "Ingrid Halvorsen, Director of Operations", metric: "61%", metricLabel: "exceptions resolved without a human" }
@@ -192,7 +192,7 @@ export const CHANGELOG = [
     { kind: "deprecated", text: "Mere 5.0 models enter legacy support; retirement 18 March 2027." }
   ]},
   { date: "2026-05-14", version: "Voice", items: [
-    { kind: "added", text: "Mere Voice 5.5 reaches general availability with the realtime sessions endpoint." }
+    { kind: "added", text: "Mere Lyra reaches general availability with the realtime sessions endpoint." }
   ]}
 ];
 
@@ -230,7 +230,7 @@ export const RECIPES = [
   { slug: "long-context", icon: "layers", title: "Working a million-token corpus", time: "15 min", level: "Intermediate", summary: "Load an entire repository or case file, cache the prefix, and query it cheaply.", langs: ["Python", "TypeScript"] },
   { slug: "agent-loop", icon: "orbit", title: "A durable agent loop", time: "35 min", level: "Advanced", summary: "Long-horizon agents with context compaction, checkpoints, and resumption after failure.", langs: ["Python", "TypeScript"] },
   { slug: "batch-pipeline", icon: "package", title: "Half-price batch pipelines", time: "12 min", level: "Intermediate", summary: "Classify a million records overnight and stream results back as they finish.", langs: ["Python"] },
-  { slug: "vision-documents", icon: "image", title: "Reading scanned documents", time: "14 min", level: "Intermediate", summary: "Feed PDFs and photographs to Vision 2 and get back structured, layout-aware output.", langs: ["Python", "TypeScript"] },
+  { slug: "vision-documents", icon: "image", title: "Reading scanned documents", time: "14 min", level: "Intermediate", summary: "Feed PDFs and photographs to Iris and get back structured, layout-aware output.", langs: ["Python", "TypeScript"] },
   { slug: "voice-agent", icon: "wave", title: "A voice agent that can act", time: "40 min", level: "Advanced", summary: "Realtime speech with interruption handling and the same tool schema as your text agent.", langs: ["TypeScript"] },
   { slug: "evals", icon: "gauge", title: "Evaluating your own prompts", time: "25 min", level: "Intermediate", summary: "Build a small eval harness with Mere X as a graded judge, and keep it honest.", langs: ["Python"] }
 ];

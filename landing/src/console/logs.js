@@ -8,6 +8,7 @@ import { nf, compact, dateTime, relative, ms } from "../lib/format.js";
 import { copyText, escapeHtml } from "../lib/dom.js";
 import { toast } from "../lib/toast.js";
 import { consoleShell, panel, metric } from "./shell.js";
+import { navigate, onLeave } from "../lib/router.js";
 
 const statusColor = (status) => status < 400 ? "var(--positive)" : status === 429 ? "var(--warning)" : "var(--danger)";
 
@@ -117,7 +118,6 @@ export default {
 
       const filterButton = event.target.closest("[data-filter]");
       if (filterButton) {
-        const { navigate } = await import("../lib/router.js");
         navigate(`/console/logs?status=${filterButton.dataset.filter}`, { scroll: false });
         return;
       }
@@ -143,12 +143,11 @@ export default {
     });
 
     const search = root.querySelector("[data-search]");
+    let timer = 0;
     if (search) {
-      let timer = 0;
       search.addEventListener("input", () => {
         clearTimeout(timer);
-        timer = setTimeout(async () => {
-          const { navigate } = await import("../lib/router.js");
+        timer = setTimeout(() => {
           const params = new URLSearchParams(location.search);
           if (search.value) params.set("q", search.value); else params.delete("q");
           navigate(`/console/logs?${params.toString()}`, { scroll: false, replace: true });
@@ -156,5 +155,6 @@ export default {
         }, 320);
       });
     }
+    onLeave(() => clearTimeout(timer));
   }
 };

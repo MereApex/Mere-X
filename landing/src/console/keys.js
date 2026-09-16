@@ -12,7 +12,7 @@ import { copyText, escapeHtml } from "../lib/dom.js";
 import { toast, modal } from "../lib/toast.js";
 import { consoleShell, panel } from "./shell.js";
 import { codeBlock } from "../components/ui.js";
-import { refresh } from "../lib/router.js";
+import { refresh, onLeave } from "../lib/router.js";
 
 const SCOPES = [
   { id: "messages", label: "Messages", desc: "Use the authenticated chat endpoint" },
@@ -124,7 +124,7 @@ export default {
       toast(ok ? "Key copied" : "Could not copy — select the key manually", { icon: ok ? "check" : "alert" });
     };
     document.addEventListener("click", copyNewKey);
-    import("../lib/router.js").then(({ onLeave }) => onLeave(() => document.removeEventListener("click", copyNewKey)));
+    onLeave(() => document.removeEventListener("click", copyNewKey));
 
     root.addEventListener("click", async (event) => {
       if (event.target.closest("[data-new-key]")) {

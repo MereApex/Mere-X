@@ -134,13 +134,13 @@ export default {
                 ["Guard (out)", "Output classification", "shield"],
                 ["Stream", "SSE to your client", "activity"]
               ].map(([title, body, ic], index, arr) => `
-                <div style="padding:20px 18px;border-right:${index === arr.length - 1 ? "0" : "1px solid rgba(246,243,236,.12)"}">
-                  <div style="color:rgba(246,243,236,.55);margin-bottom:12px">${icon(ic).value}</div>
-                  <div style="font-size:var(--t-sm);color:#f6f3ec">${title}</div>
-                  <div class="xs" style="color:rgba(246,243,236,.5);margin-top:5px;line-height:1.5">${body}</div>
+                <div style="padding:20px 18px;border-right:${index === arr.length - 1 ? "0" : "1px solid rgba(255,255,255,.12)"}">
+                  <div style="color:rgba(255,255,255,.55);margin-bottom:12px">${icon(ic).value}</div>
+                  <div style="font-size:var(--t-sm);color:#fff">${title}</div>
+                  <div class="xs" style="color:rgba(255,255,255,.5);margin-top:5px;line-height:1.5">${body}</div>
                 </div>`).join("")}
             </div>
-            <p class="xs" style="color:rgba(246,243,236,.45);margin-top:24px;padding-top:18px;border-top:1px solid rgba(246,243,236,.12)">
+            <p class="xs" style="color:rgba(255,255,255,.45);margin-top:24px;padding-top:18px;border-top:1px solid rgba(255,255,255,.12)">
               Median overhead outside the model itself: 34 ms. Guard adds under 8 ms because it runs as a parallel head, not a second pass.
             </p>
           </div>

@@ -110,21 +110,21 @@ export default {
               <div>
                 <p class="eyebrow">The trade-off we name</p>
                 <h2 style="margin-top:18px;font-size:var(--t-h2)">Over-refusal is a harm too.</h2>
-                <p style="margin-top:20px;color:rgba(246,243,236,.66);line-height:1.68;max-width:52ch">
+                <p style="margin-top:20px;color:rgba(255,255,255,.66);line-height:1.68;max-width:52ch">
                   A model that will not discuss medication interactions with a nurse, or explain an
                   exploit to the engineer patching it, has failed — safely, but it has failed. We publish
                   our over-refusal rate next to our refusal accuracy, because optimising one without
                   the other produces a model nobody wants to use.
                 </p>
                 <div class="row" style="margin-top:26px">
-                  <a class="link" href="/safety/usage-policy" style="color:#f6f3ec"><span>What Mere X will and will not do</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/safety/usage-policy" style="color:#fff"><span>What Mere X will and will not do</span>${icon("arrow-ne", "icon").value}</a>
                 </div>
               </div>
               <div class="stack stack-3">
                 ${[["99.4%", "Correct refusal of genuinely harmful requests"], ["0.8%", "Benign requests wrongly refused"], ["97.1%", "Resistance to a 41K-prompt adversarial suite"]].map(([v, l]) => `
-                  <div style="padding:20px;border:1px solid rgba(246,243,236,.14);border-radius:var(--r-md)">
+                  <div style="padding:20px;border:1px solid rgba(255,255,255,.14);border-radius:var(--r-md)">
                     <div style="font-size:1.8rem;font-weight:300;letter-spacing:-.03em">${v}</div>
-                    <div class="xs" style="color:rgba(246,243,236,.55);margin-top:5px;line-height:1.5">${l}</div>
+                    <div class="xs" style="color:rgba(255,255,255,.55);margin-top:5px;line-height:1.5">${l}</div>
                   </div>`).join("")}
               </div>
             </div>

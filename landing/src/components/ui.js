@@ -188,12 +188,12 @@ export function ctaBand({ eyebrow, title, body, primary, secondary } = {}) {
       <div class="shell">
         <div class="cta-band" data-reveal="scale">
           <span class="cta-band-grid"></span>
-          ${eyebrow ? `<p class="eyebrow bare" style="justify-content:center;color:rgba(246,243,236,.5)">${eyebrow}</p>` : ""}
+          ${eyebrow ? `<p class="eyebrow bare" style="justify-content:center;color:rgba(255,255,255,.55)">${eyebrow}</p>` : ""}
           <h2 style="max-width:20ch;margin:14px auto 0;font-size:var(--t-h2)">${title}</h2>
           ${body ? `<p style="max-width:56ch;margin:18px auto 0">${body}</p>` : ""}
           <div class="row" style="justify-content:center;margin-top:32px">
             ${primary ? button({ ...primary, variant: "invert", magnetic: true }).value : ""}
-            ${secondary ? `<a class="link" href="${secondary.href}" style="color:#f6f3ec"><span>${secondary.label}</span>${icon("arrow-ne", "icon").value}</a>` : ""}
+            ${secondary ? `<a class="link" href="${secondary.href}" style="color:#fff"><span>${secondary.label}</span>${icon("arrow-ne", "icon").value}</a>` : ""}
           </div>
         </div>
       </div>

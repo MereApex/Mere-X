@@ -9,6 +9,7 @@ import { consoleShell, panel, metric } from "./shell.js";
 import { areaChart, proportionBars, heatStrip, dayLabel } from "../components/charts.js";
 import { sparkline, button } from "../components/ui.js";
 import { escapeHtml } from "../lib/dom.js";
+import { onLeave } from "../lib/router.js";
 
 const empty = (message, iconName = "activity") => `
   <div class="empty" style="border:0">
@@ -171,6 +172,6 @@ export default {
     };
     apply();
     window.addEventListener("resize", apply, { passive: true });
-    import("../lib/router.js").then(({ onLeave }) => onLeave(() => window.removeEventListener("resize", apply)));
+    onLeave(() => window.removeEventListener("resize", apply));
   }
 };

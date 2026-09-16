@@ -12,7 +12,7 @@ const SURFACE = [
   { icon: "message", t: "Messages", d: "One endpoint for chat, agents, vision, tools, and structured output. Streaming or not, your choice per request.", href: "/docs/messages" },
   { icon: "package", t: "Batch", d: "Up to a million requests per job at half price, with results streaming back as they complete.", href: "/docs/batch" },
   { icon: "network", t: "Embeddings", d: "Multilingual vectors with Matryoshka truncation from 3072 down to 256 dimensions.", href: "/docs/embeddings" },
-  { icon: "image", t: "Images", d: "Generation and masked editing through Vision 2, with instruction-level control.", href: "/docs/vision" },
+  { icon: "image", t: "Images", d: "Generation and masked editing through Iris, with instruction-level control.", href: "/docs/vision" },
   { icon: "wave", t: "Audio", d: "Transcription, synthesis, and duplex realtime sessions with tool calling.", href: "/docs/api" },
   { icon: "shield", t: "Guard", d: "Standalone safety classification so you can apply your own thresholds before generation.", href: "/docs/safety" },
   { icon: "file", t: "Files", d: "Upload once, reference by ID across requests and batch jobs.", href: "/docs/api" },

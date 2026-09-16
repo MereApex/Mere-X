@@ -31,7 +31,7 @@ export default {
           body: `
             <div class="stack stack-4">
               ${codeBlock({
-                cURL: `curl https://api.mere-x.com/v1/messages \\
+                cURL: `curl https://api.merex.ai/v1/messages \\
   -H "x-api-key: $MERE_X_API_KEY" \\
   -H "content-type: application/json" \\
   -d '{"model":"mere-orion-5-5","messages":[{"role":"user","content":"Hello"}]}'`

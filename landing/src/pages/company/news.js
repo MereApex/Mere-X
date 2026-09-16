@@ -34,18 +34,18 @@ export default {
             <div class="split split-60" style="gap:clamp(28px,4vw,56px);align-items:center">
               <div>
                 <div class="row row-tight">
-                  <span class="badge" style="background:rgba(246,243,236,.12);color:#f6f3ec;border-color:transparent">${lead.kind}</span>
-                  <span class="xs" style="color:rgba(246,243,236,.5)">${dateFull(lead.date)}</span>
+                  <span class="badge" style="background:rgba(255,255,255,.12);color:#fff;border-color:transparent">${lead.kind}</span>
+                  <span class="xs" style="color:rgba(255,255,255,.5)">${dateFull(lead.date)}</span>
                 </div>
                 <h2 style="margin-top:18px;font-size:var(--t-h2);max-width:16ch">${lead.title}</h2>
-                <p style="margin-top:18px;color:rgba(246,243,236,.66);line-height:1.68;max-width:50ch">${lead.summary}</p>
-                <span class="link" style="color:#f6f3ec;margin-top:26px"><span>Read more</span>${icon("arrow-ne", "icon").value}</span>
+                <p style="margin-top:18px;color:rgba(255,255,255,.66);line-height:1.68;max-width:50ch">${lead.summary}</p>
+                <span class="link" style="color:#fff;margin-top:26px"><span>Read more</span>${icon("arrow-ne", "icon").value}</span>
               </div>
               <div class="grid g-2" style="gap:12px">
                 ${[["1M", "Token context"], ["4", "Reasoning modes"], ["7", "Models"], ["50%", "Batch discount"]].map(([v, l]) => `
-                  <div style="padding:20px;border:1px solid rgba(246,243,236,.14);border-radius:var(--r-md)">
+                  <div style="padding:20px;border:1px solid rgba(255,255,255,.14);border-radius:var(--r-md)">
                     <div style="font-size:1.6rem;font-weight:300;letter-spacing:-.03em">${v}</div>
-                    <div class="xs" style="color:rgba(246,243,236,.5);margin-top:3px">${l}</div>
+                    <div class="xs" style="color:rgba(255,255,255,.5);margin-top:3px">${l}</div>
                   </div>`).join("")}
               </div>
             </div>

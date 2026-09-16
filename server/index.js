@@ -1102,6 +1102,8 @@ if (isProduction) {
   app.get(/^\/app(?:\/.*)?$/, requirePageAuth, (req, res) => res.sendFile(path.join(workspaceDist, "index.html")));
   app.get("/checkout", requirePageAuth, (req, res) => res.sendFile(path.join(workspaceDist, "pricing", "index.html")));
   app.get(/^\/console(?:\/.*)?$/, requirePageAuth, (req, res) => res.sendFile(path.join(landingDist, "index.html")));
+  app.use("/assets", express.static(path.join(landingDist, "assets"), { index: false, immutable: true, maxAge: "1y" }));
+  app.use("/brand", express.static(path.join(landingDist, "brand"), { index: false, maxAge: "7d" }));
   app.use(express.static(landingDist, { index: false }));
   app.use((req, res, next) => {
     if (req.method !== "GET" || req.path.startsWith("/api/")) return next();

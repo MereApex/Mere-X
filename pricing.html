@@ -3,40 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f7f4ee" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="description" content="Secure Mere X plans with PayPal, cards, Google Pay, and Apple Pay." />
     <link rel="canonical" href="/checkout" />
-    <link rel="icon" type="image/png" href="/src/assets/mere-x-logo.png" />
+    <link rel="icon" type="image/png" href="/src/assets/mere-x-logo-web.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>Pricing — Mere X</title>
-    <script>
-      try {
-        const savedTheme = localStorage.getItem("mere-x.theme") || "cream";
-        const resolvedTheme = savedTheme === "system"
-          ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "cream")
-          : savedTheme;
-        document.documentElement.dataset.theme = resolvedTheme;
-        document.documentElement.dataset.themePreference = savedTheme;
-      } catch (error) {
-        document.documentElement.dataset.theme = "cream";
-      }
-    </script>
     <link rel="stylesheet" href="/src/styles/pricing.css" />
   </head>
   <body>
     <header class="pricing-nav">
       <a class="pricing-brand" href="/app" aria-label="Mere X app">
-        <span class="pricing-brand-mark"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
-        <strong>Mere X</strong>
+        <strong>MERE X</strong>
       </a>
 
       <div class="pricing-nav-actions">
         <span class="current-plan-chip" id="currentPlanChip" hidden></span>
-        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch color theme">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.3 8.3 0 0 1 8.8 4a8.4 8.4 0 1 0 11.2 11.2Z" /></svg>
-        </button>
         <a class="workspace-link" href="/app">
           <span>Back to Mere X</span>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13.5 6.5 19 12l-5.5 5.5" /></svg>

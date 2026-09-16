@@ -9,6 +9,7 @@ import { icon } from "../lib/icons.js";
 import { perMillion, money, compact, nf } from "../lib/format.js";
 import { moveSegThumb } from "../lib/motion.js";
 import { pageHead, sectionHead, textLink, button, ctaBand, dataTable, accordion, calloutBox } from "../components/ui.js";
+import { onLeave } from "../lib/router.js";
 
 export default {
   title: "Pricing",
@@ -99,10 +100,10 @@ export default {
                 <table class="data" style="min-width:0">
                   <tbody>
                     <tr><td>Embeddings — Embed 3</td><td class="num">$0.03 / MTok</td></tr>
-                    <tr><td>Image generation — Vision 2</td><td class="num">$0.04 / image</td></tr>
-                    <tr><td>Transcription — Voice 1</td><td class="num">$0.06 / min</td></tr>
-                    <tr><td>Speech synthesis — Voice 1</td><td class="num">$0.12 / min</td></tr>
-                    <tr><td>Realtime session — Voice 1</td><td class="num">$0.18 / min</td></tr>
+                    <tr><td>Image generation — Iris</td><td class="num">$0.04 / image</td></tr>
+                    <tr><td>Transcription — Lyra</td><td class="num">$0.06 / min</td></tr>
+                    <tr><td>Speech synthesis — Lyra</td><td class="num">$0.12 / min</td></tr>
+                    <tr><td>Realtime session — Lyra</td><td class="num">$0.18 / min</td></tr>
                     <tr><td>Guard classification</td><td class="num">Free</td></tr>
                     <tr><td>File storage</td><td class="num">$0.02 / GB / month</td></tr>
                   </tbody>
@@ -191,6 +192,9 @@ export default {
   },
 
   mount(root) {
+    const cleanups = [];
+    onLeave(() => cleanups.forEach((cleanup) => cleanup()));
+
     /* ---- plans / api toggle ---- */
     const seg = root.querySelector("[data-price-seg]");
     if (seg) {
@@ -206,8 +210,11 @@ export default {
         moveSegThumb(seg);
         show(btn.dataset.view);
       });
-      requestAnimationFrame(() => moveSegThumb(seg));
-      window.addEventListener("resize", () => moveSegThumb(seg), { passive: true });
+      const thumbFrame = requestAnimationFrame(() => moveSegThumb(seg));
+      const onResize = () => moveSegThumb(seg);
+      window.addEventListener("resize", onResize, { passive: true });
+      cleanups.push(() => cancelAnimationFrame(thumbFrame));
+      cleanups.push(() => window.removeEventListener("resize", onResize));
     }
 
     /* ---- cost estimator ---- */

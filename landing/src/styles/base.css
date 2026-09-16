@@ -20,27 +20,29 @@ body {
   font-family: var(--font-ui);
   font-size: var(--t-body);
   line-height: var(--lh-body);
-  letter-spacing: -0.008em;
-  font-weight: 300;
+  font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: clip;
-  transition: background var(--d-base) var(--ease-out), color var(--d-base) var(--ease-out);
 }
 
+/* Display type is Orbitron — uppercase, tracked, geometric.
+   Working headings (h3, h4) stay in Plus Jakarta Sans so long
+   documentation titles remain readable. */
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 300;
-  line-height: var(--lh-snug);
-  letter-spacing: var(--tr-snug);
   color: var(--ink);
   text-wrap: balance;
 }
-h1 { font-size: var(--t-h1); line-height: var(--lh-tight); letter-spacing: var(--tr-tight); }
-h2 { font-size: var(--t-h2); letter-spacing: var(--tr-tight); }
-h3 { font-size: var(--t-h3); }
-h4 { font-size: var(--t-h4); font-weight: 400; }
+h1, h2 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  line-height: var(--lh-snug);
+}
+h1 { font-size: var(--t-h1); font-weight: 800; letter-spacing: var(--tr-tight); line-height: var(--lh-tight); }
+h2 { font-size: var(--t-h2); font-weight: 700; letter-spacing: var(--tr-snug); }
+h3 { font-size: var(--t-h3); font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; }
+h4 { font-size: var(--t-h4); font-weight: 600; letter-spacing: -0.005em; line-height: 1.35; }
 
 p { margin: 0; text-wrap: pretty; }
 ul, ol { margin: 0; padding: 0; }
@@ -68,7 +70,7 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-size: 0.9em; font-wei
 :focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 3px;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .skip-link {
@@ -76,7 +78,7 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-size: 0.9em; font-wei
   top: 10px; left: 10px;
   z-index: 999;
   padding: 10px 18px;
-  border-radius: var(--r-pill);
+  border-radius: var(--r-sm);
   background: var(--ink);
   color: var(--paper);
   font-size: var(--t-sm);
@@ -96,28 +98,6 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-size: 0.9em; font-wei
 }
 *::-webkit-scrollbar-thumb:hover { background: var(--faint); }
 
-/* ---- Film grain ---------------------------------------- */
-.page-grain {
-  position: fixed;
-  inset: -50%;
-  z-index: 40;
-  pointer-events: none;
-  opacity: var(--grain-opacity);
-  background-image: var(--grain-url);
-  mix-blend-mode: multiply;
-  animation: grain-drift 7s steps(6) infinite;
-}
-[data-theme="dark"] .page-grain { mix-blend-mode: screen; }
-@keyframes grain-drift {
-  0%,100% { transform: translate(0,0); }
-  16% { transform: translate(-2%, 1.5%); }
-  33% { transform: translate(1.5%, -2%); }
-  50% { transform: translate(-1%, -1.5%); }
-  66% { transform: translate(2%, 1%); }
-  83% { transform: translate(-1.5%, 2%); }
-}
-[data-motion="reduced"] .page-grain { animation: none; }
-
 /* ============================================================
    LAYOUT PRIMITIVES
    ============================================================ */
@@ -127,7 +107,7 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-size: 0.9em; font-wei
 .shell-narrow { max-width: var(--shell-narrow); }
 
 .section { padding-block: var(--section-y); position: relative; }
-.section-tight { padding-block: clamp(44px, 5vw, 76px); }
+.section-tight { padding-block: clamp(40px, 5vw, 72px); }
 .section-line { border-top: 1px solid var(--line); }
 
 .stack { display: flex; flex-direction: column; }
@@ -140,7 +120,7 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-size: 0.9em; font-wei
 .between { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
 .spacer { flex: 1 1 auto; }
 
-.grid { display: grid; gap: clamp(16px, 2vw, 26px); }
+.grid { display: grid; gap: clamp(14px, 1.8vw, 24px); }
 .g-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .g-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .g-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -170,9 +150,9 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-size: 0.9em; font-wei
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: var(--t-2xs);
-  font-weight: 500;
-  letter-spacing: var(--tr-wide);
+  font-size: var(--micro);
+  font-weight: 600;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--muted);
   line-height: 1.4;
@@ -181,13 +161,13 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-size: 0.9em; font-wei
   content: "";
   width: 22px; height: 1px;
   background: currentColor;
-  opacity: 0.5;
+  opacity: 0.6;
   flex: 0 0 22px;
 }
 .eyebrow.bare::before { display: none; }
 
-.display { font-size: var(--t-display); line-height: 0.98; letter-spacing: -0.042em; font-weight: 300; }
-.lead { font-size: var(--t-lead); line-height: 1.55; color: var(--ink-3); font-weight: 300; }
+.display { font-family: var(--font-display); font-size: var(--t-display); line-height: 1.05; letter-spacing: 0.08em; font-weight: 800; text-transform: uppercase; }
+.lead { font-size: var(--t-lead); line-height: 1.6; color: var(--ink-3); font-weight: 400; }
 .small { font-size: var(--t-sm); }
 .xs { font-size: var(--t-xs); }
 .muted { color: var(--muted); }
@@ -203,6 +183,9 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-size: 0.9em; font-wei
 .lower { text-transform: lowercase; }
 .nowrap { white-space: nowrap; }
 .w-full { width: 100%; }
+.micro { font-size: var(--micro); letter-spacing: 0.2em; text-transform: uppercase; font-weight: 500; }
+.font-orbitron { font-family: var(--font-display); }
+.font-jakarta { font-family: var(--font-ui); }
 .sr-only {
   position: absolute;
   width: 1px; height: 1px;
@@ -236,34 +219,33 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-size: 0.9em; font-wei
 
 [data-reveal] {
   opacity: 0;
-  transform: translate3d(0, 18px, 0);
+  transform: translate3d(0, 14px, 0);
   transition:
     opacity var(--d-scenic) var(--ease-out),
     transform var(--d-scenic) var(--ease-out);
   transition-delay: var(--reveal-delay, 0ms);
 }
 [data-reveal="fade"] { transform: none; }
-[data-reveal="left"] { transform: translate3d(-24px, 0, 0); }
-[data-reveal="right"] { transform: translate3d(24px, 0, 0); }
-[data-reveal="scale"] { transform: scale(0.965); }
-[data-reveal="blur"] { filter: blur(9px); transition-property: opacity, transform, filter; }
+[data-reveal="left"] { transform: translate3d(-20px, 0, 0); }
+[data-reveal="right"] { transform: translate3d(20px, 0, 0); }
+[data-reveal="scale"] { transform: scale(0.975); }
+[data-reveal="blur"] { transform: none; }
 [data-reveal].is-in {
   opacity: 1;
   transform: none;
-  filter: none;
 }
-[data-motion="reduced"] [data-reveal] { opacity: 1; transform: none; filter: none; transition: none; }
+[data-motion="reduced"] [data-reveal] { opacity: 1; transform: none; transition: none; }
 
 /* ============================================================
    PAGE TRANSITIONS
    ============================================================ */
 
 #app { min-height: 100dvh; display: flex; flex-direction: column; }
-main { flex: 1 1 auto; }
+main { flex: 1 1 auto; position: relative; z-index: 10; }
 
-.route-view { animation: route-in 0.6s var(--ease-out) both; }
+.route-view { animation: route-in 0.5s var(--ease-out) both; }
 @keyframes route-in {
-  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
   to   { opacity: 1; transform: none; }
 }
 [data-motion="reduced"] .route-view { animation: none; }
@@ -274,7 +256,7 @@ main { flex: 1 1 auto; }
   height: 2px;
   width: 0;
   z-index: 9999;
-  background: linear-gradient(90deg, transparent, var(--ink) 45%, var(--ink));
+  background: var(--ink);
   opacity: 0;
   pointer-events: none;
   transition: width 0.45s var(--ease-out), opacity 0.25s linear;
@@ -286,6 +268,6 @@ main { flex: 1 1 auto; }
    PRINT
    ============================================================ */
 @media print {
-  .site-nav, .site-footer, .page-grain, .cursor-glow, .console-rail { display: none !important; }
+  .site-nav, .site-footer, .console-rail, .reveal-bg, .drawer-layer { display: none !important; }
   body { background: #fff; color: #000; }
 }

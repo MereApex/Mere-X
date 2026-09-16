@@ -89,7 +89,7 @@ export const DOC_PAGES = {
       { t: "h2", v: "How requests are authenticated" },
       { t: "p", v: "Send your key in the <code class=\"inline\">x-api-key</code> header. There is no OAuth flow for server-to-server use and no token exchange — the key is the credential." },
       { t: "code", v: { samples: {
-        cURL: `curl https://api.mere-x.com/v1/messages \\
+        cURL: `curl https://api.merex.ai/v1/messages \\
   -H "x-api-key: $MERE_X_API_KEY" \\
   -H "mere-x-version: 2026-06-18" \\
   -H "content-type: application/json" \\
@@ -243,9 +243,9 @@ merex eval run ./evals/support-triage.yaml --runs 5`
         columns: [{ key: "type", label: "Block type" }, { key: "use", label: "Use" }, { key: "dir", label: "Direction" }],
         rows: [
           { type: "text", use: "Plain text", dir: "In and out" },
-          { type: "image", use: "PNG, JPEG, WebP, GIF, HEIC — base64 or file ID", dir: "In (out on Vision 2)" },
+          { type: "image", use: "PNG, JPEG, WebP, GIF, HEIC — base64 or file ID", dir: "In (out on Iris)" },
           { type: "document", use: "PDF, DOCX, PPTX, XLSX, plain text", dir: "In" },
-          { type: "audio", use: "mp3, wav, m4a, ogg, flac, webm", dir: "In (out on Voice 1)" },
+          { type: "audio", use: "mp3, wav, m4a, ogg, flac, webm", dir: "In (out on Lyra)" },
           { type: "tool_use", use: "The model calling one of your tools", dir: "Out" },
           { type: "tool_result", use: "Your response to a tool call", dir: "In" },
           { type: "thinking", use: "A reasoning summary", dir: "Out" }
@@ -559,7 +559,7 @@ const final = await stream.finalMessage();`
       { t: "h2", v: "Image generation" },
       { t: "code", v: { samples: {
         Python: `image = client.images.generate(
-    model="mere-vision-5-5",
+    model="mere-iris",
     prompt="An isometric diagram of a three-tier web architecture, "
            "thin ink lines on cream paper, no text labels.",
     size="1536x1024",
@@ -567,7 +567,7 @@ const final = await stream.finalMessage();`
 )
 
 edited = client.images.edit(
-    model="mere-vision-5-5",
+    model="mere-iris",
     image=open("product.png", "rb"),
     mask=open("background-mask.png", "rb"),
     prompt="Replace the background with a plain warm grey studio sweep.",
@@ -621,7 +621,7 @@ edited = client.images.edit(
     title: "Embeddings",
     lead: "Multilingual vectors with truncatable dimensions.",
     blocks: [
-      { t: "p", v: "Mere Embed 5.5 was trained alongside the model family, so what it retrieves is what Mere X wants to read. Output dimensions are truncatable from 3072 down to 256 with graceful quality decay." },
+      { t: "p", v: "Mere Atlas was trained alongside the model family, so what it retrieves is what Mere X wants to read. Output dimensions are truncatable from 3072 down to 256 with graceful quality decay." },
       { t: "code", v: { samples: SAMPLES.embeddings } },
       { t: "h2", v: "Choosing a dimension" },
       { t: "table", v: {

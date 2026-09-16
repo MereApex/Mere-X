@@ -85,7 +85,7 @@ const message = await client.messages.create({
 });
 
 console.log(message.content[0].text);`,
-    cURL: `curl https://api.mere-x.com/v1/messages \\
+    cURL: `curl https://api.merex.ai/v1/messages \\
   -H "x-api-key: $MERE_X_API_KEY" \\
   -H "mere-x-version: 2026-06-18" \\
   -H "content-type: application/json" \\
@@ -284,7 +284,7 @@ for result in client.batches.results(batch.id, stream=True):
 
   embeddings: {
     Python: `vectors = client.embeddings.create(
-    model="mere-embed-5-5",
+    model="mere-atlas",
     input=[chunk.text for chunk in chunks],
     dimensions=1024,          # Matryoshka truncation, 256–3072
 )
@@ -309,7 +309,7 @@ print(runner.final_message.content[0].text)`
 
   vision: {
     Python: `response = client.messages.create(
-    model="mere-vision-5-5",
+    model="mere-iris",
     max_tokens=2048,
     messages=[{
         "role": "user",
@@ -421,7 +421,7 @@ export const API_GROUPS = [
         title: "Create embeddings",
         description: "Embed up to 2,048 inputs in a single call.",
         params: [
-          { name: "model", type: "string", required: true, desc: "mere-embed-5-5." },
+          { name: "model", type: "string", required: true, desc: "mere-atlas." },
           { name: "input", type: "string | array<string>", required: true, desc: "Text to embed. Each input may be up to 32,000 tokens." },
           { name: "dimensions", type: "integer", desc: "Truncate output to 256–3072 dimensions. Defaults to 3072." },
           { name: "input_type", type: "string", desc: "\"query\" or \"document\". Improves asymmetric retrieval quality." }
@@ -432,7 +432,7 @@ export const API_GROUPS = [
   },
   {
     name: "Images",
-    description: "Generation and editing with Mere Vision 5.5.",
+    description: "Generation and editing with Mere Iris.",
     endpoints: [
       {
         method: "post",
@@ -440,7 +440,7 @@ export const API_GROUPS = [
         title: "Generate an image",
         description: "Create an image from a text prompt.",
         params: [
-          { name: "model", type: "string", required: true, desc: "mere-vision-5-5." },
+          { name: "model", type: "string", required: true, desc: "mere-iris." },
           { name: "prompt", type: "string", required: true, desc: "What to draw. Detailed prompts produce more controllable results." },
           { name: "size", type: "string", desc: "\"1024x1024\", \"1536x1024\", \"1024x1536\", or \"auto\"." },
           { name: "quality", type: "string", desc: "\"standard\" or \"high\"." },
@@ -455,9 +455,9 @@ export const API_GROUPS = [
     name: "Audio",
     description: "Transcription, speech synthesis, and realtime duplex sessions.",
     endpoints: [
-      { method: "post", path: "/v1/audio/transcriptions", title: "Transcribe audio", description: "Convert speech to text with word-level timestamps.", params: [{ name: "file", type: "file", required: true, desc: "Audio up to 500 MB — mp3, wav, m4a, ogg, flac, webm." }, { name: "model", type: "string", required: true, desc: "mere-voice-5-5." }, { name: "timestamps", type: "string", desc: "\"word\" or \"segment\"." }, { name: "language", type: "string", desc: "ISO-639-1 hint. Auto-detected when omitted." }], returns: "{ text, segments, language, duration }" },
-      { method: "post", path: "/v1/audio/speech", title: "Synthesise speech", description: "Turn text into natural audio.", params: [{ name: "model", type: "string", required: true, desc: "mere-voice-5-5." }, { name: "input", type: "string", required: true, desc: "Text to speak, up to 8,000 characters." }, { name: "voice", type: "string", desc: "One of eight voices; see the voice gallery." }, { name: "format", type: "string", desc: "\"mp3\", \"wav\", \"opus\", or \"pcm\"." }], returns: "Binary audio in the requested format." },
-      { method: "post", path: "/v1/realtime/sessions", title: "Create a realtime session", description: "Mint a short-lived client token for a duplex WebRTC or WebSocket session.", params: [{ name: "model", type: "string", required: true, desc: "mere-voice-5-5." }, { name: "voice", type: "string", desc: "Voice for the assistant side of the session." }, { name: "tools", type: "array<Tool>", desc: "Tools the voice agent may call mid-conversation." }, { name: "instructions", type: "string", desc: "System behaviour for the session." }], returns: "{ client_secret, expires_at, model }" }
+      { method: "post", path: "/v1/audio/transcriptions", title: "Transcribe audio", description: "Convert speech to text with word-level timestamps.", params: [{ name: "file", type: "file", required: true, desc: "Audio up to 500 MB — mp3, wav, m4a, ogg, flac, webm." }, { name: "model", type: "string", required: true, desc: "mere-lyra." }, { name: "timestamps", type: "string", desc: "\"word\" or \"segment\"." }, { name: "language", type: "string", desc: "ISO-639-1 hint. Auto-detected when omitted." }], returns: "{ text, segments, language, duration }" },
+      { method: "post", path: "/v1/audio/speech", title: "Synthesise speech", description: "Turn text into natural audio.", params: [{ name: "model", type: "string", required: true, desc: "mere-lyra." }, { name: "input", type: "string", required: true, desc: "Text to speak, up to 8,000 characters." }, { name: "voice", type: "string", desc: "One of eight voices; see the voice gallery." }, { name: "format", type: "string", desc: "\"mp3\", \"wav\", \"opus\", or \"pcm\"." }], returns: "Binary audio in the requested format." },
+      { method: "post", path: "/v1/realtime/sessions", title: "Create a realtime session", description: "Mint a short-lived client token for a duplex WebRTC or WebSocket session.", params: [{ name: "model", type: "string", required: true, desc: "mere-lyra." }, { name: "voice", type: "string", desc: "Voice for the assistant side of the session." }, { name: "tools", type: "array<Tool>", desc: "Tools the voice agent may call mid-conversation." }, { name: "instructions", type: "string", desc: "System behaviour for the session." }], returns: "{ client_secret, expires_at, model }" }
     ]
   },
   {
@@ -480,7 +480,7 @@ export const API_GROUPS = [
         description: "Score text or images against the Mere X harm taxonomy.",
         params: [
           { name: "input", type: "string | array", required: true, desc: "Text and/or image content blocks to score." },
-          { name: "model", type: "string", desc: "mere-guard-5-5. Defaults to the latest Guard model." },
+          { name: "model", type: "string", desc: "mere-aegis. Defaults to the latest Guard model." },
           { name: "categories", type: "array<string>", desc: "Restrict scoring to specific taxonomy categories." }
         ],
         returns: "{ flagged: boolean, scores: { [category]: number }, categories: string[] }"

@@ -4,9 +4,9 @@
 
 import { getState } from "../lib/store.js";
 import { icon } from "../lib/icons.js";
-import { toast } from "../lib/toast.js";
 import { consoleShell, panel } from "./shell.js";
 import { escapeHtml } from "../lib/dom.js";
+import { onLeave } from "../lib/router.js";
 
 export default {
   title: "Settings",
@@ -55,18 +55,6 @@ export default {
               </div>`).join("")
           }).value}
         </div>
-
-        <div class="stack stack-4">
-          ${panel({
-            title: "Appearance",
-            body: `
-              <div class="setting-row" style="padding:0">
-                <div><div class="setting-label">Theme</div><div class="setting-desc">Switch between light and dark console themes.</div></div>
-                <button class="btn btn-ghost btn-sm" data-theme-jump>${icon("sun", "icon").value}<span>Switch</span></button>
-              </div>`
-          }).value}
-
-        </div>
       </div>`;
 
     return consoleShell({
@@ -84,10 +72,6 @@ export default {
     };
     apply();
     window.addEventListener("resize", apply, { passive: true });
-    import("../lib/router.js").then(({ onLeave }) => onLeave(() => window.removeEventListener("resize", apply)));
-    root.querySelector("[data-theme-jump]")?.addEventListener("click", () => {
-      document.querySelector("[data-theme-toggle]")?.click();
-      toast("Theme updated");
-    });
+    onLeave(() => window.removeEventListener("resize", apply));
   }
 };

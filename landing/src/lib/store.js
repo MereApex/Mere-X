@@ -39,6 +39,7 @@ const DEFAULT_STATE = Object.freeze({
 
 let state = structuredClone(DEFAULT_STATE);
 let hydration = null;
+let hydratedAt = 0;
 
 function notify() {
   listeners.forEach((listener) => listener(state));
@@ -64,9 +65,13 @@ function replaceState(next) {
 }
 
 export async function hydrateConsole(force = false) {
+  if (!force && hydratedAt && Date.now() - hydratedAt < 30_000) return state;
   if (hydration && !force) return hydration;
   hydration = apiJson("/api/console")
-    .then((result) => replaceState(result.state))
+    .then((result) => {
+      hydratedAt = Date.now();
+      return replaceState(result.state);
+    })
     .finally(() => { hydration = null; });
   return hydration;
 }

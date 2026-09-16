@@ -1,190 +1,271 @@
 /* ============================================================
-   NAV — sticky header with mega-menus, mobile drawer,
-   theme toggle, and command palette entry point.
+   NAV — the composition header and the four side drawers.
+   MODELS opens the catalog, PLATFORM the developer surfaces,
+   RESEARCH the latest dispatches, and the stack icon holds the
+   models a visitor has picked to build with.
    ============================================================ */
 
-import { NAV } from "../data/site.js";
-import { icon, mereXMark, mereXWordmark } from "../lib/icons.js";
+import { MODEL_BY_ID } from "../data/models.js";
+import { PUBLICATIONS } from "../data/content.js";
+import { COMPANY } from "../data/site.js";
+import { icon } from "../lib/icons.js";
+import { escapeHtml } from "../lib/dom.js";
+import { compact } from "../lib/format.js";
 import { onNavigate, navigate } from "../lib/router.js";
+import { getStack, inStack, addToStack, removeFromStack, onStackChange } from "../lib/stack.js";
+import { toast } from "../lib/toast.js";
 
-function panel(group) {
+const CATALOG = ["mere-apex-5-5", "mere-orion-5-5", "mere-nyx-5-5", "mere-iris", "mere-lyra"]
+  .map((id) => MODEL_BY_ID[id])
+  .filter(Boolean);
+
+const PLATFORM = [
+  { n: "01", title: "The API", href: "/products/api", desc: "One endpoint, six SDKs, and a million-token window behind every call." },
+  { n: "02", title: "Developer console", href: "/console", desc: "Keys, usage, request logs, limits, and billing — read in one place." },
+  { n: "03", title: "Mere X Studio", href: "/app", desc: "The assistant workspace for chat, deep research, images, code, and voice." },
+  { n: "04", title: "Documentation", href: "/docs", desc: "Quickstart, API reference, cookbook, and the prompt library." },
+  { n: "05", title: "Pricing", href: "/pricing", desc: "Flat plans for people, per-token rates for builders, batch at half price." },
+  { n: "06", title: "Enterprise", href: "/products/enterprise", desc: "Deployment, data residency, and support for regulated teams." }
+];
+
+const INDEX = [
+  { label: "Research", href: "/research" },
+  { label: "Technology", href: "/technology" },
+  { label: "Products", href: "/products" },
+  { label: "Safety", href: "/safety" },
+  { label: "Company", href: "/company" },
+  { label: "Docs", href: "/docs" },
+  { label: "Status", href: "/status" }
+];
+
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const stamp = (iso) => `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+const readTime = (text) => `${Math.max(2, Math.round(text.split(/\s+/).length / 45))} MIN READ`;
+
+/* ------------------------------------------------------------
+   Drawer bodies
+   ------------------------------------------------------------ */
+function catalogBody() {
   return `
-    <div class="nav-panel ${group.panelWide ? "nav-panel-wide" : ""}" role="menu">
-      <div class="nav-panel-grid">
-        ${group.links.map((link) => `
-          <a class="nav-link" href="${link.href}" role="menuitem">
-            <span class="nav-link-icon">${icon(link.icon).value}</span>
-            <span>
-              <span class="nav-link-title">${link.title}</span>
-              <span class="nav-link-desc" style="display:block">${link.desc}</span>
-            </span>
-          </a>`).join("")}
-      </div>
-      <div class="nav-panel-foot">
-        <span class="xs muted">${group.footNote || "Everything in " + group.label}</span>
-        <a class="link" href="${group.href}"><span>Overview</span>${icon("arrow-ne", "icon").value}</a>
-      </div>
+    ${CATALOG.map((model) => `
+      <div class="drawer-row" data-model-row="${model.id}">
+        <div class="drawer-row-main">
+          <span class="drawer-tag">${escapeHtml(model.tier)}</span>
+          <a class="drawer-row-title" href="/technology/models/${model.id}">${escapeHtml(model.name)}</a>
+          <span class="drawer-price">${compact(model.context, 0)} context · ${escapeHtml(model.latency.split(" median")[0])}</span>
+        </div>
+        <button class="drawer-add ${inStack(model.id) ? "is-added" : ""}" type="button" data-add="${model.id}" aria-pressed="${inStack(model.id)}">
+          ${inStack(model.id) ? "Added" : "Add"}
+        </button>
+      </div>`).join("")}
+    <div class="drawer-links">
+      <a class="link" href="/technology"><span>Compare all models</span>${icon("arrow-ne", "icon").value}</a>
+      <a class="link link-quiet" href="/technology/benchmarks"><span>Benchmarks</span>${icon("arrow-ne", "icon").value}</a>
+      <a class="link link-quiet" href="/technology/reasoning"><span>Reasoning modes</span>${icon("arrow-ne", "icon").value}</a>
     </div>`;
 }
 
+function platformBody() {
+  return `
+    ${PLATFORM.map((item) => `
+      <a class="drawer-entry" href="${item.href}">
+        <span class="drawer-entry-meta">Series ${item.n}</span>
+        <span class="drawer-entry-title" style="display:block">${escapeHtml(item.title)}</span>
+        <span class="drawer-entry-desc" style="display:block">${escapeHtml(item.desc)}</span>
+      </a>`).join("")}`;
+}
+
+function researchBody() {
+  return `
+    ${PUBLICATIONS.slice(0, 4).map((paper) => `
+      <a class="drawer-entry" href="/research/publications#${paper.slug}">
+        <span class="drawer-entry-meta">${stamp(paper.date)} — ${escapeHtml(paper.kind)}</span>
+        <span class="drawer-entry-title" style="display:block">${escapeHtml(paper.title)}</span>
+        <span class="drawer-entry-foot">${readTime(paper.summary)}</span>
+      </a>`).join("")}
+    <div class="drawer-links">
+      <a class="link" href="/research/publications"><span>All publications</span>${icon("arrow-ne", "icon").value}</a>
+      <a class="link link-quiet" href="/research/interpretability"><span>Interpretability</span>${icon("arrow-ne", "icon").value}</a>
+      <a class="link link-quiet" href="/safety"><span>Safety</span>${icon("arrow-ne", "icon").value}</a>
+    </div>`;
+}
+
+function stackBody() {
+  const ids = getStack();
+  if (!ids.length) {
+    return `
+      <div class="stack-empty">
+        ${icon("layers").value}
+        <p>Your stack is empty.</p>
+        <p class="stack-empty-hint">Add models from the catalog to build with them side by side.</p>
+      </div>`;
+  }
+  return ids.map((id) => {
+    const model = MODEL_BY_ID[id];
+    if (!model) return "";
+    return `
+      <div class="drawer-row" data-stack-row="${id}">
+        <div class="drawer-row-main">
+          <span class="drawer-tag">${escapeHtml(model.tier)}</span>
+          <a class="drawer-row-title" href="/technology/models/${id}">${escapeHtml(model.name)}</a>
+          <span class="drawer-price">${compact(model.context, 0)} context · ${escapeHtml(model.modes.join(" / ") || "Realtime")}</span>
+        </div>
+        <button class="stack-remove" type="button" data-remove="${id}">Remove</button>
+      </div>`;
+  }).join("");
+}
+
+const DRAWERS = {
+  models: { title: "Model Family", sub: `${escapeHtml(COMPANY.model)} 5.5 lineup`, body: catalogBody },
+  platform: { title: "Developer Platform", sub: "Build on Mere X", body: platformBody },
+  research: { title: "Research", sub: "Latest dispatches", body: researchBody },
+  stack: { title: "Your Stack", sub: "Models to build with", body: stackBody }
+};
+
+function drawerFoot(kind) {
+  if (kind === "stack" && getStack().length) {
+    return `
+      <a class="btn btn-primary btn-block drawer-checkout" href="/console" data-stack-go>
+        <span>Start building</span>${icon("chevron-right", "icon").value}
+      </a>
+      <a class="link link-quiet" href="/technology" style="align-self:center"><span>Compare the stack</span>${icon("arrow-ne", "icon").value}</a>`;
+  }
+  return `
+    <nav class="drawer-index" aria-label="Site index">
+      ${INDEX.map((item) => `<a href="${item.href}">${item.label}</a>`).join("")}
+    </nav>
+    <p class="drawer-copy">Mere X © ${new Date().getFullYear()} — Future Forward Intelligence</p>`;
+}
+
+/* ------------------------------------------------------------
+   Header markup
+   ------------------------------------------------------------ */
 export function renderNav() {
+  const count = getStack().length;
   return `
     <header class="site-nav" id="siteNav">
-      <div class="nav-inner">
-        <a class="brand" href="/" aria-label="Mere X home">
-          <span class="brand-mark">${mereXMark(32).value}</span><span class="brand-word">${mereXWordmark(16).value}</span><span class="sr-only">Mere X</span>
-        </a>
-
-        <nav class="nav-links" aria-label="Main">
-          ${NAV.map((group, index) => `
-            ${index ? '<span class="nav-sep" aria-hidden="true"></span>' : ""}
-            <div class="nav-item" data-nav-item="${group.id}">
-              <a class="nav-trigger" href="${group.href}" aria-haspopup="true" aria-expanded="false">
-                ${group.label}${icon("chevron-down", "icon").value}
-              </a>
-              ${panel(group)}
-            </div>`).join("")}
-        </nav>
-
-        <div class="nav-actions">
-          <button class="icon-btn" data-search-open title="Search  ⌘K" aria-label="Search">${icon("search").value}</button>
-          <button class="icon-btn" data-theme-toggle aria-label="Switch theme">${icon("moon").value}</button>
-          <a class="btn btn-ghost btn-sm" href="/console" data-console-link>Developers</a>
-          <a class="nav-cta" href="/app">
-            <span>Try Mere X</span>${icon("arrow-ne", "icon").value}
-          </a>
-          <button class="icon-btn nav-burger" data-burger aria-label="Open menu" aria-expanded="false">${icon("menu").value}</button>
-        </div>
-      </div>
+      <a class="brand" href="/" aria-label="Mere X home" data-brand>
+        <span>MERE X</span><span class="brand-deg" aria-hidden="true">˚</span>
+      </a>
+      <nav class="nav-links" aria-label="Main">
+        <button class="nav-link-btn" type="button" data-drawer-open="models" aria-haspopup="dialog" aria-expanded="false">Models</button>
+        <button class="nav-link-btn" type="button" data-drawer-open="platform" aria-haspopup="dialog" aria-expanded="false">Platform</button>
+        <button class="nav-link-btn" type="button" data-drawer-open="research" aria-haspopup="dialog" aria-expanded="false">Research</button>
+        <span class="nav-sep" aria-hidden="true">|</span>
+        <button class="nav-stack" type="button" data-drawer-open="stack" aria-haspopup="dialog" aria-expanded="false" aria-label="Your stack">
+          ${icon("layers").value}
+          <span class="nav-badge" data-stack-count ${count ? "" : "hidden"}>${count}</span>
+        </button>
+      </nav>
     </header>
 
-    <div class="nav-drawer" id="navDrawer" aria-hidden="true">
-      <div class="nav-drawer-head">
-        <a class="brand" href="/"><span class="brand-mark">${mereXMark(32).value}</span><span class="brand-word">${mereXWordmark(16).value}</span><span class="sr-only">Mere X</span></a>
-        <span class="spacer"></span>
-        <button class="icon-btn" data-drawer-close aria-label="Close menu">${icon("close").value}</button>
-      </div>
-      <div class="nav-drawer-body">
-        ${NAV.map((group) => `
-          <div class="drawer-group" data-drawer-group>
-            <button class="drawer-group-head" type="button">${group.label}${icon("chevron-down", "icon").value}</button>
-            <div class="drawer-links"><div>
-              ${group.links.map((link) => `<a href="${link.href}">${link.title}</a>`).join("")}
-            </div></div>
-          </div>`).join("")}
-        <div class="row" style="margin-top:28px;gap:10px">
-          <a class="btn btn-primary btn-block" href="/console">Developer console</a>
-          <a class="btn btn-secondary btn-block" href="/app">Try Mere X</a>
+    <div class="drawer-layer" id="drawerLayer" aria-hidden="true">
+      <div class="drawer-backdrop" data-drawer-close></div>
+      <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+        <div class="drawer-head">
+          <h2 class="drawer-title" id="drawerTitle"></h2>
+          <button class="icon-btn drawer-close" type="button" data-drawer-close aria-label="Close">${icon("close").value}</button>
         </div>
-      </div>
+        <p class="drawer-sub" data-drawer-sub></p>
+        <div class="drawer-body" data-drawer-body></div>
+        <div class="drawer-foot" data-drawer-foot></div>
+      </aside>
     </div>`;
 }
 
+/* ------------------------------------------------------------
+   Behaviour
+   ------------------------------------------------------------ */
 export function mountNav(root) {
-  const nav = root.querySelector("#siteNav");
-  const drawer = root.querySelector("#navDrawer");
-  const items = Array.from(root.querySelectorAll("[data-nav-item]"));
-  let openTimer = null;
-  let closeTimer = null;
+  const layer = root.querySelector("#drawerLayer");
+  const title = layer.querySelector("#drawerTitle");
+  const sub = layer.querySelector("[data-drawer-sub]");
+  const body = layer.querySelector("[data-drawer-body]");
+  const foot = layer.querySelector("[data-drawer-foot]");
+  const triggers = Array.from(root.querySelectorAll("[data-drawer-open]"));
+  const badge = root.querySelector("[data-stack-count]");
+  let current = null;
+  let lastTrigger = null;
 
-  /* --- sticky state --- */
-  const onScroll = () => nav.classList.toggle("is-stuck", window.scrollY > 12);
-  onScroll();
-  window.addEventListener("scroll", onScroll, { passive: true });
-
-  /* --- mega menus: hover on fine pointers, click elsewhere --- */
-  const closeAll = () => items.forEach((item) => {
-    item.classList.remove("is-open");
-    item.querySelector(".nav-trigger")?.setAttribute("aria-expanded", "false");
-  });
-
-  const open = (item) => {
-    closeAll();
-    item.classList.add("is-open");
-    item.querySelector(".nav-trigger")?.setAttribute("aria-expanded", "true");
+  const paint = () => {
+    if (!current) return;
+    const spec = DRAWERS[current];
+    title.textContent = spec.title;
+    sub.innerHTML = spec.sub;
+    body.innerHTML = spec.body();
+    foot.innerHTML = drawerFoot(current);
+    foot.classList.toggle("is-checkout", current === "stack" && getStack().length > 0);
   };
 
-  const fine = matchMedia("(hover: hover) and (pointer: fine)").matches;
+  const open = (kind, trigger) => {
+    if (!DRAWERS[kind]) return;
+    current = kind;
+    lastTrigger = trigger || null;
+    paint();
+    layer.classList.add("is-open");
+    layer.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    triggers.forEach((node) => node.setAttribute("aria-expanded", String(node.dataset.drawerOpen === kind)));
+    requestAnimationFrame(() => layer.querySelector(".drawer-close")?.focus({ preventScroll: true }));
+  };
 
-  items.forEach((item) => {
-    if (fine) {
-      item.addEventListener("pointerenter", () => {
-        clearTimeout(closeTimer);
-        openTimer = setTimeout(() => open(item), 60);
-      });
-      item.addEventListener("pointerleave", () => {
-        clearTimeout(openTimer);
-        closeTimer = setTimeout(closeAll, 140);
-      });
+  const close = () => {
+    if (!current) return;
+    current = null;
+    layer.classList.remove("is-open");
+    layer.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    triggers.forEach((node) => node.setAttribute("aria-expanded", "false"));
+    if (lastTrigger) lastTrigger.focus({ preventScroll: true });
+    lastTrigger = null;
+  };
+
+  triggers.forEach((node) => node.addEventListener("click", () => {
+    if (current === node.dataset.drawerOpen) close();
+    else open(node.dataset.drawerOpen, node);
+  }));
+  root.querySelector("[data-brand]")?.addEventListener("click", close);
+
+  layer.addEventListener("click", (event) => {
+    if (event.target.closest("[data-drawer-close]")) { close(); return; }
+
+    const add = event.target.closest("[data-add]");
+    if (add) {
+      const model = MODEL_BY_ID[add.dataset.add];
+      if (model && addToStack(model.id)) toast(`Added "${model.name}" to your stack.`, { duration: 3000 });
+      return;
     }
-    item.querySelector(".nav-trigger").addEventListener("click", (event) => {
-      if (!fine) {
-        event.preventDefault();
-        const isOpen = item.classList.contains("is-open");
-        closeAll();
-        if (!isOpen) open(item);
-      }
-    });
+    const remove = event.target.closest("[data-remove]");
+    if (remove) { removeFromStack(remove.dataset.remove); return; }
+
+    // Any link inside a drawer navigates and closes it. Console and
+    // Studio links are server-owned, so those fall through to a full load.
+    if (event.target.closest("a[href]")) close();
   });
 
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeAll(); });
-  document.addEventListener("click", (event) => {
-    if (!event.target.closest("[data-nav-item]")) closeAll();
-  });
-
-  /* --- drawer --- */
-  const setDrawer = (state) => {
-    drawer.classList.toggle("is-open", state);
-    drawer.setAttribute("aria-hidden", String(!state));
-    document.body.style.overflow = state ? "hidden" : "";
-    root.querySelector("[data-burger]")?.setAttribute("aria-expanded", String(state));
-  };
-  root.querySelector("[data-burger]")?.addEventListener("click", () => setDrawer(true));
-  root.querySelector("[data-drawer-close]")?.addEventListener("click", () => setDrawer(false));
-  drawer.addEventListener("click", (event) => {
-    const head = event.target.closest(".drawer-group-head");
-    if (head) { head.parentElement.classList.toggle("is-open"); return; }
-    if (event.target.closest("a")) setDrawer(false);
-  });
-
-  /* --- theme --- */
-  const themeButton = root.querySelector("[data-theme-toggle]");
-  const paintThemeIcon = () => {
-    const dark = document.documentElement.dataset.theme === "dark";
-    themeButton.innerHTML = icon(dark ? "sun" : "moon").value;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0d0d0b" : "#f6f3ec");
-  };
-  paintThemeIcon();
-  themeButton.addEventListener("click", () => {
-    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    document.documentElement.dataset.themePreference = next;
-    try { localStorage.setItem("mere-x.theme", next); } catch { /* session-only theme is fine */ }
-    paintThemeIcon();
-  });
-
-  /* --- active section highlight --- */
-  const markActive = (ctx) => {
-    const path = (ctx && ctx.path) || location.pathname;
-    items.forEach((item) => {
-      const group = NAV.find((g) => g.id === item.dataset.navItem);
-      const active = group.links.some((link) => path === link.href || (link.href !== "/" && path.startsWith(`${link.href}/`)))
-        || path === group.href
-        || (group.href !== "/" && path.startsWith(`${group.href}/`));
-      item.classList.toggle("is-active", Boolean(active));
-    });
-    root.querySelector("[data-console-link]")?.classList.toggle("btn-primary", path.startsWith("/console"));
-  };
-  markActive();
-  onNavigate(markActive);
-
-  /* --- search shortcut --- */
-  const openSearch = () => navigate("/search");
-  root.querySelector("[data-search-open]")?.addEventListener("click", openSearch);
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && current) close();
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
-      openSearch();
+      close();
+      navigate("/search");
     }
   });
+
+  onStackChange((items) => {
+    badge.textContent = String(items.length);
+    badge.hidden = items.length === 0;
+    if (current === "models") {
+      body.querySelectorAll("[data-add]").forEach((node) => {
+        const added = items.includes(node.dataset.add);
+        node.classList.toggle("is-added", added);
+        node.setAttribute("aria-pressed", String(added));
+        node.textContent = added ? "Added" : "Add";
+      });
+    } else if (current === "stack") {
+      paint();
+    }
+  });
+
+  onNavigate(close);
 }

@@ -144,13 +144,13 @@ push_protected = false`
               <div>
                 <p class="eyebrow">Control</p>
                 <h2 style="margin-top:18px;font-size:var(--t-h2)">It cannot do anything you have not allowed.</h2>
-                <p style="margin-top:20px;color:rgba(246,243,236,.66);line-height:1.68;max-width:52ch">
+                <p style="margin-top:20px;color:rgba(255,255,255,.66);line-height:1.68;max-width:52ch">
                   Reads, writes, shell commands, and network access each go through a permission layer.
                   Configure it once per repository, tighten it for CI, and audit every action afterwards.
                   There is no mode in which it decides for itself that a rule does not apply.
                 </p>
                 <div class="row" style="margin-top:26px">
-                  <a class="link" href="/safety" style="color:#f6f3ec"><span>Our safety approach</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/safety" style="color:#fff"><span>Our safety approach</span>${icon("arrow-ne", "icon").value}</a>
                 </div>
               </div>
               <div class="stack stack-2">
@@ -161,10 +161,10 @@ push_protected = false`
                   ["network", "Outbound requests from tools", "deny"],
                   ["push_protected", "Direct pushes to protected branches", "deny"]
                 ].map(([k, d, state]) => `
-                  <div class="between" style="padding:12px 14px;border:1px solid rgba(246,243,236,.14);border-radius:var(--r-sm);gap:14px">
+                  <div class="between" style="padding:12px 14px;border:1px solid rgba(255,255,255,.14);border-radius:var(--r-sm);gap:14px">
                     <div style="min-width:0">
-                      <code class="mono" style="font-size:12px;color:#f6f3ec">${k}</code>
-                      <div class="xs" style="color:rgba(246,243,236,.5);margin-top:2px">${d}</div>
+                      <code class="mono" style="font-size:12px;color:#fff">${k}</code>
+                      <div class="xs" style="color:rgba(255,255,255,.5);margin-top:2px">${d}</div>
                     </div>
                     <span class="badge ${state === "deny" ? "badge-danger" : state === "prompt" ? "badge-warning" : "badge-positive"}">${state}</span>
                   </div>`).join("")}

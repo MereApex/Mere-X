@@ -90,14 +90,14 @@ export const MODELS = [
     aliases: ["mere-nyx-5-5-latest", "mere-nyx-5-5-20260618"]
   },
   {
-    id: "mere-vision-5-5",
-    name: "Mere Vision 5.5",
+    id: "mere-iris",
+    name: "Mere Iris",
     short: "Vision",
     tier: "Multimodal",
     icon: "image",
     tagline: "Reads diagrams and renders images with the same model.",
     description:
-      "Vision 2 handles the pixel side of the platform: document and chart understanding, UI screenshots, hand-drawn sketches, and high-fidelity image generation and editing with instruction-level control.",
+      "Iris handles the pixel side of the platform: document and chart understanding, UI screenshots, hand-drawn sketches, and high-fidelity image generation and editing with instruction-level control.",
     context: 300_000,
     maxOutput: 16_000,
     modes: ["Fast", "High"],
@@ -113,11 +113,11 @@ export const MODELS = [
       "Product imagery and editing",
       "Visual QA over screenshots"
     ],
-    aliases: ["mere-vision-5-5-latest"]
+    aliases: ["mere-iris-latest"]
   },
   {
-    id: "mere-voice-5-5",
-    name: "Mere Voice 5.5",
+    id: "mere-lyra",
+    name: "Mere Lyra",
     short: "Voice",
     tier: "Realtime",
     icon: "wave",
@@ -139,11 +139,11 @@ export const MODELS = [
       "Accessibility interfaces",
       "Hands-free field tools"
     ],
-    aliases: ["mere-voice-5-5-latest"]
+    aliases: ["mere-lyra-latest"]
   },
   {
-    id: "mere-embed-5-5",
-    name: "Mere Embed 5.5",
+    id: "mere-atlas",
+    name: "Mere Atlas",
     short: "Embed",
     tier: "Retrieval",
     icon: "network",
@@ -165,11 +165,11 @@ export const MODELS = [
       "Deduplication and clustering",
       "Recommendation features"
     ],
-    aliases: ["mere-embed-5-5-latest"]
+    aliases: ["mere-atlas-latest"]
   },
   {
-    id: "mere-guard-5-5",
-    name: "Mere Guard 5.5",
+    id: "mere-aegis",
+    name: "Mere Aegis",
     short: "Guard",
     tier: "Safety",
     icon: "shield",
@@ -191,12 +191,12 @@ export const MODELS = [
       "Age-appropriate experiences",
       "Compliance evidence"
     ],
-    aliases: ["mere-guard-5-5-latest"]
+    aliases: ["mere-aegis-latest"]
   }
 ];
 
 export const MODEL_BY_ID = Object.fromEntries(MODELS.map((model) => [model.id, model]));
-export const CHAT_MODELS = MODELS.filter((model) => model.modes.length > 0 && model.id !== "mere-guard-5-5");
+export const CHAT_MODELS = MODELS.filter((model) => model.modes.length > 0 && model.id !== "mere-aegis");
 
 /* ------------------------------------------------------------
    REASONING MODES — the control users actually feel
@@ -292,7 +292,7 @@ export const CAPABILITIES = [
     name: "Multimodal in and out",
     blurb: "Text, images, PDFs, charts, screenshots, audio — and image generation from the same interface.",
     detail:
-      "Send a 400-page PDF, a photograph of a whiteboard, a UI screenshot, or an audio file in the same message array. Vision 2 also generates and edits images with instruction-level control, and Voice 1 closes the loop for spoken interaction.",
+      "Send a 400-page PDF, a photograph of a whiteboard, a UI screenshot, or an audio file in the same message array. Iris also generates and edits images with instruction-level control, and Lyra closes the loop for spoken interaction.",
     bullets: [
       "Native PDF parsing with layout preservation",
       "Chart, table, and diagram understanding",

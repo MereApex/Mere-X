@@ -3,7 +3,8 @@
 The Mere X public platform: marketing pages, product and API documentation,
 pricing, and the developer console for the Mere model family.
 
-Cream-and-ink design system, no UI framework, ~84 routes, client-side routed.
+Pure-white, black-ink design system — Orbitron display type over Plus Jakarta Sans,
+fluid `clamp()` sizing, no UI framework, ~84 routes, client-side routed.
 
 ```bash
 # Run these from the repository root:
@@ -26,28 +27,30 @@ npm start        # serve landing, workspace, checkout, API, and console
 ## Architecture
 
 ```
-index.html            app shell — theme bootstrap, fonts, mount point
+index.html            app shell — fonts, hero image preloads, mount point
 src/
   main.js             route table, shell assembly, global motion
   lib/
     router.js         history router: patterns, params, progress bar, per-view teardown
     dom.js            html`` tagged template (escapes by default), raw(), copyText()
     icons.js          ~90 hairline icons + the Mere X mark
-    motion.js         scroll reveal, counters, parallax, magnetism, cursor glow
+    motion.js         scroll reveal, counters, parallax, magnetism
+    stack.js          the visitor's model stack (sessionStorage-backed)
     highlight.js      single-pass tokenizer for bash / json / python / js
     format.js         numbers, currency, dates, seeded pseudo-random
     store.js          authenticated console API state + derived selectors
     toast.js          toasts and modals
   components/
     ui.js             buttons, cards, tables, code blocks, accordions, CTA bands
-    nav.js            sticky header, mega-menus, mobile drawer, theme toggle
-    footer.js         sitemap footer
+    nav.js            composition header + the four side drawers (models, platform, research, stack)
+    footer.js         sitemap footer with the outlined wordmark
     charts.js         area / bar / donut / proportion / heat-strip SVG charts
-    orb.js            the Mere X mark in its plinth
+    reveal.js         the dual-portrait spotlight background behind the home composition
+    orb.js            the inline Mere X seal (mereXSeal); mereXOrb is retained for the brand test only
   data/               models, site map, editorial content, docs pages, API reference
   pages/              one module per marketing route
   console/            one module per console route
-  styles/             tokens → base → components → site → console
+  styles/             tokens → base → components → shell → site → console
 server/index.js       zero-dependency static server with SPA fallback
 ```
 
@@ -69,9 +72,18 @@ export default {
 
 ### Design system
 
-Tokens live in `src/styles/tokens.css`. Both themes are defined there — light on
-bare `:root`, dark under `[data-theme="dark"]` — so no component needs to know
-which theme is active. Motion respects `prefers-reduced-motion` throughout.
+Tokens live in `src/styles/tokens.css`: white paper, black ink, gray accents
+(`gray-200` … `gray-600`, slate `#64748b` for the hero grid) and the fluid size
+system (`--pad-x`, `--headline`, `--drawer-max`, …) that every surface scales
+from. There is one theme. Motion respects `prefers-reduced-motion` throughout.
+
+The home page is a single full-viewport composition: wordmark and nav, the
+`FUTURE / FORWARD / INTELLIGENCE` headline with its checker, one CTA, the globe
+tagline, and — on desktop — the dual-portrait reveal in `components/reveal.js`
+(spotlight eased at 0.1, radius `clamp(160, 16vw, 420)`, parallax grid eased at
+0.06, and a scanner reticle that rides the lens). Below `lg` the interactive
+background is replaced by a bordered still of the base portrait. Both portraits
+are served from `public/hero/`.
 
 ### The console
 
@@ -82,10 +94,13 @@ there is no seeded Console state or account-free Console access.
 
 ## Notes
 
-The model family is **Mere Apex 5.5** (frontier), **Mere Orion 5.5** (balanced),
-and **Mere Nyx 5.5** (fast). Evaluation figures, customer
-stories, and platform metrics are illustrative — the benchmark and transparency
-pages say so where the numbers appear.
+The chat models carry the generation in their name — **Mere Apex 5.5**
+(frontier), **Mere Orion 5.5** (balanced), **Mere Nyx 5.5** (fast). The
+specialists are named rather than versioned: **Mere Iris** (multimodal),
+**Mere Lyra** (realtime voice), **Mere Atlas** (embeddings), and **Mere Aegis**
+(safety). Evaluation figures, customer stories, and platform metrics are
+illustrative — the benchmark and transparency pages say so where the numbers
+appear.
 
 The shared Mere X logo lives in `public/brand/`; the wordmark is rendered as live
 text so it remains sharp, accessible, and theme-safe at every size.

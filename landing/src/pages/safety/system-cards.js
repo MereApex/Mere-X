@@ -9,10 +9,10 @@ import { pageHead, sectionHead, textLink, button, ctaBand, benchBars, calloutBox
 
 const CARDS = [
   { model: "Mere X 5.5", date: "2026-06-18", rev: "rev 2 · 30 July 2026", pages: 118, level: "CSL-3", note: "Apex, Orion, and Nyx in one document, with per-model evaluation tables." },
-  { model: "Mere Voice 5.5", date: "2026-05-14", rev: "rev 1", pages: 44, level: "CSL-2", note: "Realtime speech, voice cloning refusals, and impersonation risk." },
-  { model: "Mere Vision 5.5", date: "2026-04-02", rev: "rev 1", pages: 61, level: "CSL-2", note: "Image generation policy, likeness handling, and CSAM prevention." },
+  { model: "Mere Lyra", date: "2026-05-14", rev: "rev 1", pages: 44, level: "CSL-2", note: "Realtime speech, voice cloning refusals, and impersonation risk." },
+  { model: "Mere Iris", date: "2026-04-02", rev: "rev 1", pages: 61, level: "CSL-2", note: "Image generation policy, likeness handling, and CSAM prevention." },
   { model: "Mere 5.0", date: "2025-11-04", rev: "rev 3", pages: 96, level: "CSL-2", note: "The first release under the Responsible Scaling Policy." },
-  { model: "Mere Guard 5.5", date: "2026-01-09", rev: "rev 1", pages: 38, level: "n/a", note: "Taxonomy definitions, training data, and human-rater disagreement rates." }
+  { model: "Mere Aegis", date: "2026-01-09", rev: "rev 1", pages: 38, level: "n/a", note: "Taxonomy definitions, training data, and human-rater disagreement rates." }
 ];
 
 const CONTENTS = [

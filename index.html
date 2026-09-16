@@ -1,35 +1,22 @@
 <!doctype html>
-<html lang="en" class="auth-open">
+<html lang="en" class="app-booting">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#f7f4ee" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Mere X" />
     <meta name="description" content="Mere X — intelligent chat and Studio powered by Mere Nyx, Orion, and Apex 5.5." />
-    <link rel="icon" type="image/png" href="/src/assets/mere-x-logo.png" />
+    <link rel="icon" type="image/png" href="/src/assets/mere-x-logo-web.png" />
     <link rel="apple-touch-icon" href="/app/icons/mere-x-192.png" />
     <link rel="manifest" href="/app/manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>Mere X</title>
-    <script>
-      try {
-        const savedTheme = localStorage.getItem("mere-x.theme") || "cream";
-        const resolvedTheme = savedTheme === "system"
-          ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "cream")
-          : savedTheme;
-        document.documentElement.dataset.theme = resolvedTheme;
-        document.documentElement.dataset.themePreference = savedTheme;
-      } catch (error) {
-        document.documentElement.dataset.theme = "cream";
-      }
-    </script>
     <link rel="stylesheet" href="/src/styles/app.css" />
-    <link rel="stylesheet" href="/src/styles/hero-cinematic.css" />
   </head>
   <body>
     <svg class="svg-defs" aria-hidden="true">
@@ -106,11 +93,16 @@
       </defs>
     </svg>
 
+    <div class="app-boot" id="appBoot" aria-hidden="true">
+      <div class="app-boot-mark">MERE X</div>
+      <div class="app-boot-rule"><i></i></div>
+    </div>
+
     <div class="auth-screen" id="authScreen">
       <section class="auth-showcase">
         <a class="auth-showcase-brand" href="#" aria-label="Mere X home">
-          <span><img src="/src/assets/mere-x-logo.png" alt="" /></span>
-          <strong>Mere X</strong>
+          <span><img src="/src/assets/mere-x-logo-web.png" alt="" /></span>
+          <strong>MERE X</strong>
         </a>
 
         <div class="auth-showcase-copy">
@@ -140,7 +132,7 @@
       <section class="auth-panel">
         <div class="auth-card">
           <div class="auth-card-brand">
-            <span><img src="/src/assets/mere-x-logo.png" alt="" /></span><strong>Mere X</strong>
+            <span><img src="/src/assets/mere-x-logo-web.png" alt="" /></span><strong>MERE X</strong>
           </div>
 
           <div class="auth-switch" id="authSwitch" role="group" aria-label="Account access">
@@ -190,7 +182,7 @@
             </div>
 
             <button type="submit" class="auth-submit">
-              <span class="auth-submit-label">sign in<svg><use href="#i-arrow-ne"></use></svg></span>
+              <span class="auth-submit-label">Sign in<svg><use href="#i-arrow-ne"></use></svg></span>
               <span class="auth-spinner" aria-hidden="true"></span>
             </button>
 
@@ -253,7 +245,7 @@
             </div>
 
             <button type="submit" class="auth-submit">
-              <span class="auth-submit-label">create account<svg><use href="#i-arrow-ne"></use></svg></span>
+              <span class="auth-submit-label">Create account<svg><use href="#i-arrow-ne"></use></svg></span>
               <span class="auth-spinner" aria-hidden="true"></span>
             </button>
 
@@ -300,7 +292,7 @@
             </div>
 
             <button type="submit" class="auth-submit">
-              <span class="auth-submit-label" id="resetSubmitLabel">send reset link<svg><use href="#i-arrow-ne"></use></svg></span>
+              <span class="auth-submit-label" id="resetSubmitLabel">Send reset link<svg><use href="#i-arrow-ne"></use></svg></span>
               <span class="auth-spinner" aria-hidden="true"></span>
             </button>
           </form>
@@ -316,8 +308,8 @@
       <aside class="sidebar" id="sidebar" aria-label="Main navigation">
         <div class="sidebar-top">
           <button type="button" class="brand" id="brandButton" aria-label="Mere X home">
-          <span class="brand-mark"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
-            <span class="brand-name">Mere X</span>
+          <span class="brand-mark"><img src="/src/assets/mere-x-logo-web.png" alt="" /></span>
+            <span class="brand-name">MERE X</span>
           </button>
           <div class="sidebar-head-actions">
             <button class="icon-button" id="sidebarSearch" aria-label="Search" title="Search  ⌘K">
@@ -377,7 +369,7 @@
           <div class="topbar-left">
             <button class="icon-button mobile-menu" id="mobileMenu" aria-label="Open menu"><svg><use href="#i-panel"></use></svg></button>
             <div class="mobile-app-brand" aria-label="Mere X home">
-          <span><img src="/src/assets/mere-x-logo.png" alt="" /></span><strong>Mere X</strong>
+          <span><img src="/src/assets/mere-x-logo-web.png" alt="" /></span><strong>MERE X</strong>
             </div>
             <button class="model-trigger" id="modelTrigger" aria-haspopup="true" aria-expanded="false">
               <span id="modelTriggerLabel">Mere Apex <strong>5.5</strong></span>
@@ -405,28 +397,16 @@
           <section class="workspace-view" id="workspaceView" aria-live="polite" hidden></section>
 
           <div class="welcome-block">
-            <div class="hero-mark is-entering" aria-hidden="true">
-              <span class="hero-cinema-aura"></span>
-              <span class="hero-cinema-horizon"></span>
-              <span class="hero-cinema-arc hero-arc-near"></span>
-              <span class="hero-cinema-arc hero-arc-far"></span>
-              <span class="hero-logo-motion">
-                <span class="hero-ribbon-panel hero-ribbon-left"><img class="hero-logo" src="/src/assets/mere-x-logo.png" alt="" /></span>
-                <span class="hero-ribbon-panel hero-ribbon-right"><img class="hero-logo" src="/src/assets/mere-x-logo.png" alt="" /></span>
-                <img class="hero-logo-master" src="/src/assets/mere-x-logo.png" alt="" />
-                <span class="hero-join-flare"></span>
-                <span class="hero-logo-sheen"></span>
-              </span>
-              <span class="hero-contact-shadow"></span>
-            </div>
-            <h1>Where should we <em>begin</em>?</h1>
-            <p class="welcome-copy">One place for ideas, research, creation, and complex work.</p>
+            <p class="welcome-eyebrow">Mere X 5.5 — Studio</p>
+            <h1>Where should we begin<em>?</em></h1>
+            <p class="welcome-copy">Ideas, research, creation, and complex work — one surface.</p>
             <div class="agent-starters" id="agentStarters" hidden></div>
           </div>
 
           <div class="conversation-feed" id="conversationFeed" aria-live="polite" aria-label="Conversation messages"></div>
 
           <div class="composer-zone">
+            <div class="slash-menu" id="slashMenu" role="listbox" aria-label="Commands" hidden></div>
             <form class="composer" id="composerForm">
               <div class="composer-input-row">
                 <button type="button" class="round-tool" id="attachmentButton" aria-label="Add content" title="Add content"><svg><use href="#i-plus"></use></svg></button>
@@ -437,7 +417,7 @@
                     <button type="button" id="removeTool" aria-label="Remove tool"><svg><use href="#i-close"></use></svg></button>
                   </span>
                   <div class="composer-files" id="composerFiles" aria-label="Attached files" hidden></div>
-                  <textarea id="promptInput" rows="1" aria-label="Ask Mere X" placeholder="Ask Mere X"></textarea>
+                  <textarea id="promptInput" rows="1" aria-label="Ask Mere X" placeholder="Ask Mere X, or type / for commands" aria-autocomplete="list" aria-expanded="false" aria-controls="slashMenu"></textarea>
                 </div>
                 <div class="composer-actions">
                   <button type="button" class="effort-trigger" id="effortTrigger" aria-haspopup="true" aria-expanded="false" title="Thinking effort">
@@ -470,17 +450,17 @@
     <div class="popover model-popover" id="modelPopover" hidden>
       <div class="popover-heading"><span>Model</span><small>Three specialized systems</small></div>
       <button class="model-choice" data-model="nyx">
-        <span class="model-choice-mark"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+        <span class="model-choice-mark"><img src="/src/assets/mere-x-logo-web.png" alt="" /></span>
         <span><strong>Mere Nyx 5.5</strong><small>Fast answers and everyday creation</small></span>
         <svg class="choice-check"><use href="#i-check"></use></svg>
       </button>
       <button class="model-choice" data-model="orion">
-        <span class="model-choice-mark"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+        <span class="model-choice-mark"><img src="/src/assets/mere-x-logo-web.png" alt="" /></span>
         <span><strong>Mere Orion 5.5</strong><small>Balanced reasoning, research, and code</small></span>
         <svg class="choice-check"><use href="#i-check"></use></svg>
       </button>
       <button class="model-choice selected" data-model="apex">
-        <span class="model-choice-mark"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+        <span class="model-choice-mark"><img src="/src/assets/mere-x-logo-web.png" alt="" /></span>
         <span><strong>Mere Apex 5.5</strong><small>Maximum capability for complex work</small></span>
         <svg class="choice-check"><use href="#i-check"></use></svg>
       </button>
@@ -648,7 +628,7 @@
         <div class="voice-transcript voice-transcript-user" id="voiceUserTranscript" hidden><small>YOU · NOW</small><p></p></div>
         <div class="voice-orb" id="voiceOrb" aria-hidden="true">
           <span class="voice-orb-aura"></span><span class="voice-orb-ring"></span><span class="voice-orb-ring voice-orb-ring-two"></span>
-          <span class="voice-orb-logo"><img src="/src/assets/mere-x-logo.png" alt="" /></span>
+          <span class="voice-orb-logo"><img src="/src/assets/mere-x-logo-web.png" alt="" /></span>
         </div>
         <h2 id="voiceStageTitle">Mere X Voice</h2>
         <p class="voice-stage-copy">Speak naturally. Interrupt at any time.</p>

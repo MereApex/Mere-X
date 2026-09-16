@@ -98,7 +98,7 @@ const PAGES = {
           rows: [
             { name: "merex_session", purpose: "Keeps you signed in", type: "Essential", life: "Session" },
             { name: "merex_csrf", purpose: "Cross-site request forgery protection", type: "Essential", life: "Session" },
-            { name: "mere-x.theme", purpose: "Remembers light or dark", type: "Preference", life: "1 year" },
+            { name: "mere-x.stack", purpose: "Remembers the models you picked to build with", type: "Preference", life: "Session" },
             { name: "merex_org", purpose: "Remembers your selected organisation", type: "Preference", life: "90 days" },
             { name: "merex_analytics", purpose: "Aggregate page metrics, no cross-site tracking", type: "Analytics", life: "90 days" }
           ]
@@ -108,7 +108,7 @@ const PAGES = {
         { t: "p", v: "No advertising cookies, no cross-site tracking pixels, no data brokers, and no third-party analytics that build a profile of you across the web. Our analytics are first-party and aggregate." }
       ]},
       { h: "Turning them off", blocks: [
-        { t: "p", v: "Analytics and preference cookies can be declined without affecting functionality — the theme setting simply falls back to your system preference. Essential cookies cannot be disabled while signed in, because they are what keeps you signed in." },
+        { t: "p", v: "Analytics and preference cookies can be declined without affecting functionality — your model stack simply starts empty on the next visit. Essential cookies cannot be disabled while signed in, because they are what keeps you signed in." },
         { t: "p", v: "Browser-level blocking works fine here. We do not detect it, and we do not degrade the site in response." }
       ]}
     ]

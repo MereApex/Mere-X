@@ -10,6 +10,8 @@ let progressEl = null;
 let currentCleanups = [];
 let currentPath = null;
 const listeners = new Set();
+let renderSequence = 0;
+let progressResetTimer = 0;
 
 function compile(pattern) {
   const keys = [];
@@ -27,11 +29,11 @@ function compile(pattern) {
 
 /** Register a route. `view` is `{ title, render(ctx), mount(root, ctx) }` or a loader returning one. */
 export function route(pattern, view, meta = {}) {
-  routes.push({ pattern, ...compile(pattern), view, meta });
+  routes.push({ pattern, ...compile(pattern), view, meta, resolved: null, pending: null });
 }
 
-export function fallback(view) {
-  notFound = view;
+export function fallback(view, meta = {}) {
+  notFound = { view, meta, resolved: null, pending: null };
 }
 
 export function match(path) {
@@ -65,17 +67,17 @@ export function navigate(to, { replace = false, scroll = true, force = false } =
   const next = url.pathname + url.search + url.hash;
   if (next === location.pathname + location.search + location.hash) {
     // Same URL: re-rendering is only ever intentional, so require `force`.
-    if (force) render({ scroll });
+    if (force) void render({ scroll });
     else if (url.hash) scrollToHash(url.hash);
     return;
   }
   history[replace ? "replaceState" : "pushState"]({ scroll: 0 }, "", next);
-  render({ scroll });
+  void render({ scroll });
 }
 
 /** Re-render the current route in place — for views that mutate their own data. */
 export function refresh({ scroll = false } = {}) {
-  render({ scroll });
+  void render({ scroll });
 }
 
 function scrollToHash(hash) {
@@ -85,36 +87,98 @@ function scrollToHash(hash) {
 
 function startProgress() {
   if (!progressEl) return;
-  progressEl.classList.remove("is-done");
+  clearTimeout(progressResetTimer);
+  progressEl.classList.remove("is-active", "is-done");
+  // Reset a completed bar before starting the next navigation.
+  void progressEl.offsetWidth;
   progressEl.classList.add("is-active");
+  outlet?.classList.add("is-route-pending");
+  outlet?.setAttribute("aria-busy", "true");
 }
-function endProgress() {
+function endProgress(sequence) {
+  if (sequence !== renderSequence) return;
+  outlet?.classList.remove("is-route-pending");
+  outlet?.setAttribute("aria-busy", "false");
   if (!progressEl) return;
   progressEl.classList.remove("is-active");
   progressEl.classList.add("is-done");
-  setTimeout(() => progressEl.classList.remove("is-done"), 420);
+  progressResetTimer = setTimeout(() => progressEl.classList.remove("is-done"), 420);
+}
+
+function normalizeView(value) {
+  return value && typeof value.default === "object" ? value.default : value;
+}
+
+async function loadView(entry, ctx) {
+  if (!entry) return null;
+  if (typeof entry.view !== "function") return entry.view;
+  if (entry.meta?.cache === false) return normalizeView(await entry.view(ctx));
+  if (entry.resolved) return entry.resolved;
+  if (!entry.pending) {
+    entry.pending = Promise.resolve(entry.view(ctx))
+      .then(normalizeView)
+      .then((resolved) => {
+        entry.resolved = resolved;
+        return resolved;
+      })
+      .finally(() => { entry.pending = null; });
+  }
+  return entry.pending;
+}
+
+function contextFor(url) {
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  const found = match(path);
+  return {
+    entry: found ? found.entry : notFound,
+    ctx: {
+      path,
+      params: found ? found.params : {},
+      query: new URLSearchParams(url.search),
+      hash: url.hash,
+      meta: found ? found.entry.meta : (notFound?.meta || {})
+    }
+  };
+}
+
+function preload(anchor) {
+  if (!isInternalLink(anchor)) return;
+  const url = new URL(anchor.getAttribute("href"), location.origin);
+  const { entry, ctx } = contextFor(url);
+  if (!entry || entry.meta?.prefetch === false) return;
+  void loadView(entry, ctx).catch(() => { /* navigation will show the real error */ });
 }
 
 async function render({ scroll = true } = {}) {
-  const path = location.pathname.replace(/\/+$/, "") || "/";
-  const found = match(path);
-  const view = found ? found.entry.view : notFound;
-  const ctx = {
-    path,
-    params: found ? found.params : {},
-    query: new URLSearchParams(location.search),
-    hash: location.hash,
-    meta: found ? found.entry.meta : {}
-  };
+  const sequence = ++renderSequence;
+  const { entry, ctx } = contextFor(new URL(location.href));
+  const { path } = ctx;
 
   startProgress();
+  let resolved;
+  try {
+    resolved = await loadView(entry, ctx);
+  } catch (error) {
+    if (sequence !== renderSequence) return;
+    console.error("[route load]", path, error);
+    endProgress(sequence);
+    return;
+  }
+  // A slower, older import must never repaint over a newer navigation.
+  if (sequence !== renderSequence) return;
+  if (!resolved) { endProgress(sequence); return; }
+
+  let markup = "";
+  try {
+    markup = resolved.render ? resolved.render(ctx) : "";
+  } catch (error) {
+    console.error("[route render]", path, error);
+    endProgress(sequence);
+    return;
+  }
+
   currentCleanups.forEach((fn) => { try { fn(); } catch { /* teardown must not break navigation */ } });
   currentCleanups = [];
-
-  let resolved = view;
-  if (typeof view === "function") resolved = await view(ctx);
-  if (resolved && typeof resolved.default === "object") resolved = resolved.default;
-  if (!resolved) { endProgress(); return; }
 
   const title = typeof resolved.title === "function" ? resolved.title(ctx) : resolved.title;
   document.title = title ? `${title} — Mere X` : "Mere X";
@@ -125,11 +189,13 @@ async function render({ scroll = true } = {}) {
     tag.content = description;
   }
 
-  outlet.innerHTML = `<div class="route-view">${resolved.render ? resolved.render(ctx) : ""}</div>`;
-  const root = outlet.firstElementChild;
+  const root = document.createElement("div");
+  root.className = "route-view";
+  root.innerHTML = markup;
+  outlet.replaceChildren(root);
 
   currentPath = path;
-  listeners.forEach((fn) => fn(ctx));
+  listeners.forEach((fn) => { try { fn(ctx); } catch (error) { console.error("[route listener]", path, error); } });
 
   if (typeof resolved.mount === "function") {
     try { resolved.mount(root, ctx); } catch (error) { console.error("[route mount]", path, error); }
@@ -139,7 +205,7 @@ async function render({ scroll = true } = {}) {
     if (ctx.hash) requestAnimationFrame(() => scrollToHash(ctx.hash));
     else window.scrollTo({ top: 0, behavior: "instant" in document.documentElement.style ? "instant" : "auto" });
   }
-  endProgress();
+  endProgress(sequence);
 }
 
 function isInternalLink(anchor) {
@@ -149,7 +215,10 @@ function isInternalLink(anchor) {
   if (anchor.dataset.external !== undefined) return false;
   const href = anchor.getAttribute("href");
   if (!href || href.startsWith("http") || href.startsWith("mailto:") || href.startsWith("tel:")) return false;
-  if (href === "/app" || href.startsWith("/app?") || href.startsWith("/app/") || href === "/checkout" || href.startsWith("/checkout?")) return false;
+  const url = new URL(href, location.origin);
+  const serverOwned = /^\/(?:app|checkout|login|register)(?:\/|$)/.test(url.pathname);
+  const enteringConsole = /^\/console(?:\/|$)/.test(url.pathname) && !/^\/console(?:\/|$)/.test(location.pathname);
+  if (serverOwned || enteringConsole) return false;
   return href.startsWith("/") || href.startsWith("#");
 }
 
@@ -172,6 +241,15 @@ export function start({ mount, progress }) {
     navigate(href);
   });
 
-  window.addEventListener("popstate", () => render({ scroll: true }));
-  render({ scroll: false });
+  document.addEventListener("pointerover", (event) => {
+    const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+    preload(anchor);
+  }, { passive: true });
+  document.addEventListener("focusin", (event) => {
+    const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+    preload(anchor);
+  });
+
+  window.addEventListener("popstate", () => { void render({ scroll: true }); });
+  void render({ scroll: false });
 }

@@ -130,10 +130,10 @@ export default {
                 ["Week 3–5", "Pilot", "A real workload with a named architect, measured against your own evaluation."],
                 ["Week 6", "Production", "Provisioning, runbooks, escalation paths, and a handover that includes your on-call."]
               ].map(([w, t, d], index, arr) => `
-                <div style="padding:22px 20px;border-right:${index === arr.length - 1 ? "0" : "1px solid rgba(246,243,236,.12)"}">
-                  <div class="xs mono" style="color:rgba(246,243,236,.5)">${w}</div>
-                  <div style="font-size:var(--t-body);margin-top:8px;color:#f6f3ec">${t}</div>
-                  <div class="xs" style="color:rgba(246,243,236,.55);margin-top:8px;line-height:1.55">${d}</div>
+                <div style="padding:22px 20px;border-right:${index === arr.length - 1 ? "0" : "1px solid rgba(255,255,255,.12)"}">
+                  <div class="xs mono" style="color:rgba(255,255,255,.5)">${w}</div>
+                  <div style="font-size:var(--t-body);margin-top:8px;color:#fff">${t}</div>
+                  <div class="xs" style="color:rgba(255,255,255,.55);margin-top:8px;line-height:1.55">${d}</div>
                 </div>`).join("")}
             </div>
           </div>
