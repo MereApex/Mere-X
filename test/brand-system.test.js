@@ -72,22 +72,42 @@ test("an authenticated visitor never sees the sign-in screen flash", async () =>
   assert.match(workspaceScript, /function showAuthScreen\(\)/);
 });
 
-test("the composer offers slash commands that route to real capabilities", async () => {
+test("one command registry serves both the + button and the / palette", async () => {
   const [workspacePage, workspaceScript] = await Promise.all([
     readFile(new URL("../index.html", import.meta.url), "utf8"),
     readFile(new URL("../src/js/app.js", import.meta.url), "utf8")
   ]);
 
-  assert.match(workspacePage, /id="slashMenu"/);
+  assert.match(workspacePage, /id="commandMenu"/);
   assert.match(workspacePage, /placeholder="Ask Mere X, or type \/ for commands"/);
-  assert.match(workspaceScript, /const SLASH_COMMANDS = \[/);
-  assert.match(workspaceScript, /function handleSlashKeydown\(event\)/);
+  assert.doesNotMatch(workspacePage, /id="attachmentPopover"/);
+  assert.match(workspaceScript, /function commandGroups\(\)/);
+  assert.match(workspaceScript, /function handleCommandKeydown\(event\)/);
+  // "+" must open the same menu rather than a popover of its own.
+  assert.match(workspaceScript, /attachmentButton\.addEventListener\("click"[\s\S]{0,220}openCommandMenu\("plus"\)/);
 
-  // Every command has to be reachable by name and do something real.
-  const names = [...workspaceScript.matchAll(/\{ name: "([a-z-]+)", label: "/g)].map((match) => match[1]);
-  assert.ok(names.length >= 20, `expected a full palette, found ${names.length}`);
-  assert.equal(new Set(names).size, names.length, "slash command names must be unique");
-  for (const required of ["image", "research", "voice", "settings", "new"]) {
-    assert.ok(names.includes(required), `missing /${required}`);
+  // Entries are written inline, or spread over lines when they carry a submenu.
+  const ids = [...workspaceScript.matchAll(/\bid: "([a-z-]+)",\s*\n?\s*label: "/g)].map((match) => match[1]);
+  assert.ok(ids.length >= 35, `expected a full registry, found ${ids.length}`);
+  assert.equal(new Set(ids).size, ids.length, "command ids must be unique — rows are matched by them");
+  for (const required of ["image", "research", "voice", "settings", "new", "model", "effort"]) {
+    assert.ok(ids.includes(required), `missing /${required}`);
   }
+
+  // Every leaf command has to do something real.
+  const leaves = [...workspaceScript.matchAll(/\{ id: "[a-z-]+", label: "[^"]+", hint: [^}]*?\}/g)].map((m) => m[0]);
+  const inert = leaves.filter((entry) => !/run:|tool:|children:/.test(entry));
+  assert.equal(inert.length, 0, `commands with no behaviour: ${inert.join(" | ")}`);
+});
+
+test("the voice stage is ink, bracketed, and unbranded", async () => {
+  const [workspacePage, workspaceStyles] = await Promise.all([
+    readFile(new URL("../index.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/styles/app.css", import.meta.url), "utf8")
+  ]);
+
+  assert.doesNotMatch(workspacePage, /voice-orb|mere-x-logo-web\.png" alt="" \/><\/span>\s*<\/div>/);
+  assert.doesNotMatch(workspaceStyles, /voice-orb|voice-stage-atmosphere/);
+  assert.match(workspacePage, /class="voice-corner voice-corner-tl"/);
+  assert.match(workspaceStyles, /\.voice-stage \{[^}]*background: var\(--ink\)/);
 });

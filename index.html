@@ -406,7 +406,7 @@
           <div class="conversation-feed" id="conversationFeed" aria-live="polite" aria-label="Conversation messages"></div>
 
           <div class="composer-zone">
-            <div class="slash-menu" id="slashMenu" role="listbox" aria-label="Commands" hidden></div>
+            <div class="command-menu" id="commandMenu" role="listbox" aria-label="Commands" hidden></div>
             <form class="composer" id="composerForm">
               <div class="composer-input-row">
                 <button type="button" class="round-tool" id="attachmentButton" aria-label="Add content" title="Add content"><svg><use href="#i-plus"></use></svg></button>
@@ -480,22 +480,6 @@
         <button type="button" class="effort-lock" id="effortLock" aria-label="DEEP reasoning requires an upgrade" title="DEEP reasoning requires an upgrade"><svg><use href="#i-lock"></use></svg></button>
       </div>
       <p class="effort-note" id="effortNote">More reasoning for harder problems.</p>
-    </div>
-
-    <div class="popover attachment-popover" id="attachmentPopover" hidden>
-      <button id="uploadFileButton"><svg><use href="#i-file"></use></svg><span><strong>Upload a file</strong><small>Document, image, or code</small></span></button>
-      <button id="chooseProjectButton"><svg><use href="#i-folder"></use></svg><span><strong>Choose from a project</strong><small>Use existing material</small></span></button>
-      <div class="account-divider"></div>
-      <p class="popover-label">Tools</p>
-      <div class="tool-grid">
-        <button data-tool="Web search"><svg><use href="#i-globe"></use></svg><span>Web search</span></button>
-        <button data-tool="Deep research"><svg><use href="#i-spark"></use></svg><span>Deep research</span></button>
-        <button data-tool="Canvas"><svg><use href="#i-canvas"></use></svg><span>Canvas</span></button>
-        <button data-tool="Images"><svg><use href="#i-image"></use></svg><span>Images</span></button>
-        <button data-tool="Code workspace"><svg><use href="#i-code"></use></svg><span>Code Studio</span></button>
-        <button data-tool="Data analysis"><svg><use href="#i-chart"></use></svg><span>Data analysis</span></button>
-        <button data-tool="File analysis"><svg><use href="#i-file"></use></svg><span>File analysis</span></button>
-      </div>
     </div>
 
     <div class="popover more-popover" id="morePopover" hidden>
@@ -619,31 +603,45 @@
     </div>
 
     <section class="voice-stage" id="voiceStage" role="dialog" aria-modal="true" aria-labelledby="voiceStageTitle" hidden>
-      <div class="voice-stage-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="voice-grid" aria-hidden="true"></div>
+
       <header class="voice-stage-header">
-        <div><span class="voice-live-dot"></span><span id="voiceStageStatus">Connecting</span></div>
+        <div class="voice-status"><span class="voice-live-dot"></span><span id="voiceStageStatus">Connecting</span></div>
         <button type="button" class="voice-stage-close" id="voiceStageClose" aria-label="End voice conversation"><svg><use href="#i-close"></use></svg></button>
       </header>
+
       <div class="voice-stage-main">
-        <div class="voice-transcript voice-transcript-user" id="voiceUserTranscript" hidden><small>YOU · NOW</small><p></p></div>
-        <div class="voice-orb" id="voiceOrb" aria-hidden="true">
-          <span class="voice-orb-aura"></span><span class="voice-orb-ring"></span><span class="voice-orb-ring voice-orb-ring-two"></span>
-          <span class="voice-orb-logo"><img src="/src/assets/mere-x-logo-web.png" alt="" /></span>
+        <div class="voice-frame">
+          <span class="voice-corner voice-corner-tl"></span>
+          <span class="voice-corner voice-corner-tr"></span>
+          <span class="voice-corner voice-corner-bl"></span>
+          <span class="voice-corner voice-corner-br"></span>
+
+          <p class="voice-eyebrow">Live session</p>
+          <h2 id="voiceStageTitle">Mere X Voice</h2>
+          <p class="voice-stage-copy">Speak naturally. Interrupt at any time.</p>
+
+          <div class="voice-waveform" aria-hidden="true"><i style="--wave:0"></i><i style="--wave:1"></i><i style="--wave:2"></i><i style="--wave:3"></i><i style="--wave:4"></i><i style="--wave:5"></i><i style="--wave:6"></i><i style="--wave:7"></i><i style="--wave:8"></i><i style="--wave:9"></i><i style="--wave:10"></i><i style="--wave:11"></i><i style="--wave:12"></i><i style="--wave:13"></i><i style="--wave:14"></i><i style="--wave:15"></i><i style="--wave:16"></i><i style="--wave:17"></i><i style="--wave:18"></i><i style="--wave:19"></i><i style="--wave:20"></i><i style="--wave:21"></i><i style="--wave:22"></i><i style="--wave:23"></i><i style="--wave:24"></i><i style="--wave:25"></i><i style="--wave:26"></i><i style="--wave:27"></i><i style="--wave:28"></i><i style="--wave:29"></i><i style="--wave:30"></i><i style="--wave:31"></i></div>
+          <div class="voice-readout" aria-hidden="true"><span>CH 01</span><span class="voice-rule"></span><span id="voiceStageMode">Duplex</span></div>
         </div>
-        <h2 id="voiceStageTitle">Mere X Voice</h2>
-        <p class="voice-stage-copy">Speak naturally. Interrupt at any time.</p>
-        <div class="voice-waveform" aria-hidden="true"><i style="--wave:0"></i><i style="--wave:1"></i><i style="--wave:2"></i><i style="--wave:3"></i><i style="--wave:4"></i><i style="--wave:5"></i><i style="--wave:6"></i><i style="--wave:7"></i><i style="--wave:8"></i><i style="--wave:9"></i><i style="--wave:10"></i><i style="--wave:11"></i><i style="--wave:12"></i><i style="--wave:13"></i><i style="--wave:14"></i><i style="--wave:15"></i><i style="--wave:16"></i><i style="--wave:17"></i><i style="--wave:18"></i><i style="--wave:19"></i><i style="--wave:20"></i><i style="--wave:21"></i><i style="--wave:22"></i><i style="--wave:23"></i></div>
-        <div class="voice-transcript voice-transcript-assistant" id="voiceAssistantTranscript" hidden><small>MERE X · LIVE</small><p></p></div>
+
+        <div class="voice-transcripts">
+          <div class="voice-transcript voice-transcript-user" id="voiceUserTranscript" hidden><small>You</small><p></p></div>
+          <div class="voice-transcript voice-transcript-assistant" id="voiceAssistantTranscript" hidden><small>Mere X</small><p></p></div>
+        </div>
       </div>
+
       <div class="voice-camera-preview" id="voiceCameraPreview" hidden>
         <video id="voiceCameraVideo" autoplay muted playsinline></video>
         <span><i></i>Vision on</span>
       </div>
+
       <footer class="voice-stage-controls">
         <button type="button" class="voice-control" id="voiceCameraButton" aria-label="Turn camera on" title="Show Mere X what you see"><svg><use href="#i-camera"></use></svg><span>Camera</span></button>
         <button type="button" class="voice-control voice-control-primary" id="voiceMuteButton" aria-label="Mute microphone"><svg><use href="#i-mic"></use></svg><span>Mute</span></button>
         <button type="button" class="voice-control voice-control-end" id="voiceEndButton" aria-label="End voice conversation"><svg><use href="#i-close"></use></svg><span>End</span></button>
       </footer>
+
       <canvas id="voiceCameraCanvas" hidden></canvas>
     </section>
 

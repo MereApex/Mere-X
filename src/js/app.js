@@ -49,7 +49,6 @@ const effortValue = $("#effortValue");
 const effortSlider = $("#effortSlider");
 const effortRange = $("#effortRange");
 const attachmentButton = $("#attachmentButton");
-const attachmentPopover = $("#attachmentPopover");
 const modelTrigger = $("#modelTrigger");
 const modelPopover = $("#modelPopover");
 const pluginButton = $("#pluginButton");
@@ -238,6 +237,7 @@ let selectedModel = ["nyx", "orion", "apex"].includes(appState.settings["model-p
   ? appState.settings["model-profile"]
   : "apex";
 const MODEL_NAMES = Object.freeze({ nyx: "Mere Nyx 5.5", orion: "Mere Orion 5.5", apex: "Mere Apex 5.5" });
+const MODEL_NOTES = Object.freeze({ nyx: "Fast answers and everyday creation", orion: "Balanced reasoning, research, and code", apex: "Maximum capability for complex work" });
 const CLIENT_PLAN_RULES = Object.freeze({
   Free: { studio: false, models: ["nyx"], defaultChatModel: "nyx", efforts: ["Fast", "Medium", "High"] },
   Starter: { studio: true, models: ["nyx", "orion"], defaultChatModel: "orion", efforts: ["Fast", "Medium", "High"] },
@@ -657,12 +657,12 @@ async function cleanOldPreviews(manual = false) {
 }
 
 function closePopovers(except = null) {
-  [modelPopover, effortPopover, attachmentPopover, morePopover, accountPopover, recentMenu].forEach((popover) => {
+  [modelPopover, effortPopover, morePopover, accountPopover, recentMenu].forEach((popover) => {
     if (popover !== except) popover.hidden = true;
   });
   if (except !== modelPopover) modelTrigger.setAttribute("aria-expanded", "false");
   if (except !== effortPopover) effortTrigger.setAttribute("aria-expanded", "false");
-  if (except !== attachmentPopover) attachmentButton.setAttribute("aria-expanded", "false");
+  attachmentButton.setAttribute("aria-expanded", String(menuOpen && menuMode === "plus"));
   if (except !== morePopover) moreButton.setAttribute("aria-expanded", "false");
   if (except !== accountPopover) profileButton.setAttribute("aria-expanded", "false");
 }
@@ -752,7 +752,7 @@ measureSingleLine();
 promptInput.addEventListener("input", syncComposer);
 
 promptInput.addEventListener("keydown", (event) => {
-  if (handleSlashKeydown(event)) return;
+  if (handleCommandKeydown(event)) return;
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
     event.preventDefault();
     if (promptInput.value.trim()) composerForm.requestSubmit();
@@ -1267,9 +1267,12 @@ effortTrigger.addEventListener("click", (event) => {
   togglePopover(effortPopover, effortTrigger, "right");
 });
 
+/* "+" and "/" open the same command menu; the button just toggles it. */
 attachmentButton.addEventListener("click", (event) => {
   event.stopPropagation();
-  togglePopover(attachmentPopover, attachmentButton);
+  closePopovers();
+  if (menuOpen && menuMode === "plus") closeCommandMenu();
+  else openCommandMenu("plus");
 });
 
 moreButton.addEventListener("click", (event) => {
@@ -4762,170 +4765,390 @@ $("#shareButton").addEventListener("click", async () => {
 });
 
 /* ---------------------------------------------------------------------------
-   Slash commands.
-   Typing "/" as the first character of an empty prompt opens the command
-   palette inline above the composer: filter by typing, move with the arrow
-   keys, run with Enter or Tab, dismiss with Escape. Every command maps to a
-   capability that already exists in the Studio, so the palette is a faster
-   route to the same behaviour rather than a second system.
+   The command menu.
+
+   One registry drives two entry points: "+" opens it on the composer, and
+   typing "/" as the first character opens it as a filtered palette. Picking a
+   capability leaves an inline chip in the prompt; everything else runs an
+   action the Studio already has. Commands that need a choice — a model, a
+   depth, a project, an agent — open a submenu instead of guessing.
 --------------------------------------------------------------------------- */
 
-const SLASH_COMMANDS = [
-  { name: "image", label: "Create an image", hint: "Generate or edit artwork", icon: "#i-image", group: "Capabilities", run: () => setTool("Images") },
-  { name: "canvas", label: "Write or edit", hint: "Open a document you edit together", icon: "#i-canvas", group: "Capabilities", run: () => setTool("Canvas") },
-  { name: "research", label: "Deep research", hint: "Plan, search, read, and cite", icon: "#i-spark", group: "Capabilities", run: () => setTool("Deep research") },
-  { name: "search", label: "Search the web", hint: "Answer with current sources", icon: "#i-globe", group: "Capabilities", run: () => setTool("Web search") },
-  { name: "code", label: "Code Studio", hint: "Write and run code", icon: "#i-code", group: "Capabilities", run: () => setTool("Code workspace") },
-  { name: "data", label: "Data analysis", hint: "Charts and statistics over your data", icon: "#i-chart", group: "Capabilities", run: () => setTool("Data analysis") },
-  { name: "files", label: "Analyze files", hint: "Read documents you attach", icon: "#i-file", group: "Capabilities", run: () => setTool("File analysis") },
+const MODEL_ORDER = ["nyx", "orion", "apex"];
 
-  { name: "attach", label: "Attach a file", hint: "Document, image, or code", icon: "#i-paperclip", group: "Compose", run: () => workspaceFileInput.click() },
-  { name: "voice", label: "Voice mode", hint: "Speak with Mere X", icon: "#i-wave", group: "Compose", run: () => startRealtimeVoice() },
-  { name: "dictate", label: "Dictate", hint: "Speak instead of typing", icon: "#i-mic", group: "Compose", run: () => startDictation() },
-  { name: "model", label: "Switch model", hint: "Apex, Orion, or Nyx", icon: "#i-orbit", group: "Compose", run: () => modelTrigger.click() },
-  { name: "effort", label: "Reasoning depth", hint: "Fast, Medium, High, or DEEP", icon: "#i-bolt", group: "Compose", run: () => effortTrigger.click() },
+function commandGroups() {
+  const conversation = currentConversation();
+  const streaming = Boolean(replyFor(currentConversationId));
+  const projects = appState.projects.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const agents = appState.agents.slice().sort((a, b) => a.name.localeCompare(b.name));
 
-  { name: "new", label: "New conversation", hint: "Start from a clean canvas", icon: "#i-edit", group: "Navigate", run: () => resetWorkspace() },
-  { name: "library", label: "Library", hint: "Everything you have generated", icon: "#i-image", group: "Navigate", run: () => showLocalView("library") },
-  { name: "studio", label: "Studio", hint: "Projects and their material", icon: "#i-folder", group: "Navigate", run: () => showLocalView("projects") },
-  { name: "agents", label: "Agents", hint: "Configure and run agents", icon: "#i-orbit", group: "Navigate", run: () => { agentDetailId = ""; showLocalView("agents"); } },
-  { name: "plugins", label: "Plugins", hint: "Connect the tools you use", icon: "#i-plugin", group: "Navigate", run: () => showLocalView("plugins") },
-  { name: "automations", label: "Automations", hint: "Schedule recurring work", icon: "#i-clock", group: "Navigate", run: () => showLocalView("automations") },
-  { name: "knowledge", label: "Knowledge", hint: "Sources and memory", icon: "#i-database", group: "Navigate", run: () => showLocalView("knowledge") },
-  { name: "archive", label: "Archive", hint: "Conversations you put away", icon: "#i-library", group: "Navigate", run: () => showLocalView("archive") },
-  { name: "search-all", label: "Search everything", hint: "Conversations, projects, agents", icon: "#i-search", group: "Navigate", run: () => openSearch() },
-  { name: "settings", label: "Settings", hint: "Preferences and account", icon: "#i-settings", group: "Navigate", run: () => openSettings("general") },
-  { name: "usage", label: "Usage", hint: "What you have spent this cycle", icon: "#i-usage", group: "Navigate", run: () => openSettings("usage") },
-  { name: "help", label: "Help", hint: "Answers and shortcuts", icon: "#i-help", group: "Navigate", run: () => showLocalView("help") }
-];
-
-const slashMenu = $("#slashMenu");
-let slashActive = false;
-let slashIndex = 0;
-let slashMatches = [];
-
-function slashQuery() {
-  const value = promptInput.value;
-  if (!value.startsWith("/")) return null;
-  const query = value.slice(1);
-  // A space means the visitor is writing prose that happens to start with a
-  // slash, not picking a command.
-  return /\s/.test(query) ? null : query.toLowerCase();
+  return [
+    {
+      title: "Attach",
+      items: [
+        { id: "attach", label: "Add photos & files", hint: "Upload from this device", icon: "#i-paperclip", run: () => workspaceFileInput.click() },
+        { id: "library", label: "Add from library", hint: "Browse everything you have generated", icon: "#i-image", run: () => showLocalView("library") },
+        { id: "sources", label: "Choose from a project", hint: "Reuse material you already collected", icon: "#i-folder", run: () => chooseProjectSource() }
+      ]
+    },
+    {
+      title: "Capabilities",
+      items: [
+        { id: "image", label: "Create an image", hint: "Visualise anything", icon: "#i-image", tool: "Images" },
+        { id: "canvas", label: "Canvas", hint: "Write or edit a document together", icon: "#i-canvas", tool: "Canvas" },
+        { id: "websearch", label: "Web search", hint: "Find real-time news and info", icon: "#i-globe", tool: "Web search" },
+        { id: "research", label: "Deep research", hint: "Get a detailed, cited report", icon: "#i-spark", tool: "Deep research" },
+        { id: "code", label: "Code Studio", hint: "Write, run, and debug code", icon: "#i-code", tool: "Code workspace" },
+        { id: "analysis", label: "Data analysis", hint: "Charts and statistics over your data", icon: "#i-chart", tool: "Data analysis" },
+        { id: "files", label: "File analysis", hint: "Read the documents you attach", icon: "#i-file", tool: "File analysis" }
+      ]
+    },
+    {
+      title: "This chat",
+      items: [
+        {
+          id: "model",
+          label: "Model",
+          hint: MODEL_NAMES[selectedModel] || "Choose a model",
+          icon: "#i-orbit",
+          children: () => MODEL_ORDER.map((model) => ({
+            id: `model-${model}`,
+            label: MODEL_NAMES[model],
+            hint: MODEL_NOTES[model],
+            icon: "#i-orbit",
+            selected: selectedModel === model,
+            locked: !modelAvailable(model),
+            run: () => selectModel(model)
+          }))
+        },
+        {
+          id: "effort",
+          label: "Intelligence",
+          hint: selectedMode,
+          icon: "#i-bolt",
+          children: () => EFFORT_LEVELS.map((level, index) => ({
+            id: `effort-${level.name.toLowerCase()}`,
+            label: level.name,
+            hint: level.note,
+            icon: "#i-bolt",
+            selected: selectedMode === level.name,
+            locked: index > maxEffortIndex(),
+            run: () => (index > maxEffortIndex() ? window.location.assign("/checkout") : applyEffort(index, true))
+          }))
+        },
+        {
+          id: "project",
+          label: "Move to project",
+          hint: projects.length ? "Select a project for this chat" : "No projects yet",
+          icon: "#i-folder",
+          disabled: !conversation,
+          children: () => (projects.length
+            ? projects.map((project) => ({
+              id: `project-${project.id}`,
+              label: project.name,
+              hint: `${projectConversations(project).length} chat${projectConversations(project).length === 1 ? "" : "s"}`,
+              icon: "#i-folder",
+              selected: conversation?.projectId === project.id,
+              run: () => moveConversationToProject(conversation, project.id)
+            }))
+            : [{ id: "project-new", label: "Create a project", hint: "Give a piece of work its own space", icon: "#i-plus", run: () => editProject() }])
+        },
+        {
+          id: "agent",
+          label: "Run an agent",
+          hint: agents.length ? "Start a chat with a configured agent" : "No agents yet",
+          icon: "#i-network",
+          children: () => (agents.length
+            ? agents.map((agent) => ({
+              id: `agent-${agent.id}`,
+              label: agent.name,
+              hint: agent.role || "Agent",
+              icon: "#i-network",
+              run: () => openAgentChat(agent.id)
+            }))
+            : [{ id: "agent-new", label: "Create an agent", hint: "Give Mere X a standing brief", icon: "#i-plus", run: () => editAgent() }])
+        },
+        { id: "organize", label: "Organise chat", hint: "Pin, archive, or move this chat", icon: "#i-pin", disabled: !conversation, run: () => organizeConversation(conversation) },
+        { id: "share", label: "Share chat", hint: "Copy the whole conversation", icon: "#i-share", disabled: !conversation, run: () => $("#shareButton").click() },
+        { id: "stop", label: "Stop generating", hint: "End the reply in progress", icon: "#i-stop", hidden: !streaming, run: () => stopReply() },
+        { id: "new", label: "New conversation", hint: "Start from a clean canvas", icon: "#i-edit", run: () => resetWorkspace() }
+      ]
+    },
+    {
+      title: "Voice",
+      items: [
+        { id: "voice", label: "Voice mode", hint: "Start a live voice conversation", icon: "#i-wave", run: () => startRealtimeVoice() },
+        { id: "dictate", label: "Dictate", hint: "Convert speech to text", icon: "#i-mic", run: () => startDictation() }
+      ]
+    },
+    {
+      title: "Go to",
+      items: [
+        { id: "studio", label: "Studio", hint: "Projects and their material", icon: "#i-folder", run: () => showLocalView("projects") },
+        { id: "agents", label: "Agents", hint: "Configure and run agents", icon: "#i-orbit", run: () => { agentDetailId = ""; showLocalView("agents"); } },
+        { id: "plugins", label: "Plugins", hint: "Connect the tools you use", icon: "#i-plugin", run: () => showLocalView("plugins") },
+        { id: "automations", label: "Automations", hint: "Schedule recurring work", icon: "#i-clock", run: () => showLocalView("automations") },
+        { id: "knowledge", label: "Knowledge", hint: "Sources and memory", icon: "#i-database", run: () => showLocalView("knowledge") },
+        { id: "archive", label: "Archive", hint: "Chats you put away", icon: "#i-library", run: () => showLocalView("archive") },
+        { id: "storage", label: "Storage", hint: "What this Studio is holding", icon: "#i-storage", run: () => showLocalView("storage") },
+        { id: "find", label: "Search everything", hint: "Chats, projects, agents, knowledge", icon: "#i-search", run: () => openSearch() },
+        { id: "help", label: "Help", hint: "Answers and shortcuts", icon: "#i-help", run: () => showLocalView("help") }
+      ]
+    },
+    {
+      title: "Settings",
+      items: [
+        { id: "settings", label: "Settings", hint: "Open app settings", icon: "#i-settings", run: () => openSettings("general") },
+        { id: "personalization", label: "Personalization", hint: "Set your style and custom instructions", icon: "#i-network", run: () => openSettings("personalization") },
+        { id: "instructions", label: "Custom instructions", hint: "Tell Mere X how to respond", icon: "#i-edit", run: () => handleSettingAction({ dataset: { settingAction: "custom-instructions" } }) },
+        { id: "usage", label: "Usage", hint: "What you have spent this cycle", icon: "#i-usage", run: () => openSettings("usage") },
+        { id: "billing", label: "Billing", hint: "Plan, invoices, and payment", icon: "#i-card", run: () => openSettings("billing") },
+        { id: "notifications", label: "Notifications", hint: "What Mere X tells you about", icon: "#i-bell", run: () => openSettings("notifications") },
+        { id: "safety", label: "Safety", hint: "Content and sharing controls", icon: "#i-shield", run: () => openSettings("safety") },
+        { id: "security", label: "Security and login", hint: "Password and sessions", icon: "#i-key", run: () => openSettings("security") },
+        { id: "datacontrols", label: "Data controls", hint: "Export or remove your data", icon: "#i-database", run: () => openSettings("data") },
+        { id: "export", label: "Export data", hint: "Download your chats and files", icon: "#i-download", run: () => handleSettingAction({ dataset: { settingAction: "export-data" } }) },
+        { id: "console", label: "Developer console", hint: "API keys, usage, and logs", icon: "#i-code", run: () => window.location.assign("/console") },
+        { id: "install", label: "Install Mere X", hint: "Add a full-screen app to this device", icon: "#i-download", run: () => handleSettingAction({ dataset: { settingAction: "install-app" } }) }
+      ]
+    }
+  ];
 }
 
-/* Rank by how directly the query names the command: typing "/re" should
-   reach "research" before it reaches "cReate an image". */
-function slashScore(command, query) {
-  const name = command.name;
+function selectModel(model) {
+  if (!modelAvailable(model)) { window.location.assign("/checkout"); return; }
+  selectedModel = model;
+  setSetting("model-profile", selectedModel);
+  renderSelectedModel();
+  showToast(`${MODEL_NAMES[model]} selected`);
+}
+
+function moveConversationToProject(conversation, projectId) {
+  if (!conversation) return;
+  const previous = appState.projects.find((project) => project.id === conversation.projectId);
+  const next = appState.projects.find((project) => project.id === projectId);
+  if (!next) return;
+  conversation.projectId = next.id;
+  conversation.agentId = "";
+  conversation.updatedAt = new Date().toISOString();
+  touchProject(previous);
+  touchProject(next);
+  saveWorkspaceState();
+  renderRecents();
+  showToast(`Moved to ${next.name}`);
+}
+
+/* ---- the menu itself ---------------------------------------------------- */
+
+const commandMenu = $("#commandMenu");
+let menuOpen = false;
+let menuMode = "";          // "slash" | "plus"
+let menuIndex = 0;
+let menuItems = [];
+let menuTrail = null;       // the parent command while a submenu is open
+
+function flatCommands() {
+  return commandGroups().flatMap((group) =>
+    group.items.filter((item) => !item.hidden).map((item) => ({ ...item, group: group.title })));
+}
+
+function commandScore(command, query) {
+  const id = command.id;
   const label = command.label.toLowerCase();
-  if (name === query) return 0;
-  if (name.startsWith(query)) return 1;
+  if (id === query) return 0;
+  if (id.startsWith(query)) return 1;
   if (label.startsWith(query)) return 2;
   if (label.split(/[\s-]+/).some((word) => word.startsWith(query))) return 3;
-  if (name.includes(query)) return 4;
+  if (id.includes(query)) return 4;
   if (label.includes(query)) return 5;
+  if ((command.hint || "").toLowerCase().includes(query)) return 6;
   return -1;
 }
 
-function matchSlash(query) {
-  if (!query) return SLASH_COMMANDS;
-  return SLASH_COMMANDS
-    .map((command, index) => ({ command, index, score: slashScore(command, query) }))
+function menuQuery() {
+  if (menuMode !== "slash") return "";
+  const value = promptInput.value;
+  if (!value.startsWith("/")) return null;
+  const query = value.slice(1);
+  return /\s/.test(query) ? null : query.toLowerCase();
+}
+
+function resolveMenuItems() {
+  if (menuTrail) return menuTrail.children().filter((item) => !item.hidden);
+  const query = menuQuery();
+  if (!query) return flatCommands();
+  return flatCommands()
+    .map((command, index) => ({ command, index, score: commandScore(command, query) }))
     .filter((entry) => entry.score >= 0)
     .sort((a, b) => a.score - b.score || a.index - b.index)
     .map((entry) => entry.command);
 }
 
-function renderSlashMenu() {
+function fitCommandMenu() {
+  const canvasTop = conversationCanvas.getBoundingClientRect().top;
+  const composerTop = composerForm.getBoundingClientRect().top;
+  const available = composerTop - canvasTop - 16;
+  commandMenu.style.maxHeight = `${Math.max(180, Math.min(420, available))}px`;
+}
+
+function renderCommandMenu() {
+  const grouped = !menuTrail && !menuQuery();
   let markup = "";
+
+  if (menuTrail) {
+    markup += `<button type="button" class="command-back" data-command-back>` +
+      `<svg><use href="#i-arrow-right"></use></svg><span>${escapeHtml(menuTrail.label)}</span></button>`;
+  }
+
   let group = "";
-  const grouped = slashQuery() === "";
-  slashMatches.forEach((command, index) => {
-    if (grouped && command.group !== group) {
-      group = command.group;
-      markup += `<p class="slash-group">${escapeHtml(group)}</p>`;
+  menuItems.forEach((item, index) => {
+    if (grouped && item.group !== group) {
+      group = item.group;
+      markup += `<p class="command-group">${escapeHtml(group)}</p>`;
     }
-    markup += `<button type="button" class="slash-item${index === slashIndex ? " active" : ""}" data-slash="${escapeHtml(command.name)}" role="option" aria-selected="${index === slashIndex}">` +
-      `<svg><use href="${command.icon}"></use></svg>` +
-      `<span><strong>${escapeHtml(command.label)}</strong><small>${escapeHtml(command.hint)}</small></span>` +
-      `<em>/${escapeHtml(command.name)}</em></button>`;
+    const classes = ["command-item"];
+    if (index === menuIndex) classes.push("active");
+    if (item.selected) classes.push("is-selected");
+    if (item.locked) classes.push("is-locked");
+    markup += `<button type="button" class="${classes.join(" ")}" data-command-index="${index}" role="option" aria-selected="${index === menuIndex}"${item.disabled ? " disabled" : ""}>` +
+      `<svg><use href="${item.icon}"></use></svg>` +
+      `<span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.hint || "")}</small></span>` +
+      (item.children ? '<svg class="command-more"><use href="#i-arrow-right"></use></svg>'
+        : item.locked ? '<svg class="command-more"><use href="#i-lock"></use></svg>'
+        : item.selected ? '<svg class="command-more"><use href="#i-check"></use></svg>'
+        : menuMode === "slash" ? `<em>/${escapeHtml(item.id)}</em>` : "") +
+      `</button>`;
   });
-  slashMenu.innerHTML = markup;
-  slashMenu.querySelector(".slash-item.active")?.scrollIntoView({ block: "nearest" });
+
+  commandMenu.innerHTML = markup || '<p class="command-empty">No matching command</p>';
+  fitCommandMenu();
+  commandMenu.querySelector(".command-item.active")?.scrollIntoView({ block: "nearest" });
 }
 
-function closeSlashMenu() {
-  if (!slashActive) return;
-  slashActive = false;
-  slashMenu.hidden = true;
-  slashMatches = [];
-  promptInput.setAttribute("aria-expanded", "false");
+function syncCommandMenu() {
+  if (!menuOpen) return;
+  if (menuMode === "slash" && menuQuery() === null) { closeCommandMenu(); return; }
+  menuItems = resolveMenuItems();
+  if (!menuItems.length && menuMode === "slash" && !menuTrail) { closeCommandMenu(); return; }
+  menuIndex = Math.min(menuIndex, Math.max(0, menuItems.length - 1));
+  renderCommandMenu();
 }
 
-function syncSlashMenu() {
-  const query = slashQuery();
-  if (query === null) { closeSlashMenu(); return; }
-  slashMatches = matchSlash(query);
-  if (!slashMatches.length) { closeSlashMenu(); return; }
-  slashIndex = Math.min(slashIndex, slashMatches.length - 1);
-  slashActive = true;
-  slashMenu.hidden = false;
+function openCommandMenu(mode) {
+  menuMode = mode;
+  menuTrail = null;
+  menuIndex = 0;
+  menuOpen = true;
+  commandMenu.hidden = false;
+  commandMenu.dataset.mode = mode;
   promptInput.setAttribute("aria-expanded", "true");
-  renderSlashMenu();
+  attachmentButton.setAttribute("aria-expanded", String(mode === "plus"));
+  syncCommandMenu();
+  if (mode === "plus") promptInput.focus();
 }
 
-function runSlash(command) {
-  if (!command) return;
-  promptInput.value = "";
-  syncComposer();
-  closeSlashMenu();
-  try { command.run(); } catch (error) { showToast(error?.message || "That command is unavailable"); }
+function closeCommandMenu() {
+  if (!menuOpen) return;
+  menuOpen = false;
+  menuTrail = null;
+  menuItems = [];
+  commandMenu.hidden = true;
+  promptInput.setAttribute("aria-expanded", "false");
+  attachmentButton.setAttribute("aria-expanded", "false");
 }
 
-/* Declared, not assigned, so the composer's keydown listener — which is
-   registered far earlier in this module — can call it. */
-function handleSlashKeydown(event) {
-  if (!slashActive) {
-    if (event.key === "/" && !promptInput.value) slashIndex = 0;
+function runCommand(item) {
+  if (!item || item.disabled) return;
+  if (item.children) {
+    menuTrail = item;
+    menuIndex = 0;
+    menuItems = item.children().filter((child) => !child.hidden);
+    renderCommandMenu();
+    return;
+  }
+  if (menuMode === "slash") { promptInput.value = ""; syncComposer(); }
+  closeCommandMenu();
+  try {
+    if (item.tool) setTool(item.tool);
+    else if (item.run) item.run();
+  } catch (error) {
+    showToast(error?.message || "That command is unavailable");
+  }
+}
+
+/* Declared, not assigned: the composer's keydown listener is registered far
+   earlier in this module than the menu is defined. */
+function handleCommandKeydown(event) {
+  if (!menuOpen) {
+    if (event.key === "/" && !promptInput.value) { menuIndex = 0; }
     return false;
   }
-  if (event.key === "Escape") { closeSlashMenu(); return true; }
-  if (event.key === "ArrowDown" || (event.key === "Tab" && !event.shiftKey && slashMatches.length > 1 && event.ctrlKey)) {
+  if (event.key === "Escape") {
+    if (menuTrail) { menuTrail = null; menuIndex = 0; syncCommandMenu(); }
+    else closeCommandMenu();
+    return true;
+  }
+  if (event.key === "ArrowDown") {
     event.preventDefault();
-    slashIndex = (slashIndex + 1) % slashMatches.length;
-    renderSlashMenu();
+    menuIndex = (menuIndex + 1) % menuItems.length;
+    renderCommandMenu();
     return true;
   }
   if (event.key === "ArrowUp") {
     event.preventDefault();
-    slashIndex = (slashIndex - 1 + slashMatches.length) % slashMatches.length;
-    renderSlashMenu();
+    menuIndex = (menuIndex - 1 + menuItems.length) % menuItems.length;
+    renderCommandMenu();
+    return true;
+  }
+  if (event.key === "ArrowRight" && menuItems[menuIndex]?.children && !menuTrail) {
+    event.preventDefault();
+    runCommand(menuItems[menuIndex]);
+    return true;
+  }
+  if (event.key === "ArrowLeft" && menuTrail) {
+    event.preventDefault();
+    menuTrail = null;
+    menuIndex = 0;
+    syncCommandMenu();
     return true;
   }
   if (event.key === "Enter" || event.key === "Tab") {
     event.preventDefault();
-    runSlash(slashMatches[slashIndex]);
+    runCommand(menuItems[menuIndex]);
     return true;
   }
   return false;
 }
 
-promptInput.addEventListener("input", () => { slashIndex = 0; syncSlashMenu(); });
-promptInput.addEventListener("blur", () => setTimeout(closeSlashMenu, 120));
+promptInput.addEventListener("input", () => {
+  if (menuMode === "slash" && !menuOpen && promptInput.value.startsWith("/")) openCommandMenu("slash");
+  else if (!menuOpen && promptInput.value === "/") openCommandMenu("slash");
+  menuIndex = 0;
+  syncCommandMenu();
+});
 
-slashMenu.addEventListener("mousedown", (event) => {
-  const item = event.target.closest("[data-slash]");
-  if (!item) return;
+commandMenu.addEventListener("mousedown", (event) => {
+  const back = event.target.closest("[data-command-back]");
+  if (back) {
+    event.preventDefault();
+    menuTrail = null;
+    menuIndex = 0;
+    syncCommandMenu();
+    return;
+  }
+  const button = event.target.closest("[data-command-index]");
+  if (!button) return;
   event.preventDefault();
-  runSlash(SLASH_COMMANDS.find((command) => command.name === item.dataset.slash));
+  runCommand(menuItems[Number(button.dataset.commandIndex)]);
 });
 
-$("#uploadFileButton").addEventListener("click", () => {
-  closePopovers();
-  workspaceFileInput.click();
-});
+document.addEventListener("mousedown", (event) => {
+  if (!menuOpen) return;
+  if (event.target instanceof Element && event.target.closest("#commandMenu, #attachmentButton")) return;
+  closeCommandMenu();
+}, true);
 
-$("#chooseProjectButton").addEventListener("click", () => {
+function chooseProjectSource() {
   closePopovers();
   if (!canUseStudio()) return requestStudioUpgrade();
   if (!appState.projects.length) {
@@ -4946,7 +5169,7 @@ $("#chooseProjectButton").addEventListener("click", () => {
       showToast(`${project.name} opened`);
     }
   });
-});
+}
 
 function renderSelectedModel() {
   const effectiveModel = workspaceMode ? selectedModel : accountEntitlements.defaultChatModel;
