@@ -141,7 +141,7 @@ export default {
                 </p>
                 <div class="row" style="margin-top:26px;gap:18px">
                   <a class="link" href="/research/interpretability" style="color:#fff"><span>Interpretability tooling</span>${icon("arrow-ne", "icon").value}</a>
-                  <a class="link" href="/docs/cookbook" style="color:#fff"><span>Evaluation harness</span>${icon("arrow-ne", "icon").value}</a>
+                  <a class="link" href="/research/evaluations" style="color:#fff"><span>Evaluation harness</span>${icon("arrow-ne", "icon").value}</a>
                 </div>
               </div>
               <div class="grid g-2" style="gap:12px">

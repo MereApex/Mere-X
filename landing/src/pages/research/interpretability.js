@@ -14,7 +14,7 @@ const METHODS = [
   },
   {
     icon: "scan", n: "02", title: "Feature dictionaries",
-    body: "Sparse autoencoders decompose the residual stream into interpretable features — 'legal citation format', 'the user is frustrated', 'this code path handles an error'. Roughly 62% of features in Orion have a human-legible description.",
+    body: "Sparse autoencoders decompose the residual stream into interpretable features — 'legal citation format', 'the user is frustrated', 'this code path handles an error'. Roughly 62% of features in Core have a human-legible description.",
     limits: "The other 38% are either polysemantic or genuinely alien. We do not know which, and that distinction matters."
   },
   {
@@ -55,7 +55,7 @@ export default {
         <div class="shell shell-wide">
           <div class="grid g-4" data-stagger="90">
             ${statTile({ value: 1400, label: "Circuits annotated", note: "Released open source" }).value}
-            ${statTile({ value: 62, suffix: "%", label: "Features described", note: "Human-legible in Orion" }).value}
+            ${statTile({ value: 62, suffix: "%", label: "Features described", note: "Human-legible in Core" }).value}
             ${statTile({ value: 34, label: "Researchers", note: "Largest single group" }).value}
             ${statTile({ value: 9, label: "Publications", note: "In this area" }).value}
           </div>
@@ -120,7 +120,7 @@ export default {
                 Python: `from mere_x.trace import AttributionGraph
 
 graph = AttributionGraph.from_forward_pass(
-    model="mere-orion-3",
+    model="mere-4-2-core",
     prompt="The capital of the country north of France is",
     target_token=" Brussels",
 )

@@ -29,7 +29,7 @@ export default {
         eyebrow: "Product updates",
         title: "What shipped, and when.",
         lead: "Every change to the API, the models, the SDKs, and the console. Breaking changes ship behind a new version header and are never applied to a pinned one.",
-        actions: `${button({ label: "Subscribe by email", href: "/console/settings", variant: "secondary", icon: "bell" }).value}
+        actions: `${button({ label: "Get support", href: "/support", variant: "secondary", icon: "help" }).value}
                   ${button({ label: "RSS", href: "#", variant: "ghost", icon: "activity" }).value}`
       }).value}
 
@@ -86,7 +86,7 @@ export default {
             rows: LIFECYCLE
           }).value}
           <div style="margin-top:22px;max-width:76ch">
-            ${calloutBox("A pinned snapshot ID never changes behaviour. If you are on <code class=\"inline\">mere-apex-4-20260910</code>, that model behaves identically until its retirement date — we do not silently update what a pinned ID points at.", { icon: "lock" }).value}
+            ${calloutBox("A pinned snapshot ID never changes behaviour. If you are on <code class=\"inline\">mere-4-2-peak-20260910</code>, that model behaves identically until its retirement date — we do not silently update what a pinned ID points at.", { icon: "lock" }).value}
           </div>
         </div>
       </section>
@@ -94,8 +94,8 @@ export default {
       ${ctaBand({
         title: "Never miss a breaking change.",
         body: "Turn on deprecation notices in the console and we will tell you six months ahead.",
-        primary: { label: "Notification settings", href: "/console/settings", icon: "arrow-ne" },
-        secondary: { label: "Versioning docs", href: "/docs/versioning" }
+        primary: { label: "Get support", href: "/support", icon: "arrow-ne" },
+        secondary: { label: "Download for desktop", href: "/download" }
       }).value}
     `;
   },

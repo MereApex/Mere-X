@@ -11,7 +11,7 @@ export const PUBLICATIONS = [
     title: "Reasoning budgets: separating deliberation from answering",
     summary:
       "We describe the training and inference changes that let a single model spend anywhere from zero to 256,000 tokens thinking before it responds, and what that buys on eight capability suites.",
-    tags: ["Reasoning", "Mere Apex 4", "Inference"],
+    tags: ["Reasoning", "Mere 4.2 Peak", "Inference"],
     authors: "Adeyemi, Vantrop, Ghorbani, and 14 others"
   },
   {
@@ -30,7 +30,7 @@ export const PUBLICATIONS = [
     kind: "Interpretability",
     title: "Circuit tracing in a production-scale model",
     summary:
-      "Attribution graphs over Mere Orion 3 reveal reusable computational motifs for arithmetic, entity binding, and refusal. We release the tracing tooling and 1,400 annotated circuits.",
+      "Attribution graphs over Mere 4.2 Core reveal reusable computational motifs for arithmetic, entity binding, and refusal. We release the tracing tooling and 1,400 annotated circuits.",
     tags: ["Interpretability", "Open tooling"],
     authors: "Adeyemi, Okafor, Lindqvist, and 9 others"
   },
@@ -120,11 +120,11 @@ export const RESEARCH_AREAS = [
 ];
 
 export const NEWS = [
-  { date: "2026-08-28", kind: "Product", title: "Batch API now supports one million requests per job", summary: "Large offline workloads no longer need chunking. Batch jobs accept up to a million requests and stream results as they complete." },
+  { date: "2026-08-28", kind: "Product", title: "Checkpoints and per-file review ship in Mere Code", summary: "Every prompt is now a checkpoint you can return to, and every touched file is a diff you accept or revert. Large offline workloads no longer need chunking. Batch jobs accept up to a million requests and stream results as they complete." },
   { date: "2026-08-12", kind: "Company", title: "Mere X opens an engineering office in Tbilisi", summary: "Our fifth office, focused on inference systems and the developer platform." },
   { date: "2026-07-30", kind: "Safety", title: "Mere Code system card, second revision", summary: "Updated with post-launch evaluation data, three newly discovered failure modes, and the mitigations shipped for each." },
   { date: "2026-07-14", kind: "Product", title: "Plan mode and project rules", summary: "Plan mode proposes steps before touching a file, and rules in AGENTS.md or MERE.md are read at the start of every turn." },
-  { date: "2026-06-18", kind: "Product", title: "Mere Apex 4, Orion 3 and Nyx 2 are here", summary: "Three lines, three generations, shipped together inside Mere Code with a million-token window and Extra High thinking." },
+  { date: "2026-06-18", kind: "Product", title: "Mere 4.2 Peak, 4.2 Core and 4.0 Lite are here", summary: "Three lines, three generations, shipped together inside Mere Code with a million-token window and Extra High thinking." },
   { date: "2026-05-14", kind: "Product", title: "Checkpoints and per-hunk review", summary: "Every prompt becomes a restore point, and every changed file can be accepted or reverted hunk by hunk in the editor." },
   { date: "2026-04-22", kind: "Research", title: "We are releasing our circuit-tracing tooling", summary: "The attribution-graph tooling behind our interpretability work is now open source, with 1,400 annotated circuits." },
   { date: "2026-03-03", kind: "Company", title: "Series C: $1.4B to scale training and safety", summary: "The round funds our next training cluster and doubles the size of the evaluation organisation." }
@@ -132,10 +132,10 @@ export const NEWS = [
 
 export const CUSTOMERS = [
   { name: "Northwind Health", sector: "Healthcare", quote: "Clinical documentation that used to take our physicians ninety minutes a day now takes eleven. The part that mattered was Mere X knowing when to leave a field blank.", person: "Dr. Marta Kovač, Chief Medical Information Officer", metric: "87%", metricLabel: "reduction in documentation time" },
-  { name: "Aster Financial", sector: "Financial services", quote: "We run every draft disclosure through Apex in Extra High mode before it reaches counsel. It has caught inconsistencies our own review process missed for years.", person: "Julian Reyes, Head of Regulatory Reporting", metric: "3.2×", metricLabel: "faster filing cycle" },
+  { name: "Aster Financial", sector: "Financial services", quote: "We run every draft disclosure through Peak in Extra High mode before it reaches counsel. It has caught inconsistencies our own review process missed for years.", person: "Julian Reyes, Head of Regulatory Reporting", metric: "3.2×", metricLabel: "faster filing cycle" },
   { name: "Helios Robotics", sector: "Manufacturing", quote: "We pointed the agent at a firmware repository nobody wanted to touch. It read the whole thing before it changed a line, and the diff was smaller than ours would have been.", person: "Anke Lindholm, VP Engineering", metric: "94%", metricLabel: "schematic extraction accuracy" },
   { name: "Larkspur Legal", sector: "Legal", quote: "A million tokens means the whole matter fits. No chunking strategy, no retrieval tuning, no arguing about what got left out.", person: "Devon Marsh, Partner", metric: "1M", metricLabel: "token matters, single pass" },
-  { name: "Quillon Media", sector: "Media", quote: "Nyx sits in the editing surface and never makes anyone wait. Orion does the heavy passes overnight on the Batch API at half price.", person: "Ravi Chandrasekar, CTO", metric: "$0.31", metricLabel: "cost per finished article" },
+  { name: "Quillon Media", sector: "Media", quote: "Lite sits in the editing surface and never makes anyone wait. Core does the heavy passes overnight on the Batch API at half price.", person: "Ravi Chandrasekar, CTO", metric: "$0.31", metricLabel: "cost per finished article" },
   { name: "Orbital Freight", sector: "Logistics", quote: "The agent stack handles exception routing end to end — reads the email, checks the manifest, calls the carrier API, and escalates when it genuinely should.", person: "Ingrid Halvorsen, Director of Operations", metric: "61%", metricLabel: "exceptions resolved without a human" }
 ];
 
@@ -151,7 +151,7 @@ export const CAREERS = [
   { title: "Red Team Lead", team: "Safety", location: "London", type: "Full-time", level: "Staff" },
   { title: "Policy Manager, EU", team: "Policy", location: "Zürich", type: "Full-time", level: "Senior" },
   { title: "Solutions Architect", team: "Go-to-market", location: "Tokyo", type: "Full-time", level: "Senior" },
-  { title: "Technical Writer, API", team: "Product", location: "Remote (Global)", type: "Full-time", level: "Mid" },
+  { title: "Technical Writer, Product", team: "Product", location: "Remote (Global)", type: "Full-time", level: "Mid" },
   { title: "Research Resident, 2027 cohort", team: "Research", location: "San Francisco", type: "12-month residency", level: "Early career" },
   { title: "Security Engineer, Infrastructure", team: "Security", location: "San Francisco · Remote (US)", type: "Full-time", level: "Senior" }
 ];
@@ -166,7 +166,7 @@ export const BENEFITS = [
 ];
 
 export const CHANGELOG = [
-  { date: "2026-08-28", version: "API", items: [
+  { date: "2026-08-28", version: "Platform", items: [
     { kind: "added", text: "Batch jobs now accept up to 1,000,000 requests, with incremental result streaming." },
     { kind: "added", text: "`thinking.summary` returns a structured reasoning summary for Extra High requests." },
     { kind: "changed", text: "Rate-limit headers now include `mere-x-ratelimit-tokens-reset` as an RFC 3339 timestamp." }
@@ -176,7 +176,7 @@ export const CHANGELOG = [
     { kind: "fixed", text: "Streaming reconnection no longer duplicates the final content block on flaky networks." }
   ]},
   { date: "2026-07-30", version: "Models", items: [
-    { kind: "added", text: "`mere-apex-4-20260730` — improved instruction adherence in long tool-use chains." },
+    { kind: "added", text: "`mere-4-2-peak-20260730` — improved instruction adherence in long tool-use chains." },
     { kind: "changed", text: "Guard 1 taxonomy updated with two new subcategories under `deception`." }
   ]},
   { date: "2026-07-14", version: "Console", items: [
@@ -184,9 +184,9 @@ export const CHANGELOG = [
     { kind: "added", text: "Request logs with full prompt and response inspection, subject to your retention setting." },
     { kind: "changed", text: "Usage charts now break down by key as well as by model." }
   ]},
-  { date: "2026-06-18", version: "Mere Apex 4 · Orion 3 · Nyx 2", items: [
-    { kind: "added", text: "Mere Apex 4, Orion, and Nyx are generally available." },
-    { kind: "added", text: "One-million-token context on Apex and Orion." },
+  { date: "2026-06-18", version: "Mere 4.2 Peak · 4.2 Core · 4.0 Lite", items: [
+    { kind: "added", text: "Mere 4.2 Peak, Core, and Lite are generally available." },
+    { kind: "added", text: "One-million-token context on Peak and Core." },
     { kind: "added", text: "Extra High reasoning mode with budgets up to 256K thinking tokens." },
     { kind: "added", text: "Server-side tools: web search, code execution, and file handling." },
     { kind: "deprecated", text: "Mere 5.0 models enter legacy support; retirement 18 March 2027." }
@@ -197,10 +197,10 @@ export const CHANGELOG = [
 ];
 
 export const STATUS_SERVICES = [
-  { name: "Messages API", state: "operational", uptime: 99.99 },
-  { name: "Batch API", state: "operational", uptime: 99.97 },
-  { name: "Embeddings", state: "operational", uptime: 100 },
-  { name: "Images", state: "operational", uptime: 99.94 },
+  { name: "Agent service", state: "operational", uptime: 99.99 },
+  { name: "Model gateway", state: "operational", uptime: 99.97 },
+  { name: "Project search", state: "operational", uptime: 100 },
+  { name: "Account service", state: "operational", uptime: 99.94 },
   { name: "Realtime voice", state: "degraded", uptime: 99.61 },
   { name: "Developer console", state: "operational", uptime: 99.98 },
   { name: "Mere Code", state: "operational", uptime: 99.96 }
@@ -245,13 +245,13 @@ export const PROMPT_PATTERNS = [
 ];
 
 export const FAQ = [
-  { q: "Do you train on data sent through the API?", a: "No. API inputs and outputs are never used to train Mere X models. Mere X conversations are also excluded by default; contributing them is opt-in and revocable, and revoking removes the data from future training runs." },
+  { q: "Do you train on my code?", a: "No. What you write and what the agent reads are never used to train Mere X models. Mere X conversations are also excluded by default; contributing them is opt-in and revocable, and revoking removes the data from future training runs." },
   { q: "How long is data retained?", a: "Thirty days by default, for abuse monitoring and debugging, then deleted. Zero-retention mode is available on request for eligible organisations and removes storage entirely — nothing is written to disk beyond the life of the request." },
   { q: "What happens when a model is deprecated?", a: "We announce deprecation at least six months before retirement, keep the model serving throughout that window, and publish a migration guide with behavioural diffs. Pinned snapshot IDs never change behaviour underneath you." },
   { q: "Can I run Mere X in my own environment?", a: "Enterprise customers can deploy into a dedicated tenancy with committed throughput, or into a private VPC in a supported cloud region. Fully air-gapped installations are available for a small number of workloads under separate agreement." },
   { q: "How do rate limits work?", a: "Limits are per organisation, expressed in requests per minute and tokens per minute, and rise automatically with usage history across five tiers. Every response carries headers describing your remaining budget and reset time." },
-  { q: "What is the difference between the modes and the models?", a: "The model decides how capable the underlying system is; the mode decides how long it deliberates. A Orion request in High mode often beats a Apex request in Fast mode, and costs less." },
-  { q: "Is there a free tier for developers?", a: "Yes. New organisations receive $10 in credit, and Guard classification is free on every request regardless of plan. Nyx is inexpensive enough that most prototypes never exhaust the initial credit." },
+  { q: "What is the difference between the modes and the models?", a: "The model decides how capable the underlying system is; the mode decides how long it deliberates. A Core request in High mode often beats a Max request in Fast mode, and costs less." },
+  { q: "Is there a free tier for developers?", a: "Yes. New organisations receive $10 in credit, and Guard classification is free on every request regardless of plan. Lite is inexpensive enough that most prototypes never exhaust the initial credit." },
   { q: "How do you handle copyright and attribution?", a: "Server-side web search returns citations with every claim, and the API surfaces them as structured fields. We also honour publisher opt-outs and maintain a takedown process documented in the trust centre." }
 ];
 

@@ -69,9 +69,9 @@ export default {
           ${dataTable({
             columns: [
               { key: "depth", label: "Context depth" },
-              { key: "apex", label: "Mere Apex 4", align: "right", render: (r) => `${r.apex.toFixed(1)}%` },
-              { key: "orion", label: "Mere Orion 3", align: "right", render: (r) => `${r.orion.toFixed(1)}%` },
-              { key: "nyx", label: "Mere Nyx 2", align: "right", render: (r) => (r.nyx == null ? '<span class="muted">beyond window</span>' : `${r.nyx.toFixed(1)}%`) }
+              { key: "apex", label: "Mere 4.2 Peak", align: "right", render: (r) => `${r.apex.toFixed(1)}%` },
+              { key: "orion", label: "Mere 4.2 Core", align: "right", render: (r) => `${r.orion.toFixed(1)}%` },
+              { key: "nyx", label: "Mere 4.0 Lite", align: "right", render: (r) => (r.nyx == null ? '<span class="muted">beyond window</span>' : `${r.nyx.toFixed(1)}%`) }
             ],
             rows: LONG_CONTEXT
           }).value}
@@ -150,7 +150,7 @@ export default {
       ${ctaBand({
         title: "Run your own evaluation.",
         body: "Our harness is open, and the cookbook has a working recipe for grading your prompts against your data.",
-        primary: { label: "Evaluation cookbook", href: "/docs/cookbook", icon: "arrow-ne" },
+        primary: { label: "How we evaluate", href: "/research/evaluations", icon: "arrow-ne" },
         secondary: { label: "Research methodology", href: "/research/evaluations" }
       }).value}
     `;

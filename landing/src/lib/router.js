@@ -217,8 +217,7 @@ function isInternalLink(anchor) {
   if (!href || href.startsWith("http") || href.startsWith("mailto:") || href.startsWith("tel:")) return false;
   const url = new URL(href, location.origin);
   const serverOwned = /^\/(?:app|checkout|login|register)(?:\/|$)/.test(url.pathname);
-  const enteringConsole = /^\/console(?:\/|$)/.test(url.pathname) && !/^\/console(?:\/|$)/.test(location.pathname);
-  if (serverOwned || enteringConsole) return false;
+  if (serverOwned) return false;
   return href.startsWith("/") || href.startsWith("#");
 }
 

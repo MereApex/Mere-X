@@ -118,7 +118,7 @@ export default {
           ${sectionHead({ eyebrow: "Requirements", title: "What it needs." }).value}
           <div class="dl-req" data-reveal>
             <div><strong>Windows</strong><p>Windows 10 (1809+) or 11, 64-bit. Microsoft Edge WebView2 (installed automatically). Git on your PATH for the repository panel. About 30 MB of disk.</p></div>
-            <div><strong>Account</strong><p>A Mere X account. Free includes Mere Nyx 2 at Fast and Medium; Starter and above unlock Orion 3, Apex 4 and the deeper thinking levels.</p></div>
+            <div><strong>Account</strong><p>A Mere X account. Free includes Mere 4.0 Lite at Fast and Medium; Starter and above unlock 4.2 Core, 4.2 Peak and the deeper thinking levels.</p></div>
             <div><strong>Not signed yet</strong><p>The first builds carry no publisher certificate, so Windows SmartScreen warns once at download and once at first run. Every file is published on GitHub with its SHA-256; compare it if you want to be sure. Signed, warning-free builds follow as soon as the certificate is issued.</p></div>
           </div>
         </div>

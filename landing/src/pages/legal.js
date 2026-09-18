@@ -14,7 +14,7 @@ const PAGES = {
     lead: "What we collect, why, how long we keep it, and what we will never do with it.",
     sections: [
       { h: "The short version", blocks: [
-        { t: "callout", v: { text: "<strong>We do not train on your data.</strong> API inputs and outputs are never used to train Mere X models. Mere Code conversations are excluded by default; contributing them is opt-in and revocable.", variant: "accent", icon: "shield" } },
+        { t: "callout", v: { text: "<strong>We do not train on your data.</strong> What you send to Mere Code is never used to train Mere X models. Mere Code conversations are excluded by default; contributing them is opt-in and revocable.", variant: "accent", icon: "shield" } },
         { t: "p", v: "Everything below is the detail behind that sentence. If any of it contradicts the sentence, the sentence is what we meant and the detail is a drafting error we would like to hear about." }
       ]},
       { h: "What we collect", blocks: [
@@ -30,7 +30,7 @@ const PAGES = {
         }}
       ]},
       { h: "Retention", blocks: [
-        { t: "p", v: "Request content is retained for 30 days by default, for abuse monitoring and debugging, then deleted. You can reduce this to 7 days, or to zero with zero-retention mode, in <a href=\"/console/settings\">console settings</a>." },
+        { t: "p", v: "Request content is retained for 30 days by default, for abuse monitoring and debugging, then deleted. You can reduce this to 7 days, or to zero with zero-retention mode, in <a href=\"/app\">Settings → Data controls</a>." },
         { t: "p", v: "Zero-retention means nothing is written to disk beyond the life of the request. Request logs continue to show metadata — model, tokens, latency, status — but no prompt or response content." },
         { t: "p", v: "Account and billing records are retained for seven years where tax law requires it. Everything else is deleted within 30 days of account closure, including from backups." }
       ]},

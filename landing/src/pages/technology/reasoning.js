@@ -46,7 +46,7 @@ const PRINCIPLES = [
 const FAQ_ITEMS = [
   { q: "Am I charged for thinking tokens?", a: "<p>Yes — thinking tokens bill at the model's output rate, and appear separately in <code class=\"inline\">usage.thinking_tokens</code> so you can see exactly what deliberation cost. Because budgets are ceilings rather than quotas, easy requests inside a large budget cost very little.</p>" },
   { q: "Which mode should I default to?", a: "<p>Medium. It is close enough to High on most production traffic that the difference rarely shows in an eval, and the latency cost is around two seconds. Move individual call sites up to High when your evaluation says the extra deliberation actually changes the answer.</p>" },
-  { q: "Can I set a budget without picking a mode?", a: "<p>Yes. Passing <code class=\"inline\">thinking.budget_tokens</code> selects the mode implicitly: 0 is Fast, up to 4K is Medium, up to 32K is High, and above that is Extra High on Apex. Named modes exist because they are easier to reason about in code review.</p>" },
+  { q: "Can I set a budget without picking a mode?", a: "<p>Yes. Passing <code class=\"inline\">thinking.budget_tokens</code> selects the mode implicitly: 0 is Fast, up to 4K is Medium, up to 32K is High, and above that is Extra High on Max. Named modes exist because they are easier to reason about in code review.</p>" },
   { q: "Does temperature still apply?", a: "<p>Below 4,000 thinking tokens, yes. Above that the sampler is constrained during deliberation and <code class=\"inline\">temperature</code> is ignored for the thinking phase; it still applies to the final answer.</p>" },
   { q: "What happens if the budget runs out?", a: "<p>The model is told the budget is exhausted and produces the best answer it has, with <code class=\"inline\">stop_reason: \"thinking_budget\"</code>. It never truncates mid-sentence, and it never silently returns a partial conclusion as if it were complete.</p>" },
   { q: "Can I stream the thinking?", a: "<p>You receive <code class=\"inline\">thinking_delta</code> events carrying progress signals and summary fragments — enough to render a genuine 'working' state — without exposing raw reasoning text.</p>" }
@@ -63,8 +63,8 @@ export default {
         eyebrow: "Core concept",
         title: "Thinking is a resource. You decide how much to spend.",
         lead: "Most systems make you choose a different model when a problem gets hard. Mere X makes you choose a budget — on the same model, in the same request, with the same tools available.",
-        actions: `${button({ label: "Try it in the playground", href: "/console/playground", icon: "play" }).value}
-                  ${button({ label: "Read the docs", href: "/docs/reasoning", variant: "secondary", icon: "book" }).value}`
+        actions: `${button({ label: "Open Mere Code", href: "/app", icon: "arrow-ne" }).value}
+                  ${button({ label: "How it works", href: "/products/code", variant: "secondary", icon: "arrow-right" }).value}`
       }).value}
 
       <!-- ---- Interactive explorer ---- -->
@@ -117,49 +117,26 @@ export default {
         </div>
       </section>
 
-      <!-- ---- Code ---- -->
+      <!-- ---- In the composer ---- -->
       <section class="section">
         <div class="shell shell-wide">
           <div class="split split-60" style="gap:clamp(24px,3vw,48px);align-items:center">
             <div data-reveal="left">
-              ${sectionHead({ eyebrow: "In code", title: "One parameter." }).value}
-              <p class="lead measure">Set <code class="inline">thinking.budget_tokens</code> and the model does the rest. Stream <code class="inline">thinking_delta</code> events if you want to show progress; read <code class="inline">usage.thinking_tokens</code> to see what it actually spent.</p>
+              ${sectionHead({ eyebrow: "In the composer", title: "One dial." }).value}
+              <p class="lead measure">The depth sits beside the model in the composer, and it changes per message rather than per project. Ask a question at Fast, hand over a migration at Extra High, in the same thread.</p>
               <div style="margin-top:26px">
-                ${calloutBox("Budgets compose with tools. In High and Extra High the model can call a tool, read the result, and keep thinking — the deliberation and the tool loop are the same loop.", { variant: "accent", icon: "plug" }).value}
+                ${calloutBox("Depth composes with tools. At High and Extra High the agent can read a file, think about what it found, read another, and revise its plan before it edits anything.", { icon: "info" }).value}
               </div>
             </div>
             <div data-reveal="right">
-              ${codeBlock({
-                Python: `message = client.messages.create(
-    model="mere-apex-4",
-    max_tokens=8192,
-    thinking={"type": "enabled", "budget_tokens": 32_000},
-    messages=[{"role": "user", "content": prompt}],
-)
-
-print(message.usage.thinking_tokens)   # what it actually spent
-print(message.thinking.summary)        # how it got there
-print(message.content[0].text)         # the answer`,
-                TypeScript: `const message = await client.messages.create({
-  model: "mere-apex-4",
-  max_tokens: 8192,
-  thinking: { type: "enabled", budget_tokens: 32_000 },
-  messages: [{ role: "user", content: prompt }],
-});
-
-console.log(message.usage.thinking_tokens);
-console.log(message.thinking.summary);
-console.log(message.content[0].text);`,
-                cURL: `curl https://api.merex.ai/v1/messages \\
-  -H "x-api-key: $MERE_X_API_KEY" \\
-  -H "mere-x-version: 2026-06-18" \\
-  -d '{
-    "model": "mere-apex-4",
-    "max_tokens": 8192,
-    "thinking": {"type": "enabled", "budget_tokens": 32000},
-    "messages": [{"role": "user", "content": "..."}]
-  }'`
-              }).value}
+              <div class="depth-ladder">
+                ${MODES.map((mode) => `
+                  <div class="depth-row">
+                    <span class="depth-name">${mode.name}</span>
+                    <div class="depth-bar"><i style="--v:${mode.depth}"></i></div>
+                    <span class="depth-note">${mode.budget} · ${mode.latency}</span>
+                  </div>`).join("")}
+              </div>
             </div>
           </div>
         </div>
@@ -200,8 +177,8 @@ console.log(message.content[0].text);`,
       ${ctaBand({
         title: "Watch a budget change an answer.",
         body: "The playground runs the same prompt at two depths side by side.",
-        primary: { label: "Open the playground", href: "/console/playground", icon: "arrow-ne" },
-        secondary: { label: "Reasoning docs", href: "/docs/reasoning" }
+        primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
+        secondary: { label: "How it works", href: "/products/code" }
       }).value}
     `;
   },

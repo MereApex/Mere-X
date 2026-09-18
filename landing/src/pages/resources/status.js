@@ -50,7 +50,7 @@ export default {
         eyebrow: "Platform health",
         title: allGood ? "All systems operational." : `${degraded.length} service${degraded.length === 1 ? "" : "s"} degraded.`,
         lead: "Live status for every service and region, ninety days of history, and a public post-mortem for every incident over five minutes.",
-        actions: `${button({ label: "Subscribe to updates", href: "/console/settings", icon: "bell" }).value}
+        actions: `${button({ label: "Get support", href: "/support", icon: "help" }).value}
                   ${button({ label: "Incident history", href: "#incidents", variant: "secondary", icon: "list" }).value}`
       }).value}
 
@@ -156,7 +156,7 @@ export default {
       ${ctaBand({
         title: "Get told before you notice.",
         body: "Incident notices for your region, delivered by email and webhook.",
-        primary: { label: "Notification settings", href: "/console/settings", icon: "arrow-ne" },
+        primary: { label: "Get support", href: "/support", icon: "arrow-ne" },
         secondary: { label: "Contact support", href: "/support" }
       }).value}
     `;

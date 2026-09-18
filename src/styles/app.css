@@ -561,7 +561,7 @@ body.is-running .send-button { background: transparent; color: var(--ink); borde
 .model-choice > span:nth-child(2), .mode-choice > span:first-child { flex: 1; min-width: 0; }
 .model-choice strong, .mode-choice strong { display: block; font-size: 12.5px; font-weight: 600; }
 .model-choice small, .mode-choice small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; line-height: 1.4; }
-.model-choice-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line-ink); border-radius: var(--r-xs); font: 700 10px var(--font-display); letter-spacing: .04em; color: var(--ink); }
+.model-choice-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line-ink); border-radius: var(--r-xs); font: 700 9px var(--font-display); letter-spacing: .04em; color: var(--ink); }
 .model-choice.is-locked { opacity: .45; }
 .choice-check { width: 14px; height: 14px; opacity: 0; }
 .selected .choice-check { opacity: 1; }

@@ -47,8 +47,8 @@ test("the echoed exchange is rebuilt from scratch, never trusted", () => {
 });
 
 test("instructions carry the mode, the project rules and the person's preferences", () => {
-  const text = agentInstructions({ modelName: "Mere Apex 4", mode: "ask", context: { rules: "Never touch generated/.", instructions: "Answer briefly." } });
-  assert.match(text, /^You are Mere Apex 4/);
+  const text = agentInstructions({ modelName: "Mere 4.2 Peak", mode: "ask", context: { rules: "Never touch generated/.", instructions: "Answer briefly." } });
+  assert.match(text, /^You are Mere 4.2 Peak/);
   assert.match(text, /Mode: Ask/);
   assert.match(text, /Never touch generated\//);
   assert.match(text, /Answer briefly\./);

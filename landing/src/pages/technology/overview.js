@@ -18,11 +18,11 @@ export default {
         crumb: [{ label: "Technology" }],
         eyebrow: GENERATION,
         title: "One family, engineered around a single idea: thinking is a resource you should control.",
-        lead: "Five models share a training run, a tokenizer, and a safety layer. What separates them is capability ceiling, latency, and how much deliberation they can afford.",
+        lead: "Three models share a training run, a tokenizer, and a safety layer. What separates them is capability ceiling, latency, and how much deliberation they can afford.",
         actions: `${button({ label: "See the benchmarks", href: "/technology/benchmarks", icon: "arrow-right" }).value}
-                  ${button({ label: "Read the docs", href: "/docs", variant: "secondary", icon: "book" }).value}`,
+                  ${button({ label: "How it works", href: "/products/code", variant: "secondary", icon: "arrow-right" }).value}`,
         meta: `
-          <div class="stat"><span class="stat-value" style="font-size:1.5rem">5</span><span class="stat-label">Models</span></div>
+          <div class="stat"><span class="stat-value" style="font-size:1.5rem">${MODELS.length}</span><span class="stat-label">Models</span></div>
           <div class="stat"><span class="stat-value" style="font-size:1.5rem">1M</span><span class="stat-label">Max context</span></div>
           <div class="stat"><span class="stat-value" style="font-size:1.5rem">4</span><span class="stat-label">Reasoning modes</span></div>
           <div class="stat"><span class="stat-value" style="font-size:1.5rem">${KNOWLEDGE_CUTOFF}</span><span class="stat-label">Knowledge cutoff</span></div>`
@@ -33,7 +33,7 @@ export default {
         <div class="shell shell-wide">
           ${sectionHead({ eyebrow: "Text & reasoning", title: "The three you will choose between." }).value}
           <div class="grid g-3" data-stagger="110">
-            ${MODELS.slice(0, 3).map((model) => `
+            ${MODELS.map((model) => `
               <article class="model-card ${model.flagship ? "is-flagship" : ""} card-spot" data-reveal>
                 <div class="between" style="align-items:flex-start">
                   ${mereXSeal({ size: 58 }).value}
@@ -53,29 +53,6 @@ export default {
                 </dl>
                 <div style="margin-top:auto;padding-top:10px">${textLink("Full model card", `/technology/models/${model.id}`).value}</div>
               </article>`).join("")}
-          </div>
-        </div>
-      </section>
-
-      <!-- ---- Specialist models ---- -->
-      <section class="section section-line">
-        <div class="shell shell-wide">
-          ${sectionHead({
-            eyebrow: "Specialists",
-            title: "And two that do one thing extremely well.",
-            lead: "Retrieval and safety. Same API, same key, same billing."
-          }).value}
-          <div class="grid g-4" data-stagger="80">
-            ${MODELS.slice(3).map((model) => `
-              <a class="card card-hover card-spot" href="/technology/models/${model.id}" data-reveal>
-                <div class="between" style="align-items:flex-start">
-                  <div class="card-icon">${icon(model.icon).value}</div>
-                  <span class="badge">${model.tier}</span>
-                </div>
-                <h3 style="font-size:var(--t-h4);font-weight:400">${model.name}</h3>
-                <p class="small muted" style="line-height:1.55;min-height:3.2em">${model.tagline}</p>
-                <div class="xs mono muted" style="margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)">${model.id}</div>
-              </a>`).join("")}
           </div>
         </div>
       </section>
@@ -126,7 +103,7 @@ export default {
               <p class="eyebrow">Reasoning</p>
               <h2 style="margin-top:18px">The mode matters more than the model.</h2>
               <p class="lead" style="margin-top:18px">
-                A Orion request in High mode routinely beats a Apex request in Fast mode — and costs a
+                A Core request in High mode routinely beats a Peak request in Fast mode — and costs a
                 fraction as much. Pick the model for capability ceiling; pick the mode for how hard
                 this particular request is.
               </p>
@@ -186,7 +163,7 @@ export default {
             </table>
           </div>
           <div style="margin-top:20px;max-width:70ch">
-            ${calloutBox("Alias IDs such as <code class=\"inline\">mere-apex-4-latest</code> always resolve to the newest snapshot. Use them in development and pin a dated snapshot in production.", { icon: "info" }).value}
+            ${calloutBox("Alias IDs such as <code class=\"inline\">mere-4-2-peak-latest</code> always resolve to the newest snapshot. Use them in development and pin a dated snapshot in production.", { icon: "info" }).value}
           </div>
         </div>
       </section>
@@ -195,8 +172,8 @@ export default {
         eyebrow: "Start building",
         title: "Pick a model. Send a message. See what it does.",
         body: "Ten dollars of credit and a key in under a minute.",
-        primary: { label: "Open the console", href: "/console", icon: "arrow-ne" },
-        secondary: { label: "Read the quickstart", href: "/docs/quickstart" }
+        primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
+        secondary: { label: "How it works", href: "/products/code" }
       }).value}
     `;
   }

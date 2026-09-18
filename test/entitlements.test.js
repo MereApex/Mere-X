@@ -7,7 +7,7 @@ test("the four depths are Fast, Medium, High and Extra High", () => {
   assert.deepEqual([...EFFORT_KEYS], ["Fast", "Medium", "High", "Extra High"]);
 });
 
-test("Free accounts get Nyx at the two lighter depths", () => {
+test("Free accounts get Lite at the two lighter depths", () => {
   const free = entitlementsFor({ plan: "Free" });
   assert.deepEqual(free.models, ["nyx"]);
   assert.equal(free.defaultModel, "nyx");

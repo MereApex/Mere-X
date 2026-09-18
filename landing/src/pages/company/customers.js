@@ -28,7 +28,7 @@ export default {
         title: "What people actually build on Mere X.",
         lead: "Six stories, told with the number the team cared about rather than the number that reads best. Figures are self-reported by the customer.",
         actions: `${button({ label: "Talk to sales", href: "/company/contact", icon: "arrow-ne" }).value}
-                  ${button({ label: "Start building", href: "/console", variant: "secondary", icon: "terminal" }).value}`
+                  ${button({ label: "Open Mere Code", href: "/app", variant: "secondary", icon: "arrow-ne" }).value}`
       }).value}
 
       <section class="section-tight">
@@ -36,7 +36,7 @@ export default {
           <div class="grid g-4" data-stagger="90">
             ${statTile({ value: 62, label: "Countries", note: "Where Mere X is used" }).value}
             ${statTile({ value: 4.1, decimals: 1, suffix: "T", label: "Tokens per day", note: "Across the platform" }).value}
-            ${statTile({ value: 99.98, decimals: 2, suffix: "%", label: "API uptime", note: "Trailing 12 months" }).value}
+            ${statTile({ value: 99.98, decimals: 2, suffix: "%", label: "Platform uptime", note: "Trailing 12 months" }).value}
             ${statTile({ value: 12, label: "Regulated industries", note: "With signed BAAs or equivalent" }).value}
           </div>
         </div>
@@ -88,7 +88,7 @@ export default {
                 <p class="xs" style="color:var(--faint);margin-top:auto;padding-top:10px;border-top:1px solid var(--line-soft)">${p.who}</p>
               </div>`).join("")}
           </div>
-          <div class="row" style="margin-top:26px">${textLink("Browse the cookbook", "/docs/cookbook").value}</div>
+          <div class="row" style="margin-top:26px">${textLink("How it works", "/products/code").value}</div>
         </div>
       </section>
 

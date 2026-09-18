@@ -15,9 +15,9 @@ export default {
         <div class="shell">
           <div class="grid g-auto" data-stagger="80">
             ${[
-              { icon: "book", title: "Documentation", body: "Guides, concepts, and the full API reference.", href: "/docs" },
+              { icon: "download", title: "Download for desktop", body: "Mere Code with a real terminal and git, on your computer.", href: "/download" },
               { icon: "orbit", title: "The Mere X family", body: "Every model, with specs and pricing side by side.", href: "/technology" },
-              { icon: "terminal", title: "Developer console", body: "Keys, usage, logs, and the playground.", href: "/console" },
+              { icon: "card", title: "Pricing", body: "Plans for people who ship every day.", href: "/pricing" },
               { icon: "search", title: "Search", body: "Look across the whole site.", href: "/search" }
             ].map((item) => `
               <a class="card card-hover card-spot" href="${item.href}" data-reveal>

@@ -9,10 +9,9 @@ import OpenAI, { toFile } from "openai";
 
 import { rootDirectory as root } from "./env.js";
 import { initDatabase, databaseConfigured, query } from "./database.js";
-import { createAuthRouter, enforceApiKeyScope, optionalAuth, requireAccountAuth, requireAuth, requirePageAuth } from "./auth.js";
+import { createAuthRouter, optionalAuth, requireAccountAuth, requireAuth, requirePageAuth } from "./auth.js";
 import { createWorkspaceRouter } from "./workspace.js";
 import { createPayPalRouter } from "./paypal.js";
-import { createConsoleRouter, recordDeveloperRequest } from "./console.js";
 import { consumeUsage, resolveAgentAccess, usageSummary } from "./entitlements.js";
 import { AGENT_MODES, SERVER_TOOLS, agentInstructions, isNewTurn, normalizeItems, projectContextText, toolsForMode } from "./agent.js";
 import { PLUGIN_PROVIDERS, credentialsFor, toolsForPlugin } from "./plugin-providers.js";
@@ -33,9 +32,9 @@ const port = Number(process.env.PORT || 5173);
 /* The three Mere models. Each is a distinct line with its own generation
    number; the environment decides which backend serves it. */
 const MODEL_PROFILES = Object.freeze({
-  nyx: { publicName: "Mere Nyx 2", model: process.env.OPENAI_MODEL_NYX || "gpt-5.6-luna" },
-  orion: { publicName: "Mere Orion 3", model: process.env.OPENAI_MODEL_ORION || "gpt-5.6-terra" },
-  apex: { publicName: "Mere Apex 4", model: process.env.OPENAI_MODEL_APEX || "gpt-5.6-sol" }
+  nyx: { publicName: "Mere 4.0 Lite", model: process.env.OPENAI_MODEL_NYX || "gpt-5.6-luna" },
+  orion: { publicName: "Mere 4.2 Core", model: process.env.OPENAI_MODEL_ORION || "gpt-5.6-terra" },
+  apex: { publicName: "Mere 4.2 Peak", model: process.env.OPENAI_MODEL_APEX || "gpt-5.6-sol" }
 });
 
 const MODELS = Object.freeze({
@@ -152,7 +151,6 @@ app.use("/api", optionalAuth);
 app.use("/api/auth", authLimiter, createAuthRouter());
 app.use("/api/workspace", createWorkspaceRouter());
 app.use("/api/paypal", paymentLimiter, createPayPalRouter());
-app.use("/api/console", createConsoleRouter());
 
 app.get("/.well-known/apple-developer-merchantid-domain-association", (req, res) => {
   const association = process.env.PAYPAL_APPLE_PAY_DOMAIN_ASSOCIATION;
@@ -522,7 +520,7 @@ app.get("/api/health", (req, res) => {
 
 // Product APIs are account-only. Public health, authentication, payment setup,
 // and OAuth callbacks are registered above this boundary.
-app.use("/api", requireAuth, enforceApiKeyScope, recordDeveloperRequest);
+app.use("/api", requireAuth);
 
 app.get("/api/usage", asyncRoute(async (req, res) => {
   res.setHeader("Cache-Control", "private, no-store");
@@ -742,15 +740,6 @@ app.post("/api/agent", generationLimiter, asyncRoute(async (req, res) => {
   }
 }));
 
-app.post("/api/embeddings", generationLimiter, asyncRoute(async (req, res) => {
-  const input = Array.isArray(req.body?.input)
-    ? req.body.input.slice(0, 100).map((value) => cleanText(value, 20_000)).filter(Boolean)
-    : cleanText(req.body?.input, 20_000);
-  if (!input || !input.length) return res.status(400).json({ error: { code: "missing_input", message: "Embedding input is required." } });
-  const result = await openai().embeddings.create({ model: MODELS.embedding, input, encoding_format: "float" });
-  res.json({ model: "Mere Atlas", data: result.data, usage: result.usage });
-}));
-
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
   if (error instanceof multer.MulterError) {
@@ -782,9 +771,19 @@ if (isProduction) {
   app.use("/app", requirePageAuth, express.static(workspaceDist, { index: false }));
   app.get(/^\/app(?:\/.*)?$/, requirePageAuth, (req, res) => res.sendFile(path.join(workspaceDist, "index.html")));
   app.get("/checkout", requirePageAuth, (req, res) => res.sendFile(path.join(workspaceDist, "pricing", "index.html")));
-  app.get(/^\/console(?:\/.*)?$/, requirePageAuth, (req, res) => res.sendFile(path.join(landingDist, "index.html")));
   app.use("/assets", express.static(path.join(landingDist, "assets"), { index: false, immutable: true, maxAge: "1y" }));
   app.use("/brand", express.static(path.join(landingDist, "brand"), { index: false, maxAge: "7d" }));
+  /* The developer API, its documentation and the console were retired;
+     anything still pointing at them lands on the product instead. */
+  const RETIRED = [
+    [/^\/console(?:\/.*)?$/, "/app"],
+    [/^\/docs(?:\/.*)?$/, "/products/code"],
+    [/^\/products\/api\/?$/, "/products/code"]
+  ];
+  app.get(RETIRED.map(([pattern]) => pattern), (req, res) => {
+    const target = RETIRED.find(([pattern]) => pattern.test(req.path))?.[1] || "/";
+    res.redirect(301, target);
+  });
   app.use(express.static(landingDist, { index: false }));
   app.use((req, res, next) => {
     if (req.method !== "GET" || req.path.startsWith("/api/")) return next();

@@ -16,7 +16,7 @@ import { MODELS, MODES } from "../data/models.js";
 import { escapeHtml } from "../lib/dom.js";
 import { onLeave } from "../lib/router.js";
 
-const CHAT_MODELS = ["mere-apex-4", "mere-orion-3", "mere-nyx-2"].map((id) => MODELS.find((model) => model.id === id));
+const CHAT_MODELS = ["mere-4-2-peak", "mere-4-2-core", "mere-4-0-lite"].map((id) => MODELS.find((model) => model.id === id));
 
 const FEATURES = [
   { icon: "search", title: "Reads before it writes", body: "It searches, opens the files that matter and follows the call graph — instead of guessing from the file you happen to have open." },
@@ -29,8 +29,8 @@ const FEATURES = [
   { icon: "shield", title: "Nothing silent", body: "Deletions ask first. Tool calls are listed as they happen. The agent never claims to have run something it did not." }
 ];
 const NUMBERS = [
-  { value: 1000000, label: "Token context", note: "Apex 4 and Orion 3" },
-  { value: 3, label: "Models", note: "Apex 4 · Orion 3 · Nyx 2" },
+  { value: 1000000, label: "Token context", note: "4.2 Peak and 4.2 Core" },
+  { value: 3, label: "Models", note: "4.2 Peak · 4.2 Core · 4.0 Lite" },
   { value: 4, label: "Thinking depths", note: "Fast to Extra High" },
   { value: 14, label: "Agent tools", note: "Read, search, edit, run, delegate" },
   { value: 99.96, decimals: 2, suffix: "%", label: "Uptime", note: "Mere Code, last 90 days" }
@@ -40,7 +40,7 @@ const DESKTOP_FACTS = [
   { icon: "terminal", title: "A real terminal", body: "Runs your tests, scripts and builds on your machine, and reads the output back." },
   { icon: "branch", title: "Git, built in", body: "Branches, diffs and commits from the thread. Every prompt is a checkpoint." },
   { icon: "folder", title: "Your files, on disk", body: "Works directly on the repository. Nothing is uploaded to be edited." },
-  { icon: "orbit", title: "The same agent as the web", body: "Apex 4, Orion 3 and Nyx 2, with the four thinking depths. Free download for Windows; macOS and Linux next." }
+  { icon: "orbit", title: "The same agent as the web", body: "4.2 Peak, 4.2 Core and 4.0 Lite, with the four thinking depths. Free download for Windows; macOS and Linux next." }
 ];
 
 function modelCard(model, index = 0) {
@@ -62,7 +62,7 @@ function modelCard(model, index = 0) {
 export default {
   title: "Future Forward Intelligence",
   description:
-    "Mere Code is the coding agent that works on your project in the browser — powered by Mere Apex 4, Orion 3 and Nyx 2, with four depths of thinking and every edit reviewable.",
+    "Mere Code is the coding agent that works on your project in the browser — powered by Mere 4.2 Peak, 4.2 Core and 4.0 Lite, with four depths of thinking and every edit reviewable.",
 
   render() {
     return `

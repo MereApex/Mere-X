@@ -15,7 +15,7 @@ import { onNavigate, navigate } from "../lib/router.js";
 import { getStack, inStack, addToStack, removeFromStack, onStackChange } from "../lib/stack.js";
 import { toast } from "../lib/toast.js";
 
-const CATALOG = ["mere-apex-4", "mere-orion-3", "mere-nyx-2", "mere-atlas"]
+const CATALOG = ["mere-4-2-peak", "mere-4-2-core", "mere-4-0-lite", "mere-atlas"]
   .map((id) => MODEL_BY_ID[id])
   .filter(Boolean);
 
@@ -23,10 +23,7 @@ const PLATFORM = [
   { n: "01", title: "Mere Code", href: "/app", desc: "The coding agent, in your browser. Open a folder, describe the change, review the diff." },
   { n: "02", title: "Download for desktop", href: "/download", desc: "A real terminal, git and reviewable diffs on your computer. Windows now; macOS and Linux next." },
   { n: "03", title: "How it works", href: "/products/code", desc: "Agent, Plan and Ask modes, four thinking depths, checkpoints and review." },
-  { n: "04", title: "The API", href: "/products/api", desc: "One endpoint, six SDKs, and a million-token window behind every call." },
-  { n: "05", title: "Developer console", href: "/console", desc: "Keys, usage, request logs, limits, and billing — read in one place." },
-  { n: "06", title: "Documentation", href: "/docs", desc: "Quickstart, API reference, cookbook, and the prompt library." },
-  { n: "07", title: "Pricing", href: "/pricing", desc: "Flat plans for people, per-token rates for builders, batch at half price." }
+  { n: "04", title: "Pricing", href: "/pricing", desc: "Plans for every way of working, from a side project to a whole team." }
 ];
 
 const INDEX = [
@@ -35,7 +32,6 @@ const INDEX = [
   { label: "Product", href: "/products/code" },
   { label: "Safety", href: "/safety" },
   { label: "Company", href: "/company" },
-  { label: "Docs", href: "/docs" },
   { label: "Status", href: "/status" }
 ];
 
@@ -117,7 +113,7 @@ function stackBody() {
 }
 
 const DRAWERS = {
-  models: { title: "Model Family", sub: "Apex 4 · Orion 3 · Nyx 2", body: catalogBody },
+  models: { title: "Model Family", sub: "4.2 Peak · 4.2 Core · 4.0 Lite", body: catalogBody },
   platform: { title: "Product", sub: "Mere Code and the platform", body: platformBody },
   research: { title: "Research", sub: "Latest dispatches", body: researchBody },
   stack: { title: "Your Stack", sub: "Models to build with", body: stackBody }

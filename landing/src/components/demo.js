@@ -167,7 +167,7 @@ export function demoMarkup() {
             </span>
             <span class="dm-spacer"></span>
             <span class="dm-live" data-demo-live><i></i>Live replay</span>
-            <span class="dm-chip dm-chip-model">${icon("orbit", "icon").value}Apex 4 · Extra High</span>
+            <span class="dm-chip dm-chip-model">${icon("orbit", "icon").value}4.2 Peak · Extra High</span>
             <span class="dm-win" aria-hidden="true">${icon("minus", "icon").value}${icon("box", "icon").value}${icon("close", "icon").value}</span>
           </div>
 
@@ -201,7 +201,7 @@ export function demoMarkup() {
               <div class="dm-feed" data-demo-feed></div>
               <div class="dm-composer">
                 <span class="dm-input" data-demo-input>Plan, search, build anything</span>
-                <span class="dm-composer-bar"><b>${icon("orbit", "icon").value}Agent</b><b>Apex 4</b><b>${icon("sliders", "icon").value}Extra High</b><span class="dm-spacer"></span><i class="dm-send">${icon("arrow-up", "icon").value}</i></span>
+                <span class="dm-composer-bar"><b>${icon("orbit", "icon").value}Agent</b><b>4.2 Peak</b><b>${icon("sliders", "icon").value}Extra High</b><span class="dm-spacer"></span><i class="dm-send">${icon("arrow-up", "icon").value}</i></span>
               </div>
             </aside>
           </div>

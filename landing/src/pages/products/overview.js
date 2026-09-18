@@ -14,16 +14,10 @@ const PRODUCTS = [
     points: ["Agent, Plan and Ask modes", "Four thinking depths", "Checkpoints and per-file review", "Works on your local files"]
   },
   {
-    icon: "code", name: "The API", href: "/products/api", tag: "For builders",
-    tagline: "Build the Mere models into your own product.",
-    body: "One endpoint for conversational and agentic work. Six SDKs, a console that shows you what is happening, and pricing you can model before you ship.",
-    points: ["Messages, batch, embeddings", "Tool use and structured output", "Prompt caching and half-price batch", "Provisioned throughput available"]
-  },
-  {
-    icon: "network", name: "Mere Atlas", href: "/technology/models/mere-atlas", tag: "Retrieval",
-    tagline: "Code embeddings trained beside the models that read them.",
-    body: "Index a repository by symbol, file and concept so the agent — or your own search — finds what it should read first.",
-    points: ["Repository-scale indexing", "Truncatable dimensions", "Multilingual", "Free classification alongside"]
+    icon: "download", name: "Mere Code for desktop", href: "/download", tag: "For your machine",
+    tagline: "The same agent, with a real terminal.",
+    body: "A native app that works on a folder on your computer: it runs your tests and scripts in a built-in terminal, reads the repository through git, and shows every diff in the editor before you keep it.",
+    points: ["A real terminal in the project", "Git status, diffs and commits", "Review changes chunk by chunk", "Windows now, macOS and Linux next"]
   },
   {
     icon: "building", name: "Enterprise", href: "/products/enterprise", tag: "For institutions",
@@ -35,15 +29,15 @@ const PRODUCTS = [
 
 export default {
   title: "Products",
-  description: "Mere Code, the API, Mere Atlas, and enterprise deployment.",
+  description: "Mere Code in the browser, Mere Code for desktop, and enterprise deployment.",
 
   render() {
     return `
       ${pageHead({
         crumb: [{ label: "Products" }],
         eyebrow: "Products",
-        title: "One model family. Four ways to put it to work.",
-        lead: "Whether you want the coding agent or an API to build on, it is the same Mere family underneath — same safety layer, same thinking budgets, same bill.",
+        title: "One model family. Three ways to put it to work.",
+        lead: "In the browser or on your desktop, it is the same agent and the same Mere family underneath — same safety layer, same thinking budgets, same bill.",
         actions: `${button({ label: "Open Mere Code", href: "/app", icon: "arrow-ne" }).value}
                   ${button({ label: "See pricing", href: "/pricing", variant: "secondary", icon: "card" }).value}`
       }).value}
@@ -82,7 +76,7 @@ export default {
                 <tr><td>hand a task to an agent</td><td><a class="link-plain" href="/products/code"><strong>Mere Code</strong></a></td><td class="small muted">In the browser, on your own files</td></tr>
                 <tr><td>roll it out to a team</td><td><a class="link-plain" href="/products/enterprise"><strong>Enterprise</strong></a></td><td class="small muted">SSO and a retention policy</td></tr>
                 <tr><td>ship code faster</td><td><a class="link-plain" href="/products/code"><strong>Mere Code</strong></a></td><td class="small muted">CI integration for review on every PR</td></tr>
-                <tr><td>build it into your product</td><td><a class="link-plain" href="/products/api"><strong>The API</strong></a></td><td class="small muted">Batch, for anything not user-facing</td></tr>
+                <tr><td>run tests and git while it works</td><td><a class="link-plain" href="/download"><strong>Mere Code for desktop</strong></a></td><td class="small muted">Batch, for anything not user-facing</td></tr>
                 <tr><td>deploy inside a regulated estate</td><td><a class="link-plain" href="/products/enterprise"><strong>Enterprise</strong></a></td><td class="small muted">Residency pinning and zero retention</td></tr>
               </tbody>
             </table>
@@ -115,9 +109,9 @@ export default {
 
       ${ctaBand({
         title: "Start wherever makes sense.",
-        body: "The free tier and the ten dollars of API credit both take about a minute.",
+        body: "The free plan takes about a minute, and the desktop app installs in one more.",
         primary: { label: "Try Mere X", href: "/app", icon: "arrow-ne" },
-        secondary: { label: "Open the console", href: "/console" }
+        secondary: { label: "Download for desktop", href: "/download" }
       }).value}
     `;
   }

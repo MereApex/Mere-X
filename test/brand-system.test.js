@@ -90,7 +90,7 @@ test("the workspace is a conversation with a code agent, not an IDE", async () =
   }
   assert.match(workspacePage, /data-mode="agent"[\s\S]*data-mode="plan"[\s\S]*data-mode="ask"/);
   assert.match(workspacePage, /<span>Fast<\/span><span>Medium<\/span><span>High<\/span><span>Extra High<\/span>/);
-  assert.match(workspacePage, /Mere Apex 4[\s\S]*Mere Orion 3[\s\S]*Mere Nyx 2/);
+  assert.match(workspacePage, /Mere 4.2 Peak[\s\S]*Mere 4.2 Core[\s\S]*Mere 4.0 Lite/);
 
   // No editor, file tree or terminal: the agent does the editing and the thread shows it.
   assert.doesNotMatch(workspacePage, /id="(fileTree|editorHost|editorReview|terminal|statusBar)"/);
@@ -129,11 +129,11 @@ test("the models carry distinct generations everywhere the public sees them", as
     source("../index.html")
   ]);
   for (const text of [server, models, site, workspacePage]) {
-    assert.match(text, /Mere Apex 4/);
-    assert.match(text, /Mere Orion 3/);
-    assert.match(text, /Mere Nyx 2/);
-    assert.doesNotMatch(text, /Apex 5\.5|Orion 5\.5|Nyx 5\.5|Mere X 5\.5/);
+    assert.match(text, /Mere 4.2 Peak/);
+    assert.match(text, /Mere 4.2 Core/);
+    assert.match(text, /Mere 4.0 Lite/);
+    assert.doesNotMatch(text, /Max 5\.5|Core 5\.5|Lite 5\.5|Mere X 5\.5/);
   }
-  assert.match(models, /id: "mere-apex-4"/);
+  assert.match(models, /id: "mere-4-2-peak"/);
   assert.doesNotMatch(models, /mere-iris|mere-lyra/);
 });

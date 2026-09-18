@@ -427,3 +427,11 @@
 .cta-band .link { color: var(--ink) !important; }
 .mode-bar { background: var(--line-strong); }
 .bench-track { background: var(--paper-deep); }
+
+/* ---- Thinking-depth ladder (technology/reasoning) ---- */
+.depth-ladder { display: grid; gap: 14px; padding: clamp(20px, 2.4vw, 30px); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.depth-row { display: grid; gap: 6px; }
+.depth-name { font-size: var(--t-sm); font-weight: 600; color: var(--ink); }
+.depth-bar { height: 2px; background: var(--paper-deep); overflow: hidden; }
+.depth-bar i { display: block; height: 100%; background: var(--ink); transform: scaleX(var(--v, .5)); transform-origin: left; transition: transform 1.2s var(--ease-out); }
+.depth-note { font-family: var(--font-mono); font-size: var(--t-xs); color: var(--muted); }

@@ -3,18 +3,17 @@
    ============================================================ */
 
 import { MODEL_BY_ID, MODELS, BENCHMARKS, BENCH_SERIES, MODES, KNOWLEDGE_CUTOFF } from "../../data/models.js";
-import { SAMPLES } from "../../data/docs.js";
 import { icon } from "../../lib/icons.js";
 import { nf, dateFull, compact } from "../../lib/format.js";
 import { mereXSeal } from "../../components/orb.js";
 import {
-  pageHead, sectionHead, textLink, button, codeBlock, ctaBand, benchBars, calloutBox
+ pageHead, sectionHead, textLink, button, ctaBand, benchBars, calloutBox
 } from "../../components/ui.js";
 
 const SERIES_KEY = {
-  "mere-apex-4": "apex",
-  "mere-orion-3": "orion",
-  "mere-nyx-2": "nyx"
+  "mere-4-2-peak": "apex",
+  "mere-4-2-core": "orion",
+  "mere-4-0-lite": "nyx"
 };
 
 export default {
@@ -42,8 +41,8 @@ export default {
         eyebrow: `${model.tier} · ${model.status}`,
         title: model.name,
         lead: model.tagline,
-        actions: `${button({ label: "Try it in the playground", href: "/console/playground", icon: "play" }).value}
-                  ${button({ label: "API reference", href: "/docs/api", variant: "secondary", icon: "code" }).value}`
+        actions: `${button({ label: "Open Mere Code", href: "/app", icon: "arrow-ne" }).value}
+                  ${button({ label: "Compare the family", href: "/technology", variant: "secondary", icon: "layers" }).value}`
       }).value}
 
       <section class="section-tight">
@@ -98,9 +97,9 @@ export default {
           ${sectionHead({
             eyebrow: "Reasoning",
             title: `${model.modes.length} of the four modes.`,
-            lead: model.id === "mere-apex-4"
-              ? "Apex is the only model with Extra High, which unlocks budgets up to 256,000 thinking tokens and multi-hour agent runs."
-              : `${model.short} supports ${model.modes.join(", ")}. For deeper deliberation, route the request to Apex.`,
+            lead: model.id === "mere-4-2-peak"
+              ? "Peak is the only model with Extra High, which unlocks budgets up to 256,000 thinking tokens and multi-hour agent runs."
+              : `${model.short} supports ${model.modes.join(", ")}. For deeper deliberation, route the request to Peak.`,
             action: textLink("How modes work", "/technology/reasoning").value
           }).value}
           <div class="mode-strip" data-reveal style="grid-template-columns:repeat(${Math.max(2, model.modes.length)},minmax(0,1fr))">
@@ -157,28 +156,6 @@ export default {
       </section>` : ""}
 
       <!-- ---- Code ---- -->
-      <section class="section">
-        <div class="shell shell-wide">
-          <div class="split split-40" style="gap:clamp(24px,3vw,48px);align-items:center">
-            <div data-reveal="left">
-              ${sectionHead({ eyebrow: "Get started", title: `Call ${model.short}.` }).value}
-              <p class="small muted measure">Swap the model ID into any request. Every model in the family accepts the same message shape, so switching is a one-line change.</p>
-              <div class="row" style="margin-top:24px;gap:12px">
-                ${button({ label: "Quickstart", href: "/docs/quickstart", variant: "secondary", size: "btn-sm", icon: "arrow-right" }).value}
-                ${textLink("API reference", "/docs/api").value}
-              </div>
-            </div>
-            <div data-reveal="right">
-              ${codeBlock({
-                Python: SAMPLES.firstCall.Python.replace("mere-orion-3", model.id),
-                TypeScript: SAMPLES.firstCall.TypeScript.replace("mere-orion-3", model.id),
-                cURL: SAMPLES.firstCall.cURL.replace("mere-orion-3", model.id)
-              }).value}
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- ---- Other models ---- -->
       <section class="section section-line">
         <div class="shell shell-wide">
@@ -197,8 +174,8 @@ export default {
 
       ${ctaBand({
         title: `Put ${model.name} to work.`,
-        body: "Open the playground, paste a real prompt, and read the request body it produces.",
-        primary: { label: "Open the playground", href: "/console/playground", icon: "arrow-ne" },
+        body: "Open a folder, describe a change, and watch which parts of it this model gets right.",
+        primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
         secondary: { label: "See pricing", href: "/pricing" }
       }).value}
     `;

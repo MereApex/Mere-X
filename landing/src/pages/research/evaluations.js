@@ -29,7 +29,7 @@ const SUITES = [
 const FAQ_ITEMS = [
   { q: "Why not just publish the highest number you got?", a: "<p>Because it is not true, and because anyone who deploys on the basis of it will discover that within a week. A five-run mean with a stated spread is less impressive and considerably more useful.</p>" },
   { q: "How do you handle a benchmark you score badly on?", a: "<p>We publish it. The full report includes the suites where the current models underperform the previous generation, and the system card enumerates task categories the model still fails outright.</p>" },
-  { q: "Do you evaluate in the mode that flatters the model?", a: "<p>No. Unless stated otherwise every model is evaluated in High mode, including Nyx, where High is not where it looks best. Mixing modes across a comparison table would make the table meaningless.</p>" },
+  { q: "Do you evaluate in the mode that flatters the model?", a: "<p>No. Unless stated otherwise every model is evaluated in High mode, including Lite, where High is not where it looks best. Mixing modes across a comparison table would make the table meaningless.</p>" },
   { q: "Can I run these suites myself?", a: "<p>Yes. The harness, prompts, and parsing logic are open. The cookbook has a recipe for pointing it at your own data, which is a far better predictor of production behaviour than any public benchmark.</p>" }
 ];
 
@@ -45,7 +45,7 @@ export default {
         title: "Measurement is the bottleneck.",
         lead: "Most disagreements about what a model can do are really disagreements about how it was measured. This group builds suites that resist contamination, gaming, and our own wishful thinking.",
         actions: `${button({ label: "Benchmark results", href: "/technology/benchmarks", icon: "arrow-right" }).value}
-                  ${button({ label: "Build your own evals", href: "/docs/cookbook", variant: "secondary", icon: "flask" }).value}`
+                  ${button({ label: "How we evaluate", href: "/research/evaluations", variant: "secondary", icon: "flask" }).value}`
       }).value}
 
       <section class="section">
@@ -111,7 +111,7 @@ export default {
               <div style="margin-top:22px">
                 ${calloutBox("Using a model as a grader is fine — as long as you calibrate it against human raters and publish the disagreement rate. An uncalibrated LLM judge is a random number generator with good manners.", { variant: "accent", icon: "scale" }).value}
               </div>
-              <div class="row" style="margin-top:22px">${textLink("Evaluation cookbook", "/docs/cookbook").value}</div>
+              <div class="row" style="margin-top:22px">${textLink("How we evaluate", "/research/evaluations").value}</div>
             </div>
             <div data-reveal="right">
               ${codeBlock({
@@ -123,7 +123,7 @@ suite = Suite(
 )
 
 report = suite.run(
-    model="mere-orion-3",
+    model="mere-4-2-core",
     thinking={"type": "enabled", "budget_tokens": 4000},
     grader=judge.exact_match,
     runs=5,                      # report the mean and the spread

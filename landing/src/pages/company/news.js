@@ -106,7 +106,7 @@ export default {
 
       ${ctaBand({
         title: "Follow what ships.",
-        body: "The changelog covers every API, SDK, model, and console change.",
+        body: "The changelog covers every model and product change.",
         primary: { label: "Read the changelog", href: "/changelog", icon: "arrow-ne" },
         secondary: { label: "Contact us", href: "/company/contact" }
       }).value}

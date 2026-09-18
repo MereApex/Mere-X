@@ -9,7 +9,6 @@ import "./styles/base.css";
 import "./styles/components.css";
 import "./styles/shell.css";
 import "./styles/site.css";
-import "./styles/console.css";
 import "./styles/hero.css";
 import "./styles/home.css";
 import "./styles/demo.css";
@@ -21,7 +20,6 @@ import { renderFooter } from "./components/footer.js";
 import { route, fallback, start, onNavigate } from "./lib/router.js";
 import { initReveal, initMagnetic, initScrollParallax } from "./lib/motion.js";
 import { mountCodeBlocks, mountAccordions } from "./components/ui.js";
-import { hydrateConsole } from "./lib/store.js";
 
 /* ------------------------------------------------------------
    Shell
@@ -72,7 +70,6 @@ route("/technology/benchmarks", () => import("./pages/technology/benchmarks.js")
 route("/products", () => import("./pages/products/overview.js"));
 route("/products/mere-x", () => import("./pages/products/code.js"));
 route("/products/code", () => import("./pages/products/code.js"));
-route("/products/api", () => import("./pages/products/api.js"));
 route("/products/enterprise", () => import("./pages/products/enterprise.js"));
 route("/pricing", () => import("./pages/pricing.js"));
 
@@ -93,8 +90,6 @@ route("/company/trust", () => import("./pages/company/trust.js"));
 route("/company/contact", () => import("./pages/company/contact.js"));
 
 /* Resources */
-route("/docs", () => import("./pages/docs.js"));
-route("/docs/:slug", () => import("./pages/docs.js"));
 route("/changelog", () => import("./pages/resources/changelog.js"));
 route("/status", () => import("./pages/resources/status.js"));
 route("/support", () => import("./pages/resources/support.js"));
@@ -102,22 +97,6 @@ route("/search", () => import("./pages/search.js"));
 
 /* Legal */
 route("/legal/:slug", () => import("./pages/legal.js"));
-
-/* Console */
-const consolePage = (loader) => async () => {
-  await hydrateConsole();
-  return loader();
-};
-route("/console", consolePage(() => import("./console/dashboard.js")));
-route("/console/keys", consolePage(() => import("./console/keys.js")));
-route("/console/playground", consolePage(() => import("./console/playground.js")));
-route("/console/usage", consolePage(() => import("./console/usage.js")));
-route("/console/logs", consolePage(() => import("./console/logs.js")));
-route("/console/billing", consolePage(() => import("./console/billing.js")));
-route("/console/webhooks", consolePage(() => import("./console/webhooks.js")));
-route("/console/limits", consolePage(() => import("./console/limits.js")));
-route("/console/organization", consolePage(() => import("./console/organization.js")));
-route("/console/settings", consolePage(() => import("./console/settings.js")));
 
 fallback(() => import("./pages/not-found.js"));
 

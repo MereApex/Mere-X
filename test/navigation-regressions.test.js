@@ -80,32 +80,25 @@ test("a stale lazy route can never repaint over the latest navigation", async ()
   }
 });
 
-test("navigation lifecycle is cancellable and console entry stays server-authenticated", async () => {
-  const [router, main, home, docs, search, pricing, reasoning] = await Promise.all([
+test("navigation lifecycle is cancellable and leaves no stale listeners", async () => {
+  const [router, main, home, search, reasoning] = await Promise.all([
     source("../landing/src/lib/router.js"),
     source("../landing/src/main.js"),
     source("../landing/src/pages/home.js"),
-    source("../landing/src/pages/docs.js"),
     source("../landing/src/pages/search.js"),
-    source("../landing/src/pages/pricing.js"),
     source("../landing/src/pages/technology/reasoning.js")
   ]);
 
   assert.match(router, /sequence !== renderSequence/);
-  assert.match(router, /enteringConsole/);
   assert.match(router, /pointerover/);
   assert.match(main, /cancelAnimationFrame\(motionFrame\)/);
-  assert.doesNotMatch(`${home}\n${docs}\n${search}`, /import\([^\n]+router\.js[^\n]+onLeave/);
-  assert.match(pricing, /removeEventListener\("resize", onResize\)/);
+  assert.doesNotMatch(`${home}\n${search}`, /import\([^\n]+router\.js[^\n]+onLeave/);
   assert.match(reasoning, /removeEventListener\("resize", onResize\)/);
 });
 
-test("public contact and API URLs use the merex.ai domain", async () => {
+test("public contact addresses use the merex.ai domain", async () => {
   const files = await Promise.all([
     source("../landing/src/data/site.js"),
-    source("../landing/src/data/docs.js"),
-    source("../landing/src/data/docs-pages.js"),
-    source("../landing/src/pages/docs.js"),
     source("../landing/src/pages/search.js"),
     source("../landing/src/pages/not-found.js"),
     source("../landing/src/pages/safety/disclosure.js")
@@ -114,7 +107,6 @@ test("public contact and API URLs use the merex.ai domain", async () => {
 
   assert.doesNotMatch(combined, /mere-x\.com/i);
   assert.match(combined, /hello@merex\.ai/);
-  assert.match(combined, /https:\/\/api\.merex\.ai/);
 });
 
 test("production serves hashed route chunks and brand assets with durable caching", async () => {

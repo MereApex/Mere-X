@@ -22,7 +22,7 @@ const LEVELS = [
     level: "CSL-3", name: "Significant uplift", state: "Current",
     definition: "The model meaningfully lowers the effort required by a non-expert in at least one tracked risk domain, or shows early autonomous-replication capability.",
     safeguards: "Everything above, plus enhanced classifiers on tracked domains, mandatory KYC for high-throughput access, weights-security controls at the level of a well-resourced attacker, and an incident response plan with named owners.",
-    models: "Mere Apex 4"
+    models: "Mere 4.2 Peak"
   },
   {
     level: "CSL-4", name: "Expert-level uplift", state: "Not reached",
@@ -139,7 +139,7 @@ export default {
           <div class="split split-60" style="gap:clamp(24px,3vw,48px);align-items:center">
             <div class="prose" data-reveal="left">
               <p>
-                In April 2026, six weeks before the planned Mere Apex 4 launch, a red-team exercise found
+                In April 2026, six weeks before the planned Mere 4.2 Peak launch, a red-team exercise found
                 that long tool-use chains could be steered into producing operational detail we had
                 classified as CSL-3-restricted — by routing the request across enough intermediate steps
                 that no single step triggered the classifier.

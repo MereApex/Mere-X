@@ -41,9 +41,9 @@ export const NAV = [
     panelWide: true,
     links: [
       { title: "The Mere family", href: "/technology", desc: "Every model, side by side", icon: "orbit" },
-      { title: "Mere Apex 4", href: "/technology/models/mere-apex-4", desc: "Frontier reasoning for the hardest work", icon: "sun" },
-      { title: "Mere Orion 3", href: "/technology/models/mere-orion-3", desc: "The daily driver", icon: "globe" },
-      { title: "Mere Nyx 2", href: "/technology/models/mere-nyx-2", desc: "Instant and inexpensive", icon: "moon" },
+      { title: "Mere 4.2 Peak", href: "/technology/models/mere-4-2-peak", desc: "Frontier reasoning for the hardest work", icon: "sun" },
+      { title: "Mere 4.2 Core", href: "/technology/models/mere-4-2-core", desc: "The daily driver", icon: "globe" },
+      { title: "Mere 4.0 Lite", href: "/technology/models/mere-4-0-lite", desc: "Instant and inexpensive", icon: "moon" },
       { title: "Thinking depths", href: "/technology/reasoning", desc: "Fast, Medium, High, and Extra High", icon: "atom" },
       { title: "Architecture", href: "/technology/architecture", desc: "How the models are built", icon: "cpu" },
       { title: "Infrastructure", href: "/technology/infrastructure", desc: "The compute behind the models", icon: "server" },
@@ -58,9 +58,8 @@ export const NAV = [
     links: [
       { title: "Mere Code", href: "/products/code", desc: "The coding agent, in your browser", icon: "terminal" },
       { title: "Download for desktop", href: "/download", desc: "Windows now, macOS and Linux next", icon: "download" },
-      { title: "The API", href: "/products/api", desc: "Build the Mere models into your product", icon: "code" },
       { title: "Enterprise", href: "/products/enterprise", desc: "Deployment, residency, and support", icon: "building" },
-      { title: "Pricing", href: "/pricing", desc: "Plans and per-token rates", icon: "card" }
+      { title: "Pricing", href: "/pricing", desc: "Plans for every way of working", icon: "card" }
     ]
   },
   {
@@ -94,15 +93,10 @@ export const NAV = [
   {
     id: "resources",
     label: "Resources",
-    href: "/docs",
-    panelWide: true,
+    href: "/changelog",
+    panelWide: false,
     links: [
-      { title: "Documentation", href: "/docs", desc: "Guides and concepts", icon: "book" },
-      { title: "Quickstart", href: "/docs/quickstart", desc: "First call in under two minutes", icon: "rocket" },
-      { title: "API reference", href: "/docs/api", desc: "Every endpoint and parameter", icon: "code" },
-      { title: "SDKs", href: "/docs/sdks", desc: "Python, TypeScript, Go, Java", icon: "package" },
-      { title: "Cookbook", href: "/docs/cookbook", desc: "Working recipes you can copy", icon: "flask" },
-      { title: "Prompt library", href: "/docs/prompts", desc: "Patterns that hold up in production", icon: "wand" },
+      { title: "Download for desktop", href: "/download", desc: "Windows now, macOS and Linux next", icon: "download" },
       { title: "Changelog", href: "/changelog", desc: "What shipped, and when", icon: "list" },
       { title: "Status", href: "/status", desc: "Live platform health", icon: "activity" },
       { title: "Support", href: "/support", desc: "Get help from a human", icon: "help" }
@@ -117,20 +111,17 @@ export const FOOTER = [
       { label: "Mere Code", href: "/products/code" },
       { label: "Download for desktop", href: "/download" },
       { label: "Open the workspace", href: "/app" },
-      { label: "The API", href: "/products/api" },
       { label: "Enterprise", href: "/products/enterprise" },
       { label: "Pricing", href: "/pricing" },
-      { label: "Developer console", href: "/console" },
       { label: "Status", href: "/status" }
     ]
   },
   {
     title: "Models",
     links: [
-      { label: "Mere Apex 4", href: "/technology/models/mere-apex-4" },
-      { label: "Mere Orion 3", href: "/technology/models/mere-orion-3" },
-      { label: "Mere Nyx 2", href: "/technology/models/mere-nyx-2" },
-      { label: "Mere Atlas", href: "/technology/models/mere-atlas" },
+      { label: "Mere 4.2 Peak", href: "/technology/models/mere-4-2-peak" },
+      { label: "Mere 4.2 Core", href: "/technology/models/mere-4-2-core" },
+      { label: "Mere 4.0 Lite", href: "/technology/models/mere-4-0-lite" },
       { label: "Thinking depths", href: "/technology/reasoning" },
       { label: "Benchmarks", href: "/technology/benchmarks" }
     ]
@@ -204,11 +195,11 @@ export const VALUES = [
 
 export const MILESTONES = [
   { date: "March 2023", title: "Mere X is founded", body: "Eleven researchers and engineers leave frontier labs to work on interpretable, reliable systems. The first office is a converted print shop in the Mission." },
-  { date: "January 2024", title: "Mere Nyx — internal only", body: "The first model in the family. Never released publicly; it existed to prove the training stack and the evaluation harness worked end to end." },
-  { date: "September 2024", title: "Mere Orion 1 and the first API", body: "A private beta with 40 companies. The thinking-budget control that defines the family ships in its first, crude form." },
-  { date: "May 2025", title: "Mere Apex 2 and the first agent", body: "The agent runs internally on our own repositories for eight months before anyone outside sees it. Most of what it learned is about when to stop and ask." },
+  { date: "January 2024", title: "Mere Lite — internal only", body: "The first model in the family. Never released publicly; it existed to prove the training stack and the evaluation harness worked end to end." },
+  { date: "September 2024", title: "Mere Core 1, in private beta", body: "A private beta with 40 companies. The thinking-budget control that defines the family ships in its first, crude form." },
+  { date: "May 2025", title: "Mere 2.0 Peak and the first agent", body: "The agent runs internally on our own repositories for eight months before anyone outside sees it. Most of what it learned is about when to stop and ask." },
   { date: "November 2025", title: "The Responsible Scaling Policy", body: "We publish the commitments that gate every future release, and the evaluation suite that decides whether a model has met them." },
-  { date: "September 2026", title: "Mere Code", body: "Apex 4, Orion 3, and Nyx 2 ship together inside a coding agent that runs in the browser, with a million-token window, Extra High thinking, and every edit reviewable." }
+  { date: "September 2026", title: "Mere Code", body: "4.2 Peak, 4.2 Core, and 4.0 Lite ship together inside a coding agent that runs in the browser, with a million-token window, Extra High thinking, and every edit reviewable." }
 ];
 
 export const LEADERSHIP = [

@@ -10,7 +10,7 @@ import { pageHead, sectionHead, textLink, button, ctaBand, calloutBox, statTile,
 const LAYERS = [
   { n: "01", icon: "flask", t: "Training", d: "Safety properties — honesty, calibration, appropriate refusal — are trained for directly and measured as capabilities, not filtered for afterwards.", href: "/research/alignment" },
   { n: "02", icon: "scale", t: "The release gate", d: "The Responsible Scaling Policy defines capability thresholds and the safeguards each one triggers. The safety organisation holds the gate, and has used it.", href: "/safety/scaling-policy" },
-  { n: "03", icon: "shield", t: "Guard, inline", d: "Every request and response is scored across the harm taxonomy by a parallel classification head. It is free, it adds under 8 ms, and it cannot be bypassed by streaming.", href: "/docs/safety" },
+  { n: "03", icon: "shield", t: "Guard, inline", d: "Every request and response is scored across the harm taxonomy by a parallel classification head. It is free, it adds under 8 ms, and it cannot be bypassed by streaming.", href: "/safety/system-cards" },
   { n: "04", icon: "list", t: "The usage policy", d: "What Mere X may and may not be used for, written in language a person can act on rather than a lawyer can defend.", href: "/safety/usage-policy" },
   { n: "05", icon: "microscope", t: "Interpretability", d: "Circuit-level tools that let us check whether safe behaviour has an internal mechanism or is surface mimicry. Where they disagree, we trust the mechanism.", href: "/research/interpretability" },
   { n: "06", icon: "eye", t: "Reporting", d: "System cards per release, transparency reports on enforcement, and public post-mortems on incidents — including the ones that make us look careless.", href: "/safety/transparency" }
@@ -126,8 +126,8 @@ export default {
           ${sectionHead({ eyebrow: "For developers", title: "What you get in the API." }).value}
           <div class="grid g-3" data-stagger="70">
             ${[
-              { icon: "shield", title: "Guard on every call", body: "Free classification across the harm taxonomy, returned as structured scores so you can apply your own thresholds.", href: "/docs/safety" },
-              { icon: "sliders", title: "Tunable refusal", body: "Set thresholds per deployment. A security research tool and a children's product should not behave identically.", href: "/docs/safety" },
+              { icon: "shield", title: "Guard on every call", body: "Free classification across the harm taxonomy, returned as structured scores so you can apply your own thresholds.", href: "/safety/system-cards" },
+              { icon: "sliders", title: "Tunable refusal", body: "Set thresholds per deployment. A security research tool and a children's product should not behave identically.", href: "/safety/system-cards" },
               { icon: "lock", title: "Zero-retention mode", body: "Nothing written to disk beyond the life of the request, for workloads where that is a requirement rather than a preference.", href: "/company/trust" },
               { icon: "list", title: "Published usage policy", body: "Clear rules about what Mere X may be used for, and an enforcement process that is documented rather than arbitrary.", href: "/safety/usage-policy" },
               { icon: "fingerprint", title: "Coordinated disclosure", body: "A real process for reporting model vulnerabilities, with a safe-harbour commitment and a response SLA.", href: "/safety/disclosure" },

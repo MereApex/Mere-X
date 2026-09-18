@@ -11,15 +11,15 @@ export const KNOWLEDGE_CUTOFF = "June 2026";
 
 export const MODELS = [
   {
-    id: "mere-apex-4",
-    name: "Mere Apex 4",
-    short: "Apex",
+    id: "mere-4-2-peak",
+    name: "Mere 4.2 Peak",
+    short: "Peak",
     tier: "Frontier",
     icon: "atom",
     flagship: true,
     tagline: "Our most capable model. Built for the refactor that has to be right the first time.",
     description:
-      "Apex 4 is the frontier of the Mere family. It plans before it edits, holds a large codebase in view across hundreds of tool calls, and is the model to reach for when a task spans many files, an unfamiliar framework, or a bug nobody has been able to reproduce.",
+      "4.2 Peak is the frontier of the Mere family. It plans before it edits, holds a large codebase in view across hundreds of tool calls, and is the model to reach for when a task spans many files, an unfamiliar framework, or a bug nobody has been able to reproduce.",
     context: 1_000_000,
     maxOutput: 128_000,
     modes: ["Fast", "Medium", "High", "Extra High"],
@@ -35,17 +35,17 @@ export const MODELS = [
       "Migrations between frameworks",
       "Reviews where a miss is expensive"
     ],
-    aliases: ["mere-apex-4-latest", "mere-apex-4-20260910"]
+    aliases: ["mere-4-2-peak-latest", "mere-4-2-peak-20260910"]
   },
   {
-    id: "mere-orion-3",
-    name: "Mere Orion 3",
-    short: "Orion",
+    id: "mere-4-2-core",
+    name: "Mere 4.2 Core",
+    short: "Core",
     tier: "Balanced",
     icon: "layers",
     tagline: "The daily driver. Near-frontier quality at the speed of an editor.",
     description:
-      "Orion 3 is the model most work should run on. It matches Apex on the majority of everyday engineering at roughly a quarter of the cost, keeps the same million-token window, and is fast enough to sit in a tight loop of edits, reads and re-reads without the person waiting.",
+      "4.2 Core is the model most work should run on. It matches Peak on the majority of everyday engineering at roughly a quarter of the cost, keeps the same million-token window, and is fast enough to sit in a tight loop of edits, reads and re-reads without the person waiting.",
     context: 1_000_000,
     maxOutput: 64_000,
     modes: ["Fast", "Medium", "High"],
@@ -61,17 +61,17 @@ export const MODELS = [
       "Code review and explanation",
       "Working through a backlog"
     ],
-    aliases: ["mere-orion-3-latest", "mere-orion-3-20260910"]
+    aliases: ["mere-4-2-core-latest", "mere-4-2-core-20260910"]
   },
   {
-    id: "mere-nyx-2",
-    name: "Mere Nyx 2",
-    short: "Nyx",
+    id: "mere-4-0-lite",
+    name: "Mere 4.0 Lite",
+    short: "Lite",
     tier: "Fast",
     icon: "bolt",
     tagline: "Instant. For the edit you could almost type yourself.",
     description:
-      "Nyx 2 answers before you have finished reading the prompt. It is tuned for the quick layer of engineering: renames, small fixes, inline edits, completions, quick questions about a file, and the thousand small calls that make the workspace feel alive.",
+      "4.0 Lite answers before you have finished reading the prompt. It is tuned for the quick layer of engineering: renames, small fixes, inline edits, completions, quick questions about a file, and the thousand small calls that make the workspace feel alive.",
     context: 400_000,
     maxOutput: 32_000,
     modes: ["Fast", "Medium"],
@@ -87,64 +87,12 @@ export const MODELS = [
       "Renames and mechanical changes",
       "High-volume automation"
     ],
-    aliases: ["mere-nyx-2-latest", "mere-nyx-2-20260910"]
-  },
-  {
-    id: "mere-atlas",
-    name: "Mere Atlas",
-    short: "Index",
-    tier: "Retrieval",
-    icon: "network",
-    tagline: "Code embeddings trained beside the models that read them.",
-    description:
-      "A retrieval model trained alongside the Mere family so that what it finds is what the agent wants to read. It indexes repositories by symbol, file and concept, with output dimensions truncatable from 3072 down to 256 with graceful quality decay.",
-    context: 32_000,
-    maxOutput: 3072,
-    modes: [],
-    price: { input: 0.03, output: 0 },
-    latency: "40 ms / batch of 64",
-    throughput: "—",
-    modalities: ["Code", "Text"],
-    releasedAt: "2026-02-20",
-    status: "Generally available",
-    bestFor: [
-      "Codebase search",
-      "Retrieval for agents",
-      "Duplicate detection",
-      "Documentation search"
-    ],
-    aliases: ["mere-atlas-latest"]
-  },
-  {
-    id: "mere-aegis",
-    name: "Mere Aegis",
-    short: "Guard",
-    tier: "Safety",
-    icon: "shield",
-    tagline: "The classifier that ships with every request.",
-    description:
-      "Aegis scores inputs and outputs across the Mere harm taxonomy. It runs free of charge on every API call and is also available as a standalone endpoint so you can apply your own thresholds before content reaches a user.",
-    context: 32_000,
-    maxOutput: 512,
-    modes: [],
-    price: { input: 0, output: 0 },
-    latency: "60 ms",
-    throughput: "—",
-    modalities: ["Text", "Code"],
-    releasedAt: "2026-01-09",
-    status: "Generally available · free",
-    bestFor: [
-      "Pre- and post-generation filtering",
-      "Trust and safety pipelines",
-      "Secret and credential detection",
-      "Compliance evidence"
-    ],
-    aliases: ["mere-aegis-latest"]
+    aliases: ["mere-4-0-lite-latest", "mere-4-0-lite-20260910"]
   }
 ];
 
 export const MODEL_BY_ID = Object.fromEntries(MODELS.map((model) => [model.id, model]));
-export const CHAT_MODELS = MODELS.filter((model) => model.modes.length > 0 && model.id !== "mere-aegis");
+export const CHAT_MODELS = MODELS.filter((model) => model.modes.length > 0);
 
 /* ------------------------------------------------------------
    REASONING MODES — the control users actually feel
@@ -183,7 +131,7 @@ export const MODES = [
     budget: "up to 256K thinking tokens",
     depth: 1,
     latency: "minutes to hours",
-    summary: "Extended deliberation with tool use, retrieval and interim checkpoints. Apex only. Returns a reasoning summary alongside the work.",
+    summary: "Extended deliberation with tool use, retrieval and interim checkpoints. Peak only. Returns a reasoning summary alongside the work.",
     use: "Refactors, migrations, novel problems"
   }
 ];
@@ -226,9 +174,9 @@ export const CAPABILITIES = [
     name: "Million-token context",
     blurb: "A whole codebase, a deposition, or a year of tickets — held in one window with reliable recall.",
     detail:
-      "Apex and Orion accept up to one million tokens. Recall is measured with adversarial multi-needle retrieval across the full window, not just at the edges, and prompt caching makes re-reading the same corpus inexpensive.",
+      "Peak and Core accept up to one million tokens. Recall is measured with adversarial multi-needle retrieval across the full window, not just at the edges, and prompt caching makes re-reading the same corpus inexpensive.",
     bullets: [
-      "1M token window on Apex and Orion",
+      "1M token window on Peak and Core",
       "Multi-needle recall above 99% across the window",
       "Prompt caching at 10% of input price",
       "Automatic context compaction for agent loops"
@@ -271,7 +219,6 @@ export const CAPABILITIES = [
       "Constrained decoding enforces your JSON Schema at the token level. The model cannot emit a response that fails validation, which removes the retry-and-repair layer most applications end up writing.",
     bullets: [
       "JSON Schema constrained decoding",
-      "Typed SDK helpers in Python and TypeScript",
       "Citations as first-class structured fields",
       "Streaming partial objects"
     ]
@@ -294,11 +241,11 @@ export const CAPABILITIES = [
     id: "deployment",
     icon: "server",
     name: "Deployment options",
-    blurb: "Public API, private VPC, regional residency, or fully air-gapped for the workloads that require it.",
+    blurb: "Our cloud, a dedicated tenancy, your own region, or fully air-gapped for the workloads that require it.",
     detail:
       "Run on the Mere X API, inside a dedicated tenancy with committed throughput, or in your own cloud region through our partner deployments. Data residency can be pinned to the US, EU, or APAC.",
     bullets: [
-      "Shared API with per-key rate limits",
+      "Shared capacity with per-account limits",
       "Provisioned throughput with latency SLAs",
       "US / EU / APAC data residency",
       "Private VPC and air-gapped installations"
@@ -310,10 +257,10 @@ export const CAPABILITIES = [
    EVALUATIONS — illustrative figures for this build
    ------------------------------------------------------------ */
 export const BENCH_SERIES = [
-  { key: "apex", label: "Mere Apex 4", color: "var(--s1)" },
-  { key: "orion", label: "Mere Orion 3", color: "var(--s2)" },
-  { key: "nyx", label: "Mere Nyx 2", color: "var(--s3)" },
-  { key: "prev", label: "Mere Apex 5.0", color: "var(--s4)" }
+  { key: "apex", label: "Mere 4.2 Peak", color: "var(--s1)" },
+  { key: "orion", label: "Mere 4.2 Core", color: "var(--s2)" },
+  { key: "nyx", label: "Mere 4.0 Lite", color: "var(--s3)" },
+  { key: "prev", label: "Mere 3.8 Peak", color: "var(--s4)" }
 ];
 
 export const BENCHMARKS = [
@@ -336,23 +283,13 @@ export const SAFETY_EVALS = [
   { name: "Bias evaluation (BBQ ambiguous)", value: 0.981, note: "Neutral answer selected under ambiguity" }
 ];
 
-/* ------------------------------------------------------------
-   PRICING
-   ------------------------------------------------------------ */
-export const PRICING_NOTES = [
-  { label: "Batch API", value: "50% off input and output", detail: "24-hour turnaround for non-interactive work" },
-  { label: "Prompt caching", value: "Write 1.25× · Read 0.10×", detail: "Cached prefixes live for 5 minutes, or 1 hour on request" },
-  { label: "Guard classification", value: "Free", detail: "Runs inline on every request" },
-  { label: "Long context", value: "Standard rate to 1M", detail: "No premium tier above 200K tokens" }
-];
-
 export const CONSUMER_PLANS = [
   {
     name: "Free",
     price: 0,
     cadence: "forever",
     summary: "Try the agent on a real project, no card required.",
-    features: ["Mere Nyx 2", "Fast and Medium thinking", "15 agent turns per 5 hours", "Local folders and browser projects"],
+    features: ["Mere 4.0 Lite", "Fast and Medium thinking", "15 agent turns per 5 hours", "Local folders and browser projects"],
     cta: "Start free"
   },
   {
@@ -360,7 +297,7 @@ export const CONSUMER_PLANS = [
     price: 9.99,
     cadence: "30 days",
     summary: "Room for a side project or a small team's daily fixes.",
-    features: ["Mere Nyx 2 and Orion 3", "Fast, Medium and High thinking", "80 agent turns per 5 hours", "Web search for docs"],
+    features: ["Mere 4.0 Lite and 4.2 Core", "Fast, Medium and High thinking", "80 agent turns per 5 hours", "Web search for docs"],
     cta: "Choose Starter"
   },
   {
@@ -369,7 +306,7 @@ export const CONSUMER_PLANS = [
     cadence: "30 days",
     featured: true,
     summary: "The full lineup and the deepest thinking.",
-    features: ["Mere Apex 4", "Extra High thinking", "160 agent turns per 5 hours", "GitHub, Linear and Figma integrations"],
+    features: ["Mere 4.2 Peak", "Extra High thinking", "160 agent turns per 5 hours", "GitHub, Linear and Figma integrations"],
     cta: "Choose Plus"
   },
   {
@@ -377,7 +314,7 @@ export const CONSUMER_PLANS = [
     price: 39.99,
     cadence: "30 days",
     summary: "For engineers who run the agent all day.",
-    features: ["Priority capacity on Apex 4", "320 agent turns per 5 hours", "Longest Extra High budgets", "Early access to new models"],
+    features: ["Priority capacity on 4.2 Peak", "320 agent turns per 5 hours", "Longest Extra High budgets", "Early access to new models"],
     cta: "Choose Pro"
   },
   {
@@ -403,10 +340,10 @@ export const CONSUMER_PLANS = [
    MODEL LIFECYCLE
    ------------------------------------------------------------ */
 export const LIFECYCLE = [
-  { model: "mere-apex-4", released: "2026-09-10", deprecates: "—", retires: "—", state: "Current" },
-  { model: "mere-orion-3", released: "2026-09-10", deprecates: "—", retires: "—", state: "Current" },
-  { model: "mere-nyx-2", released: "2026-09-10", deprecates: "—", retires: "—", state: "Current" },
-  { model: "mere-apex-3", released: "2026-02-12", deprecates: "2026-12-18", retires: "2027-03-18", state: "Legacy" },
-  { model: "mere-orion-2", released: "2026-02-12", deprecates: "2026-12-18", retires: "2027-03-18", state: "Legacy" },
-  { model: "mere-nyx-1", released: "2025-09-30", deprecates: "2026-09-30", retires: "2027-01-30", state: "Deprecated" }
+  { model: "mere-4-2-peak", released: "2026-09-10", deprecates: "—", retires: "—", state: "Current" },
+  { model: "mere-4-2-core", released: "2026-09-10", deprecates: "—", retires: "—", state: "Current" },
+  { model: "mere-4-0-lite", released: "2026-09-10", deprecates: "—", retires: "—", state: "Current" },
+  { model: "mere-3-8-peak", released: "2026-02-12", deprecates: "2026-12-18", retires: "2027-03-18", state: "Legacy" },
+  { model: "mere-3-8-core", released: "2026-02-12", deprecates: "2026-12-18", retires: "2027-03-18", state: "Legacy" },
+  { model: "mere-3-5-lite", released: "2025-09-30", deprecates: "2026-09-30", retires: "2027-01-30", state: "Deprecated" }
 ];

@@ -94,8 +94,8 @@ there is no seeded Console state or account-free Console access.
 
 ## Notes
 
-The chat models carry the generation in their name — **Mere Apex 5.5**
-(frontier), **Mere Orion 5.5** (balanced), **Mere Nyx 5.5** (fast). The
+The chat models carry the generation in their name — **Mere Max 5.5**
+(frontier), **Mere Core 5.5** (balanced), **Mere Lite 5.5** (fast). The
 specialists are named rather than versioned: **Mere Iris** (multimodal),
 **Mere Lyra** (realtime voice), **Mere Atlas** (embeddings), and **Mere Aegis**
 (safety). Evaluation figures, customer stories, and platform metrics are

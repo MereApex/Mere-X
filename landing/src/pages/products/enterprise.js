@@ -8,9 +8,9 @@ import { pageHead, sectionHead, textLink, button, ctaBand, dataTable, calloutBox
 
 const DEPLOYMENTS = [
   {
-    icon: "cloud", t: "Shared API", tag: "Standard",
-    d: "The public endpoint with per-key rate limits, tier-based throughput, and 99.9% availability. Right for most teams, including large ones.",
-    points: ["Fastest to start", "Automatic tier progression", "US / EU residency", "Pay per token"]
+    icon: "cloud", t: "Our cloud", tag: "Standard",
+    d: "Everyone signs in with a Mere X account and works against shared capacity, with 99.9% availability. Right for most teams, including large ones.",
+    points: ["Fastest to start", "Seat-based billing", "US / EU residency", "Nothing to operate"]
   },
   {
     icon: "server", t: "Provisioned throughput", tag: "Committed",
@@ -40,7 +40,7 @@ const FAQ_ITEMS = [
   { q: "Can you sign our paper rather than yours?", a: "<p>Frequently, yes. We have a standard MSA and DPA, and we redline. For public-sector and healthcare customers we regularly work from the customer's template.</p>" },
   { q: "What is the commercial model for provisioned throughput?", a: "<p>Units of throughput reserved per month, each guaranteeing a floor of tokens per minute. Traffic above your reservation falls back to shared capacity at standard token rates rather than failing.</p>" },
   { q: "Do you offer indemnification?", a: "<p>Yes — copyright indemnification for outputs is included on Enterprise agreements, subject to the usage policy and the conditions set out in the MSA.</p>" },
-  { q: "What happens if we want to leave?", a: "<p>Export your data through the API or the console at any time, in JSON. There is no proprietary format to unwind and no exit fee. We would rather you stayed because it works.</p>" }
+  { q: "What happens if we want to leave?", a: "<p>Export your threads from Settings → Data controls at any time, in JSON. Your code never left your machines to begin with. There is no proprietary format to unwind and no exit fee. We would rather you stayed because it works.</p>" }
 ];
 
 export default {
@@ -53,7 +53,7 @@ export default {
         crumb: [{ label: "Products", href: "/products" }, { label: "Enterprise" }],
         eyebrow: "For institutions",
         title: "Deployment on your terms, not ours.",
-        lead: "Four ways to run Mere X, from the shared API to a fully air-gapped installation — with the compliance documentation ready before your first call.",
+        lead: "Four ways to run Mere X, from our cloud to a fully air-gapped installation — with the compliance documentation ready before your first call.",
         actions: `${button({ label: "Talk to sales", href: "/company/contact", icon: "arrow-ne", magnetic: true }).value}
                   ${button({ label: "Trust centre", href: "/company/trust", variant: "secondary", icon: "shield" }).value}`,
         meta: `
@@ -64,7 +64,7 @@ export default {
 
       <section class="section">
         <div class="shell shell-wide">
-          ${sectionHead({ eyebrow: "Deployment", title: "Four models, one API." }).value}
+          ${sectionHead({ eyebrow: "Deployment", title: "Four ways, one agent." }).value}
           <div class="grid g-2" data-stagger="90">
             ${DEPLOYMENTS.map((dep) => `
               <article class="card card-pad-lg card-hover card-spot" data-reveal>

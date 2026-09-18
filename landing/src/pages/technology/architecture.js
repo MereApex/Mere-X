@@ -48,9 +48,9 @@ const TRAINING = [
 
 const FAQ_ITEMS = [
   { q: "How large are the Mere models?", a: "<p>We do not publish parameter counts. They correlate poorly with capability across architectures, and publishing them mostly fuels comparisons that mislead. What we do publish is throughput, latency, context, and evaluation results — the things that determine whether a model works for your problem.</p>" },
-  { q: "Is the tokenizer shared across the family?", a: "<p>Yes. Apex, Orion, and Nyx share a 200,000-entry tokenizer, so token counts and therefore costs are directly comparable between them. Switching model is genuinely a one-line change.</p>" },
+  { q: "Is the tokenizer shared across the family?", a: "<p>Yes. Peak, Core, and Lite share a 200,000-entry tokenizer, so token counts and therefore costs are directly comparable between them. Switching model is genuinely a one-line change.</p>" },
   { q: "What does 'sub-quadratic above 128K' mean in practice?", a: "<p>That cost grows close to linearly rather than quadratically once the context exceeds 128,000 tokens. Concretely: a one-million-token prompt costs roughly eight times a 128K prompt, not sixty.</p>" },
-  { q: "Do you distil the smaller models from Apex?", a: "<p>Partly. Orion and Nyx are trained with Apex as one of several teachers, but they are not pure distillations — each has its own post-training and its own safety pass, which is why their refusal behaviour is calibrated separately.</p>" }
+  { q: "Do you distil the smaller models from Peak?", a: "<p>Partly. Core and Lite are trained with Peak as one of several teachers, but they are not pure distillations — each has its own post-training and its own safety pass, which is why their refusal behaviour is calibrated separately.</p>" }
 ];
 
 export default {

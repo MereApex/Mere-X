@@ -149,44 +149,10 @@ async function userForRequest(req) {
   return result.rows[0] || null;
 }
 
-function apiKeyFromRequest(req) {
-  const direct = clean(req.get("x-api-key"), 500);
-  const authorization = clean(req.get("authorization"), 600);
-  const bearer = /^Bearer\s+(.+)$/i.exec(authorization)?.[1] || "";
-  const value = direct || bearer;
-  return /^merex-(?:live|test)-[A-Za-z0-9_-]+$/.test(value) ? value : "";
-}
-
-async function userForApiKey(req) {
-  const value = apiKeyFromRequest(req);
-  if (!value) return null;
-  const result = await query(
-    `SELECT u.*, k.id AS api_key_id, k.scopes AS api_key_scopes, k.environment AS api_key_environment
-     FROM developer_api_keys k JOIN users u ON u.id = k.user_id
-     WHERE k.token_hash = $1 AND k.status = 'active' AND u.status = 'active' LIMIT 1`,
-    [credentialHash(value)]
-  );
-  return result.rows[0] || null;
-}
-
 export async function optionalAuth(req, res, next) {
   try {
-    let row = await userForRequest(req);
+    const row = await userForRequest(req);
     req.authMethod = row ? "session" : null;
-    if (!row) {
-      row = await userForApiKey(req);
-      if (row) {
-        req.authMethod = "api_key";
-        req.apiKeyId = row.api_key_id;
-        try {
-          const scopes = Array.isArray(row.api_key_scopes) ? row.api_key_scopes : JSON.parse(row.api_key_scopes || "[]");
-          req.apiKeyScopes = new Set(scopes);
-        } catch {
-          req.apiKeyScopes = new Set();
-        }
-        await query(`UPDATE developer_api_keys SET last_used_at = now() WHERE id = $1`, [row.api_key_id]);
-      }
-    }
     req.userRecord = row;
     req.user = row ? publicUser(row) : null;
     next();
@@ -203,18 +169,6 @@ export function requireAuth(req, res, next) {
 export function requireAccountAuth(req, res, next) {
   if (req.user && req.authMethod === "session") return next();
   return res.status(401).json({ error: { code: "account_session_required", message: "Sign in with your Mere X account to continue." } });
-}
-
-export function enforceApiKeyScope(req, res, next) {
-  if (req.authMethod !== "api_key") return next();
-  const path = req.path;
-  const required = path.startsWith("/chat") ? "messages"
-    : path.startsWith("/embeddings") ? "embeddings"
-      : path.startsWith("/transcribe") || path.startsWith("/speech") || path.startsWith("/realtime") ? "audio"
-        : path.startsWith("/files") || path.startsWith("/assets") ? "files"
-          : null;
-  if (required && (req.apiKeyScopes?.has(required) || req.apiKeyScopes?.has("admin"))) return next();
-  return res.status(403).json({ error: { code: "insufficient_scope", message: `This API key requires the ${required || "appropriate"} scope.` } });
 }
 
 export async function requirePageAuth(req, res, next) {

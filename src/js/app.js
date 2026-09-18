@@ -119,7 +119,7 @@ const els = {
 const APP_STATE_KEY = "mere-x.code-state";
 let workspaceStorageKey = APP_STATE_KEY;
 const MODEL_KEYS = ["nyx", "orion", "apex"];
-const MODEL_NAMES = Object.freeze({ nyx: "Mere Nyx 2", orion: "Mere Orion 3", apex: "Mere Apex 4" });
+const MODEL_NAMES = Object.freeze({ nyx: "Mere 4.0 Lite", orion: "Mere 4.2 Core", apex: "Mere 4.2 Peak" });
 const EFFORT_LEVELS = [
   { name: "Fast", note: "No deliberation. Instant answers and small, obvious edits." },
   { name: "Medium", note: "Brief reasoning. Good for everyday changes and questions." },

@@ -26,11 +26,11 @@ const SUBPROCESSORS = [
 ];
 
 const DATA_FACTS = [
-  { q: "Is my data used to train models?", a: "No. API inputs and outputs are never used to train Mere X models. Mere Code conversations are excluded by default; contributing them is opt-in and revocable." },
+  { q: "Is my data used to train models?", a: "No. What you send to Mere Code is never used to train Mere X models. Mere Code conversations are excluded by default; contributing them is opt-in and revocable." },
   { q: "How long is it kept?", a: "Thirty days by default for abuse monitoring and debugging, then deleted. Configurable to seven days, or zero with zero-retention mode." },
   { q: "Who can see it?", a: "A small on-call group, only in response to a specific incident or abuse investigation, with every access logged and reviewed. Never for product development." },
   { q: "Where is it processed?", a: "In the region you pin. Requests are refused rather than routed outside your residency policy — there is no silent fallback." },
-  { q: "Can I delete it?", a: "Yes, through the API or the console, immediately and permanently. Deletion propagates to backups within 30 days." }
+  { q: "Can I delete it?", a: "Yes, from Settings → Data controls, immediately and permanently. Deletion propagates to backups within 30 days." }
 ];
 
 export default {

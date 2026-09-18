@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
 const source = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-test("workspace and console pages require an account session", async () => {
+test("workspace pages require an account session", async () => {
   const [server, auth] = await Promise.all([source("../server/index.js"), source("../server/auth.js")]);
   assert.match(server, /app\.use\("\/app", requirePageAuth/);
-  assert.match(server, /app\.get\(\/\^\\\/console/);
   assert.match(server, /requirePageAuth, \(req, res\) => res\.sendFile/);
   assert.match(server, /app\.get\("\/checkout", requirePageAuth, \(req, res\) => res\.sendFile\(path\.join\(workspaceDist, "pricing", "index\.html"\)\)\)/);
   assert.match(server, /app\.get\("\/app\/manifest\.webmanifest"/);
@@ -49,12 +49,12 @@ test("workspace sync persists queryable threads and messages atomically", async 
   assert.match(database, /ER_LOCK_DEADLOCK/);
 });
 
-test("private APIs require authentication and API-key scopes", async () => {
+test("private APIs are account-session only", async () => {
   const [server, auth] = await Promise.all([source("../server/index.js"), source("../server/auth.js")]);
-  assert.match(server, /app\.use\("\/api", requireAuth, enforceApiKeyScope, recordDeveloperRequest\)/);
-  assert.match(auth, /WHERE k\.token_hash = \$1 AND k\.status = 'active'/);
-  assert.match(auth, /code: "insufficient_scope"/);
-  assert.match(auth, /req\.authMethod === "session"/);
+  assert.match(server, /app\.use\("\/api", requireAuth\)/);
+  /* Sessions are the only credential: no developer keys, no scopes. */
+  assert.doesNotMatch(auth, /developer_api_keys|apiKeyScopes|enforceApiKeyScope|insufficient_scope/);
+  assert.match(auth, /sessionTokenFromRequest/);
 });
 
 test("optional integration bootstrap cannot take down the public production site", async () => {
@@ -106,33 +106,27 @@ test("plan limits and model access are server enforced", async () => {
   assert.match(database, /CREATE TABLE IF NOT EXISTS usage_events/);
 });
 
-test("guest access and seeded console data are absent", async () => {
-  const [html, client, store, dashboard, usage, logs] = await Promise.all([
+test("guest access is absent", async () => {
+  const [html, client] = await Promise.all([
     source("../index.html"),
-    source("../src/js/app.js"),
-    source("../landing/src/lib/store.js"),
-    source("../landing/src/console/dashboard.js"),
-    source("../landing/src/console/usage.js"),
-    source("../landing/src/console/logs.js")
+    source("../src/js/app.js")
   ]);
   assert.doesNotMatch(`${html}\n${client}`, /guest|explore without/i);
-  assert.doesNotMatch(`${store}\n${dashboard}\n${usage}\n${logs}`, /Math\.random|seeded\(|Meridian|Alex Morgan|credit balance/i);
 });
 
-test("developer webhooks have a real database-backed console surface", async () => {
-  const [main, page, store, server, shell] = await Promise.all([
+test("the developer API, its SDKs and the console are gone", async () => {
+  const [main, site, nav, server, search] = await Promise.all([
     source("../landing/src/main.js"),
-    source("../landing/src/console/webhooks.js"),
-    source("../landing/src/lib/store.js"),
-    source("../server/console.js"),
-    source("../landing/src/console/shell.js")
+    source("../landing/src/data/site.js"),
+    source("../landing/src/components/nav.js"),
+    source("../server/index.js"),
+    source("../landing/src/pages/search.js")
   ]);
-  assert.match(main, /route\("\/console\/webhooks"/);
-  assert.match(shell, /href: "\/console\/webhooks"/);
-  assert.match(page, /addWebhook/);
-  assert.match(page, /removeWebhook/);
-  assert.match(page, /escapeHtml\(webhook\.url\)/);
-  assert.match(store, /apiJson\("\/api\/console\/webhooks"/);
-  assert.match(server, /router\.post\("\/webhooks"/);
-  assert.match(server, /router\.delete\("\/webhooks\/:id"/);
+  /* No routes, no links, no server surface. */
+  assert.doesNotMatch(`${main}\n${site}\n${nav}\n${search}`, /\/console|\/docs|\/products\/api/);
+  assert.doesNotMatch(server, /api\/console|createConsoleRouter|api\/embeddings/);
+  for (const gone of ["landing/src/console", "landing/src/pages/docs.js", "landing/src/data/docs.js",
+                      "landing/src/pages/products/api.js", "landing/src/lib/store.js", "server/console.js"]) {
+    assert.equal(existsSync(new URL(`../${gone}`, import.meta.url)), false, `${gone} should be deleted`);
+  }
 });

@@ -57,7 +57,7 @@ export function heroMarkup() {
         </div>
         <p class="cover-spec">
           <span>Mere Code</span><i></i>
-          <span>Apex 4 · Orion 3 · Nyx 2</span><i></i>
+          <span>4.2 Peak · 4.2 Core · 4.0 Lite</span><i></i>
           <span>1,000,000-token context</span><i></i>
           <span>Four thinking depths</span>
         </p>
@@ -92,7 +92,7 @@ export function heroMarkup() {
     </section>`;
 }
 
-const TICKER = ["<b>Mere Code</b>", "Apex 4", "Orion 3", "Nyx 2", "1,000,000-token context", "Four thinking depths", "Agent · Plan · Ask", "Checkpoints", "Reviewable diffs", "Project memory", "MCP servers", "GitHub · Linear · Figma", "Web search with sources", "Never trained on your code"];
+const TICKER = ["<b>Mere Code</b>", "4.2 Peak", "4.2 Core", "4.0 Lite", "1,000,000-token context", "Four thinking depths", "Agent · Plan · Ask", "Checkpoints", "Reviewable diffs", "Project memory", "MCP servers", "GitHub · Linear · Figma", "Web search with sources", "Never trained on your code"];
 
 export function tickerMarkup() {
   const group = `<div class="ticker-group">${TICKER.map((item) => `<span>${item}</span>`).join("")}</div>`;

@@ -3,10 +3,8 @@
    ============================================================ */
 
 import { NAV } from "../data/site.js";
-import { DOCS_NAV } from "../data/docs.js";
-import { DOC_PAGES } from "../data/docs-pages.js";
 import { MODELS } from "../data/models.js";
-import { PUBLICATIONS, NEWS, RECIPES, CAREERS } from "../data/content.js";
+import { PUBLICATIONS, NEWS, CAREERS } from "../data/content.js";
 import { icon } from "../lib/icons.js";
 import { pageHead } from "../components/ui.js";
 import { onLeave } from "../lib/router.js";
@@ -18,19 +16,6 @@ function buildIndex() {
   NAV.forEach((group) => {
     group.links.forEach((link) => {
       entries.push({ kind: group.label, title: link.title, desc: link.desc, href: link.href, icon: link.icon });
-    });
-  });
-
-  DOCS_NAV.forEach((group) => {
-    group.items.forEach((item) => {
-      const page = DOC_PAGES[item.slug];
-      entries.push({
-        kind: "Docs",
-        title: item.title,
-        desc: page?.lead || `${group.title} documentation`,
-        href: `/docs${item.slug ? `/${item.slug}` : ""}`,
-        icon: "book"
-      });
     });
   });
 
@@ -46,27 +31,14 @@ function buildIndex() {
     entries.push({ kind: "News", title: item.title, desc: item.summary, href: "/company/news", icon: "news" });
   });
 
-  RECIPES.forEach((recipe) => {
-    entries.push({ kind: "Cookbook", title: recipe.title, desc: recipe.summary, href: "/docs/cookbook", icon: recipe.icon });
-  });
-
   CAREERS.forEach((role) => {
     entries.push({ kind: "Careers", title: role.title, desc: `${role.team} · ${role.location} · ${role.type}`, href: "/company/careers", icon: "briefcase" });
   });
 
-
   entries.push(
-    { kind: "Console", title: "Dashboard", desc: "Usage, keys, credit, and onboarding at a glance", href: "/console", icon: "grid" },
-    { kind: "Console", title: "API keys", desc: "Create, scope, limit, and revoke keys", href: "/console/keys", icon: "key" },
-    { kind: "Console", title: "Playground", desc: "Try any model and copy the request body", href: "/console/playground", icon: "play" },
-    { kind: "Console", title: "Usage", desc: "Tokens, spend, latency, and errors", href: "/console/usage", icon: "chart" },
-    { kind: "Console", title: "Request logs", desc: "Inspect any request in full", href: "/console/logs", icon: "list" },
-    { kind: "Console", title: "Billing", desc: "Credits, auto-reload, caps, and invoices", href: "/console/billing", icon: "card" },
-    { kind: "Console", title: "Rate limits", desc: "Your tier and headroom", href: "/console/limits", icon: "gauge" },
-    { kind: "Console", title: "Webhooks", desc: "Push events to your systems", href: "/console/webhooks", icon: "webhook" },
-    { kind: "Console", title: "Organisation", desc: "Members, roles, and audit log", href: "/console/organization", icon: "users" },
-    { kind: "Console", title: "Settings", desc: "Defaults, retention, and security", href: "/console/settings", icon: "settings" },
-    { kind: "Pricing", title: "Pricing", desc: "Plans, per-token rates, and a cost estimator", href: "/pricing", icon: "card" },
+    { kind: "Product", title: "Mere Code", desc: "The coding agent that works on your project", href: "/products/code", icon: "terminal" },
+    { kind: "Product", title: "Download for desktop", desc: "A real terminal, git and reviewable diffs", href: "/download", icon: "download" },
+    { kind: "Pricing", title: "Pricing", desc: "Plans for every way of working", href: "/pricing", icon: "card" },
     { kind: "Status", title: "Platform status", desc: "Live health for every service and region", href: "/status", icon: "activity" }
   );
 
@@ -76,8 +48,8 @@ function buildIndex() {
 const INDEX = buildIndex();
 
 const SUGGESTIONS = [
-  "reasoning budgets", "api key", "streaming", "tool use", "pricing",
-  "rate limits", "batch", "long context", "safety", "system card"
+  "thinking depths", "download", "Mere 4.2 Peak", "pricing", "agent mode",
+  "checkpoints", "long context", "safety", "system card", "benchmarks"
 ];
 
 function score(entry, query) {
@@ -108,7 +80,6 @@ function renderResults(query) {
     .slice(0, 40);
 
   if (!results.length) {
-    return `<div class="empty">${icon("search").value}<p>Nothing matches “${query}”.</p><p class="xs">Try a shorter phrase, or browse the <a class="link-plain" href="/docs">documentation</a>.</p></div>`;
   }
 
   return `

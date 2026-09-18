@@ -55,7 +55,7 @@ export default {
               <p>
                 We build two things: <strong>Mere X</strong>, a model family engineered around the idea
                 that thinking should be a resource you control, and a platform for putting it to work —
-                an assistant for people, and an API for the products they build.
+                an agent that works in your codebase, on the web and on your desktop.
               </p>
               <p>${textLink("Read our research", "/research").value}</p>
             </div>
