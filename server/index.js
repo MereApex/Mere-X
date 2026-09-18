@@ -95,9 +95,11 @@ app.use(express.json({ limit: "6mb" }));
    session instead of a cookie; it gets CORS, everything else must be
    same-origin. */
 const DESKTOP_ORIGINS = new Set(["http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"]);
+/* The app's dev server, only against a server that itself runs on localhost. */
+const isDesktopDevOrigin = (req, origin) => origin === "http://localhost:1420" && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.get("host") || "");
 app.use("/api", (req, res, next) => {
   const origin = req.get("origin");
-  if (origin && DESKTOP_ORIGINS.has(origin)) {
+  if (origin && (DESKTOP_ORIGINS.has(origin) || isDesktopDevOrigin(req, origin))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, X-Mere-Client");

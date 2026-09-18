@@ -10,3 +10,4 @@ preview/
 
 # The desktop app ships from its own pipeline; not part of the web deploy yet.
 desktop/
+desktop-demo/
