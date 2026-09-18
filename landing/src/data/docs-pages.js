@@ -34,7 +34,7 @@ export const DOC_PAGES = {
       { t: "p", v: "Three things determine what a request costs and how good the answer is:" },
       { t: "ol", v: [
         "<strong>The model</strong> sets the capability ceiling. Apex is the frontier; Orion is the workhorse; Nyx is the fast one.",
-        "<strong>The mode</strong> sets how long it deliberates. Fast answers immediately; DEEP can think for minutes.",
+        "<strong>The mode</strong> sets how long it deliberates. Fast answers immediately; Extra High can think for minutes.",
         "<strong>The context</strong> sets what it knows. Up to a million tokens, and cached prefixes cost a tenth to re-read."
       ]},
       { t: "p", v: "The most common mistake is reaching for a bigger model when the right answer is a bigger budget. Orion in High mode routinely beats Apex in Fast mode, at roughly a quarter of the price." },
@@ -93,7 +93,7 @@ export const DOC_PAGES = {
   -H "x-api-key: $MERE_X_API_KEY" \\
   -H "mere-x-version: 2026-06-18" \\
   -H "content-type: application/json" \\
-  -d '{"model":"mere-orion-5-5","max_tokens":256,
+  -d '{"model":"mere-orion-3","max_tokens":256,
        "messages":[{"role":"user","content":"hello"}]}'`,
         Python: `from mere_x import MereX
 
@@ -117,8 +117,6 @@ client = MereX(api_key=os.environ["MERE_X_API_KEY"])`
       { t: "ul", v: [
         "<code class=\"inline\">messages</code> — create messages, count tokens",
         "<code class=\"inline\">embeddings</code> — create embeddings",
-        "<code class=\"inline\">images</code> — generate and edit images",
-        "<code class=\"inline\">audio</code> — transcribe, synthesise, open realtime sessions",
         "<code class=\"inline\">batches</code> — create and read batch jobs",
         "<code class=\"inline\">files</code> — upload, list, and delete files",
         "<code class=\"inline\">admin</code> — read usage and manage keys. Grant sparingly."
@@ -162,7 +160,7 @@ client = MereX(api_key=os.environ["MERE_X_API_KEY"])`
         Shell: `npm install -g @mere-x/cli
 
 # Send a request
-merex ask "summarise this" --model mere-orion-5-5 --file report.pdf
+merex ask "summarise this" --model mere-orion-3 --file report.pdf
 
 # Tail request logs
 merex logs --follow --status 429
@@ -212,7 +210,7 @@ merex eval run ./evals/support-triage.yaml --runs 5`
       { t: "p", v: "Send an <code class=\"inline\">idempotency-key</code> header on any mutating request. If the same key arrives twice within 24 hours, the original response is replayed rather than the work being repeated. The SDKs generate one automatically." },
       { t: "callout", v: { text: "Exponential backoff with jitter, not a fixed delay. Without jitter, every client that got rate-limited at the same moment retries at the same moment.", variant: "accent", icon: "refresh" } },
       { t: "h2", v: "Timeouts" },
-      { t: "p", v: "Default client timeout is 10 minutes, which is right for High mode but far too short for DEEP. For DEEP requests, either raise the timeout to an hour or use streaming — a streaming connection stays alive through deliberation and gives you progress events while it thinks." }
+      { t: "p", v: "Default client timeout is 10 minutes, which is right for High mode but far too short for Extra High. For Extra High requests, either raise the timeout to an hour or use streaming — a streaming connection stays alive through deliberation and gives you progress events while it thinks." }
     ]
   },
 
@@ -224,7 +222,7 @@ merex eval run ./evals/support-triage.yaml --runs 5`
       { t: "h2", v: "Request shape" },
       { t: "code", v: { samples: {
         JSON: `{
-  "model": "mere-orion-5-5",
+  "model": "mere-orion-3",
   "max_tokens": 2048,
   "system": "You are a careful research assistant.",
   "messages": [
@@ -243,9 +241,8 @@ merex eval run ./evals/support-triage.yaml --runs 5`
         columns: [{ key: "type", label: "Block type" }, { key: "use", label: "Use" }, { key: "dir", label: "Direction" }],
         rows: [
           { type: "text", use: "Plain text", dir: "In and out" },
-          { type: "image", use: "PNG, JPEG, WebP, GIF, HEIC — base64 or file ID", dir: "In (out on Iris)" },
+          { type: "image", use: "PNG, JPEG, WebP, GIF, HEIC — base64 or file ID", dir: "In" },
           { type: "document", use: "PDF, DOCX, PPTX, XLSX, plain text", dir: "In" },
-          { type: "audio", use: "mp3, wav, m4a, ogg, flac, webm", dir: "In (out on Lyra)" },
           { type: "tool_use", use: "The model calling one of your tools", dir: "Out" },
           { type: "tool_result", use: "Your response to a tool call", dir: "In" },
           { type: "thinking", use: "A reasoning summary", dir: "Out" }
@@ -257,7 +254,7 @@ merex eval run ./evals/support-triage.yaml --runs 5`
   "id": "msg_01k4m2p9xq",
   "type": "message",
   "role": "assistant",
-  "model": "mere-orion-5-5-20260618",
+  "model": "mere-orion-3-20260910",
   "content": [
     { "type": "thinking", "summary": "Compared the two changelogs; …" },
     { "type": "text", "text": "Three things changed…" }
@@ -308,7 +305,7 @@ merex eval run ./evals/support-triage.yaml --runs 5`
       { t: "h2", v: "Setting a budget" },
       { t: "code", v: { samples: {
         Python: `message = client.messages.create(
-    model="mere-apex-5-5",
+    model="mere-apex-4",
     max_tokens=8192,
     thinking={"type": "enabled", "budget_tokens": 32_000},
     messages=[{"role": "user", "content": prompt}],
@@ -317,7 +314,7 @@ merex eval run ./evals/support-triage.yaml --runs 5`
 print(message.usage.thinking_tokens)   # what it actually spent
 print(message.thinking.summary)        # how it got there`,
         TypeScript: `const message = await client.messages.create({
-  model: "mere-apex-5-5",
+  model: "mere-apex-4",
   max_tokens: 8192,
   thinking: { type: "enabled", budget_tokens: 32_000 },
   messages: [{ role: "user", content: prompt }],
@@ -330,7 +327,7 @@ print(message.thinking.summary)        # how it got there`,
         "<strong>Default to Medium.</strong> It catches most reasoning slips for roughly two seconds.",
         "<strong>Promote to High</strong> when your evaluation — not your intuition — shows the extra deliberation changes the answer.",
         "<strong>Use Fast</strong> only where a user is watching a cursor blink.",
-        "<strong>Use DEEP</strong> for work that would take a person a day, and never where someone is waiting synchronously."
+        "<strong>Use Extra High</strong> for work that would take a person a day, and never where someone is waiting synchronously."
       ]},
       { t: "h2", v: "Interaction with other parameters" },
       { t: "table", v: {
@@ -338,7 +335,7 @@ print(message.thinking.summary)        # how it got there`,
         rows: [
           { param: "temperature", effect: "Applies below 4,000 thinking tokens. Above that the sampler is constrained during deliberation; temperature still applies to the final answer." },
           { param: "max_tokens", effect: "Caps the answer only. Thinking tokens are counted separately in usage." },
-          { param: "tools", effect: "In High and DEEP the model can call a tool mid-deliberation, read the result, and keep thinking." },
+          { param: "tools", effect: "In High and Extra High the model can call a tool mid-deliberation, read the result, and keep thinking." },
           { param: "response_format", effect: "Constrained decoding applies to the answer. Deliberation is unconstrained." },
           { param: "stream", effect: "Emits thinking_delta events carrying progress and summary fragments — never raw chain-of-thought." }
         ]
@@ -370,7 +367,7 @@ print(message.thinking.summary)        # how it got there`,
         ]
       }},
       { t: "h2", v: "Rendering thinking" },
-      { t: "p", v: "During High and DEEP requests the model may deliberate for a long time before any answer text appears. Use <code class=\"inline\">thinking_delta</code> to render a genuine working state — users tolerate a long wait considerably better when they can see something is happening." },
+      { t: "p", v: "During High and Extra High requests the model may deliberate for a long time before any answer text appears. Use <code class=\"inline\">thinking_delta</code> to render a genuine working state — users tolerate a long wait considerably better when they can see something is happening." },
       { t: "code", v: { samples: {
         TypeScript: `const stream = client.messages.stream({ /* … */ });
 
@@ -474,7 +471,7 @@ const final = await stream.finalMessage();`
       { t: "h2", v: "Streaming partial objects" },
       { t: "code", v: { samples: {
         Python: `with client.messages.stream(
-    model="mere-orion-5-5",
+    model="mere-orion-3",
     max_tokens=2048,
     response_format={"type": "json_schema", "schema": schema},
     messages=[{"role": "user", "content": text}],
@@ -530,8 +527,8 @@ const final = await stream.finalMessage();`
 
   /* ------------------------------------------------------ */
   vision: {
-    title: "Vision & documents",
-    lead: "Images, PDFs, charts, and screenshots in the same message array.",
+    title: "Screenshots & documents",
+    lead: "UI screenshots, PDFs, charts, and diagrams in the same message array — as input.",
     blocks: [
       { t: "p", v: "Send a PDF directly — no OCR step, no chunking strategy. The document encoder preserves layout, so tables stay tables and footnotes stay attached to their anchors." },
       { t: "code", v: { samples: SAMPLES.vision } },
@@ -554,26 +551,8 @@ const final = await stream.finalMessage();`
         "Crop and re-send the region at higher resolution when you need a specific value from a dense figure.",
         "Ask for page and coordinate references. The encoder preserves them, and citations you can verify are worth far more than citations you cannot.",
         "Give the model somewhere to put uncertainty — a <code class=\"inline\">confidence</code> field turns a confident wrong answer into a routable one.",
-        "For video, sample frames and send them as an image sequence with timestamps in the surrounding text blocks."
+        "A screenshot of a broken layout next to the component source is the fastest bug report the agent can read."
       ]},
-      { t: "h2", v: "Image generation" },
-      { t: "code", v: { samples: {
-        Python: `image = client.images.generate(
-    model="mere-iris",
-    prompt="An isometric diagram of a three-tier web architecture, "
-           "thin ink lines on cream paper, no text labels.",
-    size="1536x1024",
-    quality="high",
-)
-
-edited = client.images.edit(
-    model="mere-iris",
-    image=open("product.png", "rb"),
-    mask=open("background-mask.png", "rb"),
-    prompt="Replace the background with a plain warm grey studio sweep.",
-)`
-      } } },
-      { t: "callout", v: { text: "Long strings of generated text inside an image are still occasionally malformed. Compose text over generated imagery in your own renderer rather than asking the model for it.", variant: "warning", icon: "alert" } }
     ]
   },
 
@@ -709,7 +688,7 @@ edited = client.images.edit(
         "Include the current state in tool results. An agent that has to remember state will eventually get it wrong."
       ]},
       { t: "h2", v: "Reasoning in agents" },
-      { t: "p", v: "Use High for the planning turn and Medium for execution turns. DEEP is for the whole run rather than a single step — it interleaves thinking with tool calls across the entire trajectory, which is what makes multi-hour agents work." },
+      { t: "p", v: "Use High for the planning turn and Medium for execution turns. Extra High is for the whole run rather than a single step — it interleaves thinking with tool calls across the entire trajectory, which is what makes multi-hour agents work." },
       { t: "callout", v: { text: "Have the agent open a pull request rather than push to a protected branch, file a draft rather than send, propose rather than execute. The review step is where most of the value lands.", variant: "accent", icon: "branch" } }
     ]
   },
@@ -811,7 +790,7 @@ retry-after: 12`
         "Pin the API version header. Breaking changes ship behind a new version and never touch a pinned one.",
         "Retry 429, 500, and 529 with exponential backoff and jitter. Never retry 400, 401, or 403.",
         "Set idempotency keys on mutating calls — the SDKs do this for you.",
-        "Raise the client timeout for High and DEEP requests, or use streaming."
+        "Raise the client timeout for High and Extra High requests, or use streaming."
       ]},
       { t: "h2", v: "Observability" },
       { t: "ul", v: [
@@ -848,14 +827,14 @@ retry-after: 12`
   /* ------------------------------------------------------ */
   migration: {
     title: "Migration guide",
-    lead: "Moving to Mere X 5.5, or from another provider.",
+    lead: "Moving to the current Mere models, or from another provider.",
     blocks: [
       { t: "h2", v: "From Mere 5.0" },
       { t: "table", v: {
         columns: [{ key: "old", label: "3.5" }, { key: "new", label: "4" }, { key: "note", label: "Note" }],
         rows: [
-          { old: "mere-x-3-5-apex", new: "mere-apex-5-5", note: "Drop-in. Context rises from 200K to 1M." },
-          { old: "mere-x-3-5-orion", new: "mere-orion-5-5", note: "Drop-in, and roughly 30% cheaper per output token." },
+          { old: "mere-x-3-5-apex", new: "mere-apex-4", note: "Drop-in. Context rises from 200K to 1M." },
+          { old: "mere-x-3-5-orion", new: "mere-orion-3", note: "Drop-in, and roughly 30% cheaper per output token." },
           { old: "reasoning_effort", new: "thinking.budget_tokens", note: "The string enum is replaced by an explicit budget." },
           { old: "response_format: json_object", new: "response_format: json_schema", note: "Now constrained; the old mode still works but is advisory." },
           { old: "N/A", new: "Server-side tools", note: "web_search, code_execution, file_read, computer_use." }
@@ -863,7 +842,7 @@ retry-after: 12`
       }},
       { t: "h2", v: "Behavioural differences worth knowing" },
       { t: "ul", v: [
-        "Mere X 5.5 refuses less often on ambiguous-but-legitimate requests. If your application relied on a refusal as a filter, it needs a real check.",
+        "The current Mere models refuse less often on ambiguous-but-legitimate requests. If your application relied on a refusal as a filter, it needs a real check.",
         "Output is more concise by default. Prompts that asked for brevity may now under-produce; remove the instruction rather than fighting it.",
         "Tool calls are more often parallel. If your executor assumed one call per turn, it needs to handle an array.",
         "Calibration is better, which means more explicit uncertainty. Do not treat \"I am not certain\" as a failure — it is the feature working."
@@ -910,7 +889,7 @@ def to_mere-x(request: dict) -> dict:
       { t: "h2", v: "Two things are versioned" },
       { t: "ul", v: [
         "<strong>The API</strong>, through the <code class=\"inline\">mere-x-version</code> header. A date, e.g. <code class=\"inline\">2026-06-18</code>.",
-        "<strong>Models</strong>, through dated snapshot IDs, e.g. <code class=\"inline\">mere-apex-5-5-20260618</code>."
+        "<strong>Models</strong>, through dated snapshot IDs, e.g. <code class=\"inline\">mere-apex-4-20260910</code>."
       ]},
       { t: "p", v: "Pin both in production. A pinned API version never receives a breaking change, and a pinned model snapshot never changes behaviour — not for a quality improvement, not for a safety fix, not for anything." },
       { t: "h2", v: "What counts as breaking" },

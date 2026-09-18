@@ -1,64 +1,64 @@
 /* ============================================================
    MERE X DESIGN SYSTEM — TOKENS
-   Pure white paper, black ink, gray accents only. No cream, no
+   Monochrome: near-black paper, white ink, gray hairlines. No
    colour accent, no glow, no elevation. Everything scales with
    the viewport through clamp().
    ============================================================ */
 
 :root {
   /* ---- Paper & ink ------------------------------------- */
-  --paper:        #ffffff;
-  --paper-raised: #ffffff;
-  --paper-sunken: #f9fafb;
-  --paper-deep:   #f3f4f6;
-  --surface:      #ffffff;
-  --surface-2:    #f9fafb;
+  --paper:        #0a0a0a;
+  --paper-raised: #111111;
+  --paper-sunken: #0e0e0e;
+  --paper-deep:   #141414;
+  --surface:      #0f0f0f;
+  --surface-2:    #141414;
 
-  --ink:      #000000;
-  --ink-2:    #111111;
-  --ink-3:    #4b5563;   /* gray-600 */
-  --muted:    #6b7280;   /* gray-500 */
-  --faint:    #9ca3af;   /* gray-400 */
-  --ghost:    #d1d5db;   /* gray-300 */
+  --ink:      #f5f5f5;
+  --ink-2:    #e5e5e5;
+  --ink-3:    #a3a3a3;
+  --muted:    #7a7a7a;
+  --faint:    #555555;
+  --ghost:    #333333;
 
-  --line:        #e5e7eb;   /* gray-200 */
-  --line-soft:   #f3f4f6;
-  --line-strong: #d1d5db;   /* gray-300 */
-  --line-ink:    #9ca3af;   /* gray-400 — button borders */
+  --line:        #1f1f1f;
+  --line-soft:   #171717;
+  --line-strong: #2c2c2c;
+  --line-ink:    #454545;   /* button borders */
 
-  --invert-bg:   #000000;
-  --invert-ink:  #ffffff;
-  --invert-muted:rgba(255, 255, 255, 0.62);
-  --invert-line: rgba(255, 255, 255, 0.18);
+  --invert-bg:   #f5f5f5;
+  --invert-ink:  #0a0a0a;
+  --invert-muted:rgba(0, 0, 0, 0.62);
+  --invert-line: rgba(0, 0, 0, 0.18);
 
   /* ---- Signature accents (ink only) -------------------- */
-  --accent:        #000000;
-  --accent-soft:   #f3f4f6;
-  --accent-line:   #d1d5db;
-  --positive:      #15803d;
-  --positive-soft: rgba(21, 128, 61, 0.10);
-  --warning:       #b45309;
-  --warning-soft:  rgba(180, 83, 9, 0.10);
-  --danger:        #b91c1c;
-  --danger-soft:   rgba(185, 28, 28, 0.10);
-  --info:          #475569;
-  --info-soft:     rgba(71, 85, 105, 0.10);
+  --accent:        #ffffff;
+  --accent-soft:   #161616;
+  --accent-line:   #2c2c2c;
+  --positive:      #d4d4d4;
+  --positive-soft: rgba(255, 255, 255, 0.08);
+  --warning:       #bdbdbd;
+  --warning-soft:  rgba(255, 255, 255, 0.08);
+  --danger:        #e5e5e5;
+  --danger-soft:   rgba(255, 255, 255, 0.10);
+  --info:          #9a9a9a;
+  --info-soft:     rgba(255, 255, 255, 0.08);
   --emerald:       #10b981;   /* the single toast check colour */
 
   /* Data series — a grayscale ramp */
-  --s1: #000000;
-  --s2: #6b7280;
-  --s3: #9ca3af;
-  --s4: #374151;
-  --s5: #d1d5db;
-  --s6: #4b5563;
+  --s1: #ffffff;
+  --s2: #9a9a9a;
+  --s3: #6b6b6b;
+  --s4: #d4d4d4;
+  --s5: #3d3d3d;
+  --s6: #bdbdbd;
 
   /* ---- Chrome (kept for the console charts) ------------ */
-  --chrome-1: #111111;
-  --chrome-2: #9ca3af;
-  --chrome-3: #000000;
-  --chrome-hi: #ffffff;
-  --chrome-grad: linear-gradient(135deg, #000 0%, #6b7280 40%, #e5e7eb 55%, #4b5563 70%, #000 100%);
+  --chrome-1: #e5e5e5;
+  --chrome-2: #6b6b6b;
+  --chrome-3: #ffffff;
+  --chrome-hi: #0a0a0a;
+  --chrome-grad: linear-gradient(135deg, #fff 0%, #9a9a9a 40%, #2c2c2c 55%, #bdbdbd 70%, #fff 100%);
 
   /* ---- Elevation: none. Borders carry the structure. --- */
   --shadow-xs: none;
@@ -76,11 +76,11 @@
   /* Fluid size system — every size scales with the viewport */
   --pad-x: clamp(1.25rem, 4.5vw, 5rem);
   --pad-y: clamp(1rem, 3vh, 4rem);
-  --header-pt: clamp(1.25rem, 2.5vh, 2.5rem);
-  --gap-nav: clamp(1rem, 2.2vw, 2.25rem);
-  --logo: clamp(1.35rem, 1.2vw + 0.9rem, 2.1rem);
-  --logo-deg: clamp(0.65rem, 0.4vw + 0.45rem, 0.9rem);
-  --nav: clamp(0.65rem, 0.35vw + 0.5rem, 0.875rem);
+  --header-pt: clamp(0.8rem, 1.5vh, 1.25rem);
+  --gap-nav: clamp(0.9rem, 1.7vw, 1.7rem);
+  --logo: clamp(1.05rem, 0.7vw + 0.75rem, 1.45rem);
+  --logo-deg: clamp(0.5rem, 0.25vw + 0.38rem, 0.65rem);
+  --nav: clamp(0.58rem, 0.22vw + 0.46rem, 0.72rem);
   --headline: clamp(2.15rem, 4.5vw + 0.75rem, 5.25rem);
   --body: clamp(0.7rem, 0.35vw + 0.55rem, 0.9rem);
   --micro: clamp(0.55rem, 0.25vw + 0.45rem, 0.7rem);
@@ -144,5 +144,5 @@
   --d-scenic: 0.9s;
 
   --nav-h: 68px;
-  color-scheme: light;
+  color-scheme: dark;
 }

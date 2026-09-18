@@ -12,9 +12,9 @@ import {
 } from "../../components/ui.js";
 
 const SERIES_KEY = {
-  "mere-apex-5-5": "apex",
-  "mere-orion-5-5": "orion",
-  "mere-nyx-5-5": "nyx"
+  "mere-apex-4": "apex",
+  "mere-orion-3": "orion",
+  "mere-nyx-2": "nyx"
 };
 
 export default {
@@ -98,8 +98,8 @@ export default {
           ${sectionHead({
             eyebrow: "Reasoning",
             title: `${model.modes.length} of the four modes.`,
-            lead: model.id === "mere-apex-5-5"
-              ? "Apex is the only model with DEEP, which unlocks budgets up to 256,000 thinking tokens and multi-hour agent runs."
+            lead: model.id === "mere-apex-4"
+              ? "Apex is the only model with Extra High, which unlocks budgets up to 256,000 thinking tokens and multi-hour agent runs."
               : `${model.short} supports ${model.modes.join(", ")}. For deeper deliberation, route the request to Apex.`,
             action: textLink("How modes work", "/technology/reasoning").value
           }).value}
@@ -170,9 +170,9 @@ export default {
             </div>
             <div data-reveal="right">
               ${codeBlock({
-                Python: SAMPLES.firstCall.Python.replace("mere-orion-5-5", model.id),
-                TypeScript: SAMPLES.firstCall.TypeScript.replace("mere-orion-5-5", model.id),
-                cURL: SAMPLES.firstCall.cURL.replace("mere-orion-5-5", model.id)
+                Python: SAMPLES.firstCall.Python.replace("mere-orion-3", model.id),
+                TypeScript: SAMPLES.firstCall.TypeScript.replace("mere-orion-3", model.id),
+                cURL: SAMPLES.firstCall.cURL.replace("mere-orion-3", model.id)
               }).value}
             </div>
           </div>

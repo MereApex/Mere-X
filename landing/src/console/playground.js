@@ -34,7 +34,7 @@ export default {
                 cURL: `curl https://api.merex.ai/v1/messages \\
   -H "x-api-key: $MERE_X_API_KEY" \\
   -H "content-type: application/json" \\
-  -d '{"model":"mere-orion-5-5","messages":[{"role":"user","content":"Hello"}]}'`
+  -d '{"model":"mere-orion-3","messages":[{"role":"user","content":"Hello"}]}'`
               }).value}
               <a class="btn btn-secondary btn-sm" href="/console/keys">${icon("key", "icon").value}<span>Manage API keys</span></a>
             </div>`

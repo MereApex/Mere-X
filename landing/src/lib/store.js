@@ -6,7 +6,7 @@
 const listeners = new Set();
 
 const DEFAULT_STATE = Object.freeze({
-  org: { name: "Mere X Studio", id: "", plan: "Free", created: Date.now(), region: "global", seats: 1 },
+  org: { name: "Mere Code", id: "", plan: "Free", created: Date.now(), region: "global", seats: 1 },
   user: { name: "Member", email: "", role: "Owner" },
   keys: [],
   webhooks: [],
@@ -26,7 +26,7 @@ const DEFAULT_STATE = Object.freeze({
   limits: { tier: "Free", rpm: 90, generationRpm: 20, authAttemptsPer15m: 30, paymentRpm: 30 },
   onboarding: { key: false, request: false, streaming: false, tools: false, production: false },
   settings: {
-    defaultModel: "mere-nyx-5-5",
+    defaultModel: "mere-nyx-2",
     logRetentionDays: 30,
     zeroRetention: false,
     promptCaching: true,

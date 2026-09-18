@@ -8,7 +8,7 @@ import { pageHead, sectionHead, textLink, button, ctaBand, calloutBox, accordion
 const STACK = [
   {
     n: "01", icon: "atom", title: "Sparse mixture of experts",
-    body: "Mere X 5.5 activates a fraction of its parameters per token. Routing is learned without auxiliary load-balancing losses, which removes the training instability that usually accompanies sparse models at this scale.",
+    body: "Each Mere model activates a fraction of its parameters per token. Routing is learned without auxiliary load-balancing losses, which removes the training instability that usually accompanies sparse models at this scale.",
     facts: ["Learned routing, no auxiliary loss", "Expert utilisation within 4% of uniform", "Activated parameters scale with reasoning depth"]
   },
   {
@@ -47,7 +47,7 @@ const TRAINING = [
 ];
 
 const FAQ_ITEMS = [
-  { q: "How large is Mere X 5.5?", a: "<p>We do not publish parameter counts. They correlate poorly with capability across architectures, and publishing them mostly fuels comparisons that mislead. What we do publish is throughput, latency, context, and evaluation results — the things that determine whether a model works for your problem.</p>" },
+  { q: "How large are the Mere models?", a: "<p>We do not publish parameter counts. They correlate poorly with capability across architectures, and publishing them mostly fuels comparisons that mislead. What we do publish is throughput, latency, context, and evaluation results — the things that determine whether a model works for your problem.</p>" },
   { q: "Is the tokenizer shared across the family?", a: "<p>Yes. Apex, Orion, and Nyx share a 200,000-entry tokenizer, so token counts and therefore costs are directly comparable between them. Switching model is genuinely a one-line change.</p>" },
   { q: "What does 'sub-quadratic above 128K' mean in practice?", a: "<p>That cost grows close to linearly rather than quadratically once the context exceeds 128,000 tokens. Concretely: a one-million-token prompt costs roughly eight times a 128K prompt, not sixty.</p>" },
   { q: "Do you distil the smaller models from Apex?", a: "<p>Partly. Orion and Nyx are trained with Apex as one of several teachers, but they are not pure distillations — each has its own post-training and its own safety pass, which is why their refusal behaviour is calibrated separately.</p>" }
@@ -62,7 +62,7 @@ export default {
       ${pageHead({
         crumb: [{ label: "Technology", href: "/technology" }, { label: "Architecture" }],
         eyebrow: "Under the hood",
-        title: "Six design decisions that shaped Mere X 5.5.",
+        title: "Six design decisions that shaped the Mere models.",
         lead: "We publish architecture, not parameter counts. What follows is the set of choices that determine how the model behaves — and where each of them still falls short.",
         actions: `${button({ label: "Read the technical report", href: "/research/publications", icon: "arrow-ne" }).value}
                   ${button({ label: "Infrastructure", href: "/technology/infrastructure", variant: "secondary", icon: "server" }).value}`
@@ -103,7 +103,7 @@ export default {
                 They run in parallel and meet at a release gate that the safety organisation controls.
               </p>
               <div style="margin-top:26px">
-                ${calloutBox("We have used the gate. Mere X 5.5 slipped six weeks because a red-team finding on tool-use chains had no mitigation we were confident in. The finding is documented in the system card.", { variant: "accent", icon: "shield" }).value}
+                ${calloutBox("We have used the gate. Mere Code slipped six weeks because a red-team finding on tool-use chains had no mitigation we were confident in. The finding is documented in the system card.", { variant: "accent", icon: "shield" }).value}
               </div>
               <div style="margin-top:22px">${textLink("Read the Responsible Scaling Policy", "/safety/scaling-policy").value}</div>
             </div>

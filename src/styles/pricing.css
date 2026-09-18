@@ -1,21 +1,21 @@
 /* ============================================================
-   MERE X CHECKOUT — the same white paper, black ink system as
-   the Studio and the public site.
+   MERE X CHECKOUT — the same graphite paper, white ink system as
+   the workspace and the public site.
    ============================================================ */
 
 :root {
-  --cream-0: #ffffff;
-  --cream-1: #ffffff;
-  --cream-2: #f9fafb;
-  --ink: #000000;
-  --ink-soft: #4b5563;
-  --muted: #6b7280;
-  --faint: #9ca3af;
-  --line: #e5e7eb;
-  --line-strong: #d1d5db;
-  --line-ink: #9ca3af;
-  --ink-invert: #ffffff;
-  --card: #ffffff;
+  --cream-0: #0a0a0a;
+  --cream-1: #0a0a0a;
+  --cream-2: #111111;
+  --ink: #f5f5f5;
+  --ink-soft: #d4d4d4;
+  --muted: #7a7a7a;
+  --faint: #555555;
+  --line: #1f1f1f;
+  --line-strong: #2c2c2c;
+  --line-ink: #454545;
+  --ink-invert: #0a0a0a;
+  --card: #0f0f0f;
   --shadow: none;
   --r-xs: 4px;
   --r-sm: 6px;
@@ -24,7 +24,7 @@
   --r-pill: 6px;
   --font: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: "Orbitron", "Plus Jakarta Sans", system-ui, sans-serif;
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -35,7 +35,7 @@ body {
   margin: 0;
   color: var(--ink);
   background:
-    radial-gradient(circle at 50% -20%, rgba(255,255,255,.9), transparent 38%),
+    radial-gradient(circle at 50% -20%, rgba(255,255,255,.06), transparent 38%),
     linear-gradient(180deg, var(--cream-0), var(--cream-1));
   font-family: var(--font);
   font-size: 14px;
@@ -123,12 +123,12 @@ main { width: min(1440px, calc(100% - 64px)); margin: 0 auto; }
 .price-card:nth-child(4) { animation-delay: .12s; }
 .price-card:nth-child(5) { animation-delay: .16s; }
 .price-card:nth-child(6) { animation-delay: .2s; }
-.price-card:hover { transform: translateY(-4px); border-color: rgba(0,0,0,.22); box-shadow: none; }
+.price-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,.3); box-shadow: none; }
 .price-card.featured {
   border-color: var(--ink);
   background:
-    radial-gradient(circle at 100% 0, rgba(208,208,208,.4), transparent 34%),
-    rgba(255,255,255,.62);
+    radial-gradient(circle at 100% 0, rgba(255,255,255,.08), transparent 34%),
+    rgba(255,255,255,.03);
   box-shadow: none;
 }
 .price-card.current { box-shadow: none; }
@@ -221,7 +221,7 @@ footer a { color: var(--ink); }
   animation: toast-in .3s both;
 }
 .toast-check { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; }
-.pricing-toast a { margin-left: 9px; padding: 8px 10px; border-radius: var(--r-sm); background: rgba(255,255,255,.12); font-size: 12px; }
+.pricing-toast a { margin-left: 9px; padding: 8px 10px; border-radius: var(--r-sm); background: rgba(0,0,0,.12); font-size: 12px; }
 
 body.checkout-open { overflow: hidden; }
 .checkout-modal { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 24px; }
@@ -248,7 +248,7 @@ body.checkout-open { overflow: hidden; }
 .checkout-wallet { min-height: 46px; }
 .checkout-express { display: grid; gap: 9px; margin-top: 9px; }
 #googlePayContainer > div, #googlePayContainer button { width: 100% !important; min-width: 100% !important; }
-.apple-pay-button { width: 100%; height: 46px; border: 0; border-radius: var(--r-lg); background: #000000; color: #ffffff; font: 500 21px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; }
+.apple-pay-button { width: 100%; height: 46px; border: 0; border-radius: var(--r-lg); background: #ffffff; color: #000000; font: 500 21px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; }
 .apple-pay-button span { font-size: 13px; font-weight: 400; }
 .checkout-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--muted); font-size: 11px; }
 .checkout-divider::before, .checkout-divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
@@ -260,7 +260,7 @@ body.checkout-open { overflow: hidden; }
 .card-submit { height: 46px; margin-top: 3px; border: 0; border-radius: var(--r-lg); background: var(--ink); color: var(--cream-0); font-weight: 500; cursor: pointer; }
 .card-submit:disabled { opacity: .55; cursor: wait; }
 .checkout-status { min-height: 34px; margin: 18px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; text-align: center; }
-.checkout-status[data-tone="error"] { color: #b91c1c; }
+.checkout-status[data-tone="error"] { color: #f5f5f5; }
 .checkout-trust { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 13px; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
 .checkout-trust i { width: 2px; height: 2px; border-radius: 50%; background: currentColor; }
 

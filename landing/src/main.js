@@ -10,6 +10,10 @@ import "./styles/components.css";
 import "./styles/shell.css";
 import "./styles/site.css";
 import "./styles/console.css";
+import "./styles/hero.css";
+import "./styles/home.css";
+import "./styles/demo.css";
+import "./styles/alive.css";
 
 import { renderNav, mountNav } from "./components/nav.js";
 import { renderFooter } from "./components/footer.js";
@@ -59,17 +63,14 @@ route("/technology", () => import("./pages/technology/overview.js"));
 route("/technology/models/:id", () => import("./pages/technology/model.js"));
 route("/technology/reasoning", () => import("./pages/technology/reasoning.js"));
 route("/technology/architecture", () => import("./pages/technology/architecture.js"));
-route("/technology/multimodal", () => import("./pages/technology/multimodal.js"));
 route("/technology/infrastructure", () => import("./pages/technology/infrastructure.js"));
 route("/technology/benchmarks", () => import("./pages/technology/benchmarks.js"));
 
 /* Products */
 route("/products", () => import("./pages/products/overview.js"));
-route("/products/mere-x", () => import("./pages/products/mere-x.js"));
-route("/products/work", () => import("./pages/products/work.js"));
+route("/products/mere-x", () => import("./pages/products/code.js"));
 route("/products/code", () => import("./pages/products/code.js"));
 route("/products/api", () => import("./pages/products/api.js"));
-route("/products/connectors", () => import("./pages/products/connectors.js"));
 route("/products/enterprise", () => import("./pages/products/enterprise.js"));
 route("/pricing", () => import("./pages/pricing.js"));
 

@@ -39,7 +39,7 @@ const TROUBLESHOOT = [
   },
   {
     q: "Costs are higher than I expected",
-    a: "<p>Look at <code class=\"inline\">usage.thinking_tokens</code> first — a High or DEEP budget on a call site that did not need it is the most common cause. Then check your cache hit rate: a stable prefix should be reading at 10% of input price.</p><p>The <a class=\"link-plain\" href=\"/console/usage\">usage page</a> breaks this down by model and key.</p>"
+    a: "<p>Look at <code class=\"inline\">usage.thinking_tokens</code> first — a High or Extra High budget on a call site that did not need it is the most common cause. Then check your cache hit rate: a stable prefix should be reading at 10% of input price.</p><p>The <a class=\"link-plain\" href=\"/console/usage\">usage page</a> breaks this down by model and key.</p>"
   },
   {
     q: "Structured output is not matching my schema",

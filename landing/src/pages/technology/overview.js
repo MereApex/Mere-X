@@ -18,11 +18,11 @@ export default {
         crumb: [{ label: "Technology" }],
         eyebrow: GENERATION,
         title: "One family, engineered around a single idea: thinking is a resource you should control.",
-        lead: "Seven models share a training run, a tokenizer, and a safety layer. What separates them is capability ceiling, latency, and how much deliberation they can afford.",
+        lead: "Five models share a training run, a tokenizer, and a safety layer. What separates them is capability ceiling, latency, and how much deliberation they can afford.",
         actions: `${button({ label: "See the benchmarks", href: "/technology/benchmarks", icon: "arrow-right" }).value}
                   ${button({ label: "Read the docs", href: "/docs", variant: "secondary", icon: "book" }).value}`,
         meta: `
-          <div class="stat"><span class="stat-value" style="font-size:1.5rem">7</span><span class="stat-label">Models</span></div>
+          <div class="stat"><span class="stat-value" style="font-size:1.5rem">5</span><span class="stat-label">Models</span></div>
           <div class="stat"><span class="stat-value" style="font-size:1.5rem">1M</span><span class="stat-label">Max context</span></div>
           <div class="stat"><span class="stat-value" style="font-size:1.5rem">4</span><span class="stat-label">Reasoning modes</span></div>
           <div class="stat"><span class="stat-value" style="font-size:1.5rem">${KNOWLEDGE_CUTOFF}</span><span class="stat-label">Knowledge cutoff</span></div>`
@@ -62,8 +62,8 @@ export default {
         <div class="shell shell-wide">
           ${sectionHead({
             eyebrow: "Specialists",
-            title: "And four that do one thing extremely well.",
-            lead: "Vision, voice, retrieval, and safety. Same API, same key, same billing."
+            title: "And two that do one thing extremely well.",
+            lead: "Retrieval and safety. Same API, same key, same billing."
           }).value}
           <div class="grid g-4" data-stagger="80">
             ${MODELS.slice(3).map((model) => `
@@ -186,7 +186,7 @@ export default {
             </table>
           </div>
           <div style="margin-top:20px;max-width:70ch">
-            ${calloutBox("Alias IDs such as <code class=\"inline\">mere-apex-5-5-latest</code> always resolve to the newest snapshot. Use them in development and pin a dated snapshot in production.", { icon: "info" }).value}
+            ${calloutBox("Alias IDs such as <code class=\"inline\">mere-apex-4-latest</code> always resolve to the newest snapshot. Use them in development and pin a dated snapshot in production.", { icon: "info" }).value}
           </div>
         </div>
       </section>

@@ -43,7 +43,7 @@ const THREADS = [
 const FAQ_ITEMS = [
   { q: "Do you use reinforcement learning from human feedback?", a: "<p>Yes, alongside model-generated feedback and a constitutional-style critique loop. No single technique carries the alignment load; the mix is documented per release in the system card.</p>" },
   { q: "How do you avoid training the model to appear aligned?", a: "<p>We cannot fully. What we do is hold out evaluation environments the model has never seen during training, evaluate under distribution shift, and use interpretability tools to check whether the behaviour has an internal mechanism or is surface mimicry. Where the two disagree, we trust the mechanism.</p>" },
-  { q: "What happens when alignment work conflicts with capability work?", a: "<p>The release gate is held by the safety organisation. Mere X 5.5 slipped six weeks over a red-team finding on tool-use chains — that is the mechanism working, and we document it rather than quietly absorbing the delay.</p>" },
+  { q: "What happens when alignment work conflicts with capability work?", a: "<p>The release gate is held by the safety organisation. Mere Code slipped six weeks over a red-team finding on tool-use chains — that is the mechanism working, and we document it rather than quietly absorbing the delay.</p>" },
   { q: "Is over-refusal actually a safety problem?", a: "<p>Yes. A model that refuses legitimate medical, legal, or security questions pushes people toward worse sources. We treat a false refusal as a harm with a real cost, not as the safe default.</p>" }
 ];
 
@@ -88,7 +88,7 @@ export default {
           ${sectionHead({
             eyebrow: "Measured",
             title: "What the current model scores.",
-            lead: "These figures come from the Mere X 5.5 system card and are re-run on every release.",
+            lead: "These figures come from the Mere Code system card and are re-run on every release.",
             action: textLink("Full system card", "/safety/system-cards").value
           }).value}
           ${dataTable({

@@ -6,7 +6,7 @@ import { NAV } from "../data/site.js";
 import { DOCS_NAV } from "../data/docs.js";
 import { DOC_PAGES } from "../data/docs-pages.js";
 import { MODELS } from "../data/models.js";
-import { PUBLICATIONS, NEWS, RECIPES, CAREERS, CONNECTORS } from "../data/content.js";
+import { PUBLICATIONS, NEWS, RECIPES, CAREERS } from "../data/content.js";
 import { icon } from "../lib/icons.js";
 import { pageHead } from "../components/ui.js";
 import { onLeave } from "../lib/router.js";
@@ -54,11 +54,6 @@ function buildIndex() {
     entries.push({ kind: "Careers", title: role.title, desc: `${role.team} · ${role.location} · ${role.type}`, href: "/company/careers", icon: "briefcase" });
   });
 
-  CONNECTORS.forEach((group) => {
-    group.items.forEach((name) => {
-      entries.push({ kind: "Connector", title: name, desc: `${group.group} connector`, href: "/products/connectors", icon: "plug" });
-    });
-  });
 
   entries.push(
     { kind: "Console", title: "Dashboard", desc: "Usage, keys, credit, and onboarding at a glance", href: "/console", icon: "grid" },
@@ -145,7 +140,7 @@ export default {
       ${pageHead({
         eyebrow: `${INDEX.length} indexed pages`,
         title: "Search everything.",
-        lead: "Documentation, models, research, product pages, connectors, and the console."
+        lead: "Documentation, models, research, product pages, and the console."
       }).value}
 
       <section class="section" style="padding-top:clamp(28px,3vw,44px)">

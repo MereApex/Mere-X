@@ -24,7 +24,6 @@ test("ordinary sign-in cannot be hijacked by stale checkout intent", async () =>
   assert.match(pricing, /const requested = new URLSearchParams\(window\.location\.search\)\.get\("plan"\)/);
   assert.match(pricing, /\/login\?returnTo=\$\{encodeURIComponent\(returnTo\)\}/);
   assert.match(client, /workspaceMutationVersion !== ifUnchangedSince/);
-  assert.doesNotMatch(client, /promptInput\.disabled = true/);
 });
 
 test("Google identity loads in parallel with the account session", async () => {
@@ -35,7 +34,7 @@ test("Google identity loads in parallel with the account session", async () => {
   assert.match(client, /Math\.min\(360, availableWidth\)/);
 });
 
-test("workspace sync persists queryable conversations and messages atomically", async () => {
+test("workspace sync persists queryable threads and messages atomically", async () => {
   const [workspace, client, database] = await Promise.all([
     source("../server/workspace.js"),
     source("../src/js/app.js"),
@@ -58,44 +57,53 @@ test("private APIs require authentication and API-key scopes", async () => {
   assert.match(auth, /req\.authMethod === "session"/);
 });
 
-test("optional plugin bootstrap cannot take down the public production site", async () => {
-  const [server, connections] = await Promise.all([source("../server/index.js"), source("../server/plugin-connections.js")]);
+test("optional integration bootstrap cannot take down the public production site", async () => {
+  const [server, connections, providers] = await Promise.all([
+    source("../server/index.js"),
+    source("../server/plugin-connections.js"),
+    source("../server/plugin-providers.js")
+  ]);
   assert.match(server, /if \(databaseConfigured\(\)\) await initConnections\(\)/);
   assert.doesNotMatch(connections, /export async function initConnections\(\) \{\s*encryptionKey\(\)/);
+  // Only services around a codebase remain connectable.
+  assert.match(providers, /github: \{/);
+  assert.match(providers, /linear: \{/);
+  assert.match(providers, /figma: \{/);
+  assert.doesNotMatch(providers, /gmail|google-calendar|google-drive|slack|notion/);
 });
 
-test("live voice uses GPT-Live with an authenticated server-side WebRTC handshake", async () => {
-  const [client, server] = await Promise.all([source("../src/js/app.js"), source("../server/index.js")]);
-  assert.match(client, /new RTCPeerConnection\(\)/);
-  assert.match(client, /fetch\("\/api\/realtime\/session"/);
-  assert.doesNotMatch(client, /api\.openai\.com/);
-  assert.match(server, /openai\(\)\.live\.create\(\{/);
-  assert.match(server, /gpt-live-1/);
-  assert.match(server, /delegation:\s*\{\s*type: "responses"/);
-  assert.match(server, /transport: \{ type: "webrtc", sdp \}/);
-  assert.doesNotMatch(server, /form\.set\("sdp", sdp\)/);
-  assert.match(server, /res\.type\("application\/sdp"\)\.send\(upstream\.transport\.sdp\)/);
-  assert.match(client, /response\.item\.create/);
-  assert.match(client, /response\.create/);
-  assert.match(client, /input_image/);
+test("the agent route runs tools in the browser and never trusts the echoed exchange", async () => {
+  const [server, agent, client, tools] = await Promise.all([
+    source("../server/index.js"),
+    source("../server/agent.js"),
+    source("../src/js/agent.js"),
+    source("../src/js/agent-tools.js")
+  ]);
+  assert.match(server, /app\.post\("\/api\/agent"/);
+  assert.match(server, /normalizeItems\(req\.body\?\.items\)/);
+  assert.match(server, /include: \["reasoning\.encrypted_content"\]/);
+  assert.match(server, /store: false/);
+  assert.match(server, /Fast: "none", Medium: "medium", High: "high", "Extra High": "xhigh"/);
+  assert.match(agent, /if \(!TOOL_NAMES\.includes\(name\)/);
+  assert.match(agent, /clean\(item\.output, MAX_OUTPUT\)/);
+  assert.match(client, /fetch\("\/api\/agent"|streamAgentRound/);
+  assert.match(tools, /new Worker\(url\)/);
+  assert.match(tools, /self\.fetch = undefined/);
+  // Everything that left the product left the server too.
+  assert.doesNotMatch(server, /images\.generate|audio\.speech|transcriptions|realtime|live\.create|code_interpreter/);
 });
 
-test("plan limits and Studio model access are server enforced", async () => {
-  const [server, entitlements, database, client] = await Promise.all([
+test("plan limits and model access are server enforced", async () => {
+  const [server, entitlements, database] = await Promise.all([
     source("../server/index.js"),
     source("../server/entitlements.js"),
-    source("../server/database.js"),
-    source("../src/js/app.js")
+    source("../server/database.js")
   ]);
-  assert.match(server, /resolveChatAccess\(req\.user, requestContext\)/);
-  assert.match(server, /consumeUsage\(req\.user, usageCategory/);
-  assert.match(server, /Fast: "none", Medium: "medium", High: "high", DEEP: "max"/);
+  assert.match(server, /resolveAgentAccess\(req\.user, requestContext\)/);
+  assert.match(server, /consumeUsage\(req\.user, "message"/);
   assert.match(entitlements, /SELECT id FROM users WHERE id = \$1 FOR UPDATE/);
+  assert.match(entitlements, /EFFORT_KEYS = Object\.freeze\(\["Fast", "Medium", "High", "Extra High"\]\)/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS usage_events/);
-  assert.match(database, /CREATE TABLE IF NOT EXISTS generated_assets/);
-  assert.match(server, /FROM generated_assets WHERE id = \$1 AND user_id = \$2/);
-  assert.match(server, /DELETE FROM generated_assets WHERE id = \$1 AND user_id = \$2/);
-  assert.match(client, /surface: \(workspaceMode \|\| agent \|\| project\) \? "studio" : "chat"/);
 });
 
 test("guest access and seeded console data are absent", async () => {

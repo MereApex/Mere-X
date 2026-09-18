@@ -15,7 +15,7 @@
   gap: var(--gap-nav);
   padding-inline: var(--pad-x);
   padding-top: var(--header-pt);
-  padding-bottom: var(--section-gap);
+  padding-bottom: clamp(0.55rem, 1vh, 0.9rem);
   background: transparent;
 }
 /* Inner pages get a compact sticky bar; the home page keeps the
@@ -68,6 +68,8 @@ body:not([data-route="home"]) .site-nav {
 }
 .nav-link-btn:hover, .nav-link-btn[aria-expanded="true"] { opacity: 0.5; }
 .nav-sep { color: var(--ghost); font-weight: 400; user-select: none; }
+.nav-link-app { padding: 0.5em 0.95em; border: 1px solid var(--line-ink); border-radius: var(--r-xs); transition: background var(--d-base) var(--ease-out), color var(--d-base) var(--ease-out), border-color var(--d-base) var(--ease-out); }
+.nav-link-app:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); opacity: 1; }
 .nav-stack {
   position: relative;
   display: grid;
@@ -121,7 +123,7 @@ body:not([data-route="home"]) .site-nav {
 .drawer-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
 }
@@ -392,187 +394,8 @@ body:has(.drawer-layer.is-open) .toast-stack { top: calc(var(--drawer-pad) + 3.4
 @media (max-width: 520px) { .footer-top { grid-template-columns: 1fr; } }
 
 /* ------------------------------------------------------------
-   HOME — the single full-viewport composition
+   HOME — the header floats over the hero with no background of
+   its own; the hero itself lives in hero.css.
    ------------------------------------------------------------ */
-.home {
-  position: relative;
-  z-index: 10;
-  min-height: calc(100dvh - var(--header-h, 6.5rem));
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: clamp(2rem, 6vh, 4rem);
-  padding-inline: var(--pad-x);
-  padding-block: var(--main-py);
-}
-.home-left {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--section-gap);
-}
-.home-title {
-  font-family: var(--font-display);
-  font-weight: 800;
-  /* The longest line, INTELLIGENCE plus its checker, must fit a phone. */
-  font-size: min(var(--headline), calc(9vw - 4px));
-  line-height: 1.05;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink);
-  margin: 0;
-}
-.home-title > span { display: block; }
-.home-title .with-checker { display: flex; align-items: center; gap: 0.3em; flex-wrap: wrap; }
-.checker {
-  width: var(--checker-w);
-  height: var(--checker-h);
-  flex: 0 0 auto;
-  transform: translateY(2px);
-  fill: var(--ink);
-}
-.home-cta { align-self: flex-start; margin-top: var(--section-gap); }
-.home-spec {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35em 0.9em;
-  margin-top: var(--section-gap);
-  font-size: var(--micro);
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.home-spec i { width: 1.4em; height: 1px; background: var(--ghost); display: inline-block; }
-
-.home-feature {
-  position: relative;
-  align-self: flex-start;
-  min-width: var(--feature-min);
-  padding: var(--feature-pad);
-  display: flex;
-  flex-direction: column;
-  gap: clamp(0.7rem, 1.4vh, 1rem);
-}
-.home-feature > .corner { position: absolute; }
-.home-feature > .corner-tl { top: 0; left: 0; }
-.home-feature > .corner-tr { top: 0; right: 0; }
-.home-feature > .corner-bl { bottom: 0; left: 0; }
-.home-feature > .corner-br { bottom: 0; right: 0; }
-.globe {
-  width: var(--globe);
-  height: var(--globe);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.2;
-  color: var(--ink);
-}
-.globe .spin { transform-origin: 32px 32px; animation: globe-spin 40s linear infinite; }
-[data-motion="reduced"] .globe .spin { animation: none; }
-@keyframes globe-spin { to { transform: rotate(360deg); } }
-.home-tagline {
-  font-weight: 600;
-  font-size: var(--body);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  line-height: 1.75;
-  color: var(--ink);
-}
-.home-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6em;
-  font-size: var(--micro);
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.home-status .dot { width: 5px; height: 5px; flex-basis: 5px; background: var(--faint); }
-.home-status[data-state="ok"] .dot { background: var(--ink); }
-
-@media (min-width: 1024px) {
-  .home { flex-direction: row; align-items: stretch; }
-  .home-feature { align-self: flex-end; }
-}
-/* Without the reveal behind it, the composition sits at content
-   height so the still portrait arrives in the first screen. */
-@media (max-width: 1023px) {
-  .home { min-height: 0; gap: clamp(2rem, 6vh, 3.5rem); }
-}
-
-/* Mobile stand-in for the interactive background */
-.home-still {
-  position: relative;
-  z-index: 10;
-  padding-inline: var(--pad-x);
-  padding-bottom: var(--main-py);
-}
-.home-still-frame {
-  aspect-ratio: 4 / 5;
-  max-width: 100%;
-  border: 1px solid var(--line);
-  background-image: url("/hero/mere-x-hero-base.webp");
-  background-size: cover;
-  background-position: center;
-}
-@media (min-width: 640px) { .home-still-frame { aspect-ratio: 16 / 9; } }
-@media (min-width: 1024px) { .home-still { display: none; } }
-
-/* ------------------------------------------------------------
-   REVEAL BACKGROUND — desktop only, non-interactive, z-0
-   ------------------------------------------------------------ */
-.reveal-bg {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-  display: none;
-}
-@media (min-width: 1024px) { .reveal-bg { display: block; } }
-.reveal-layer {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-.reveal-layer.is-base { background-image: url("/hero/mere-x-hero-base.webp"); }
-.reveal-layer.is-top {
-  background-image: url("/hero/mere-x-hero-reveal.webp");
-  mask-size: 100% 100%;
-  -webkit-mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  -webkit-mask-repeat: no-repeat;
-}
-.reveal-grid { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.10; }
-.reveal-grid path { fill: none; stroke: #64748b; stroke-width: 0.6; }
-
-/* The scanner reticle that rides the spotlight */
-.reveal-hud {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  transition: opacity 0.8s var(--ease-out);
-}
-.reveal-hud.is-on { opacity: 1; }
-.reveal-hud .ring { fill: none; stroke: #000; stroke-width: 1; stroke-opacity: 0.32; stroke-dasharray: 3 9; }
-.reveal-hud .ring-spin { animation: hud-spin 36s linear infinite; }
-[data-motion="reduced"] .reveal-hud .ring-spin { animation: none; }
-@keyframes hud-spin { to { transform: rotate(360deg); } }
-.reveal-hud .tick { stroke: #000; stroke-width: 1; stroke-opacity: 0.55; }
-.reveal-hud .cross { stroke: #000; stroke-width: 1; stroke-opacity: 0.7; }
-.reveal-hud .readout {
-  font-family: var(--font-ui);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  fill: #4b5563;
-}
+body[data-route="home"] .site-nav { position: absolute; top: 0; left: 0; right: 0; z-index: 30; border-bottom: 0; background: transparent; }
+body[data-route="home"] .route-view { animation: none; }

@@ -27,7 +27,7 @@ const DETAIL = {
     avoid: "Interactive UI where a user is watching a cursor blink.",
     example: "Find the race condition in this scheduler and propose a minimal fix."
   },
-  DEEP: {
+  "Extra High": {
     cost: "8–40×", quality: 99,
     latencyMs: 600000,
     when: "Research, long-horizon agents, and genuinely novel problems. Runs tools mid-thought and checkpoints its progress.",
@@ -39,14 +39,14 @@ const DETAIL = {
 const PRINCIPLES = [
   { icon: "sliders", title: "Deliberation is a dial, not a mode switch", body: "You set a token budget. The model spends it planning, checking, and discarding — then answers. There is no separate 'reasoning model' to route to." },
   { icon: "eye", title: "Summaries, not raw thought", body: "The API returns a structured summary of how the conclusion was reached. Raw chain-of-thought stays internal, so it cannot leak into a user-facing surface." },
-  { icon: "plug", title: "Thinking interleaves with tools", body: "In High and DEEP, the model can call a tool mid-deliberation, read the result, and continue thinking. The loop does not restart." },
+  { icon: "plug", title: "Thinking interleaves with tools", body: "In High and Extra High, the model can call a tool mid-deliberation, read the result, and continue thinking. The loop does not restart." },
   { icon: "target", title: "Budgets are ceilings, not quotas", body: "The model stops thinking when it is confident. An 8,000-token budget on an easy question typically spends 400 and bills for 400." }
 ];
 
 const FAQ_ITEMS = [
   { q: "Am I charged for thinking tokens?", a: "<p>Yes — thinking tokens bill at the model's output rate, and appear separately in <code class=\"inline\">usage.thinking_tokens</code> so you can see exactly what deliberation cost. Because budgets are ceilings rather than quotas, easy requests inside a large budget cost very little.</p>" },
   { q: "Which mode should I default to?", a: "<p>Medium. It is close enough to High on most production traffic that the difference rarely shows in an eval, and the latency cost is around two seconds. Move individual call sites up to High when your evaluation says the extra deliberation actually changes the answer.</p>" },
-  { q: "Can I set a budget without picking a mode?", a: "<p>Yes. Passing <code class=\"inline\">thinking.budget_tokens</code> selects the mode implicitly: 0 is Fast, up to 4K is Medium, up to 32K is High, and above that is DEEP on Apex. Named modes exist because they are easier to reason about in code review.</p>" },
+  { q: "Can I set a budget without picking a mode?", a: "<p>Yes. Passing <code class=\"inline\">thinking.budget_tokens</code> selects the mode implicitly: 0 is Fast, up to 4K is Medium, up to 32K is High, and above that is Extra High on Apex. Named modes exist because they are easier to reason about in code review.</p>" },
   { q: "Does temperature still apply?", a: "<p>Below 4,000 thinking tokens, yes. Above that the sampler is constrained during deliberation and <code class=\"inline\">temperature</code> is ignored for the thinking phase; it still applies to the final answer.</p>" },
   { q: "What happens if the budget runs out?", a: "<p>The model is told the budget is exhausted and produces the best answer it has, with <code class=\"inline\">stop_reason: \"thinking_budget\"</code>. It never truncates mid-sentence, and it never silently returns a partial conclusion as if it were complete.</p>" },
   { q: "Can I stream the thinking?", a: "<p>You receive <code class=\"inline\">thinking_delta</code> events carrying progress signals and summary fragments — enough to render a genuine 'working' state — without exposing raw reasoning text.</p>" }
@@ -125,13 +125,13 @@ export default {
               ${sectionHead({ eyebrow: "In code", title: "One parameter." }).value}
               <p class="lead measure">Set <code class="inline">thinking.budget_tokens</code> and the model does the rest. Stream <code class="inline">thinking_delta</code> events if you want to show progress; read <code class="inline">usage.thinking_tokens</code> to see what it actually spent.</p>
               <div style="margin-top:26px">
-                ${calloutBox("Budgets compose with tools. In High and DEEP the model can call a tool, read the result, and keep thinking — the deliberation and the tool loop are the same loop.", { variant: "accent", icon: "plug" }).value}
+                ${calloutBox("Budgets compose with tools. In High and Extra High the model can call a tool, read the result, and keep thinking — the deliberation and the tool loop are the same loop.", { variant: "accent", icon: "plug" }).value}
               </div>
             </div>
             <div data-reveal="right">
               ${codeBlock({
                 Python: `message = client.messages.create(
-    model="mere-apex-5-5",
+    model="mere-apex-4",
     max_tokens=8192,
     thinking={"type": "enabled", "budget_tokens": 32_000},
     messages=[{"role": "user", "content": prompt}],
@@ -141,7 +141,7 @@ print(message.usage.thinking_tokens)   # what it actually spent
 print(message.thinking.summary)        # how it got there
 print(message.content[0].text)         # the answer`,
                 TypeScript: `const message = await client.messages.create({
-  model: "mere-apex-5-5",
+  model: "mere-apex-4",
   max_tokens: 8192,
   thinking: { type: "enabled", budget_tokens: 32_000 },
   messages: [{ role: "user", content: prompt }],
@@ -154,7 +154,7 @@ console.log(message.content[0].text);`,
   -H "x-api-key: $MERE_X_API_KEY" \\
   -H "mere-x-version: 2026-06-18" \\
   -d '{
-    "model": "mere-apex-5-5",
+    "model": "mere-apex-4",
     "max_tokens": 8192,
     "thinking": {"type": "enabled", "budget_tokens": 32000},
     "messages": [{"role": "user", "content": "..."}]
@@ -180,8 +180,8 @@ console.log(message.content[0].text);`,
                 <tr><td>has a user watching a cursor</td><td><strong>Fast</strong></td><td class="small muted">Perceived latency dominates perceived quality below about 400 ms.</td></tr>
                 <tr><td>is ordinary product traffic</td><td><strong>Medium</strong></td><td class="small muted">Catches most reasoning slips for roughly two seconds.</td></tr>
                 <tr><td>produces code that must run</td><td><strong>High</strong></td><td class="small muted">Self-checking finds the compile error before your CI does.</td></tr>
-                <tr><td>would take a person an hour</td><td><strong>High</strong></td><td class="small muted">Below the threshold where DEEP's overhead pays for itself.</td></tr>
-                <tr><td>would take a person a day</td><td><strong>DEEP</strong></td><td class="small muted">Tool use, retrieval, and checkpointing become worth the cost.</td></tr>
+                <tr><td>would take a person an hour</td><td><strong>High</strong></td><td class="small muted">Below the threshold where Extra High's overhead pays for itself.</td></tr>
+                <tr><td>would take a person a day</td><td><strong>Extra High</strong></td><td class="small muted">Tool use, retrieval, and checkpointing become worth the cost.</td></tr>
                 <tr><td>is a batch job with no deadline</td><td><strong>High + Batch</strong></td><td class="small muted">Half price, and nobody is waiting.</td></tr>
               </tbody>
             </table>
@@ -233,10 +233,10 @@ console.log(message.content[0].text);`,
       requestAnimationFrame(() => {
         root.querySelector("[data-q-bar]").style.width = `${detail.quality}%`;
         root.querySelector("[data-l-bar]").style.width = `${Math.min(100, (Math.log10(detail.latencyMs) / maxLatency) * 100)}%`;
-        root.querySelector("[data-c-bar]").style.width = `${{ Fast: 8, Medium: 14, High: 34, DEEP: 100 }[name]}%`;
+        root.querySelector("[data-c-bar]").style.width = `${{ Fast: 8, Medium: 14, High: 34, "Extra High": 100 }[name]}%`;
       });
 
-      codeHost.innerHTML = `<div class="secret-reveal" style="font-size:11.5px;line-height:1.7">thinking: { type: "${name === "Fast" ? "disabled" : "enabled"}"${name === "Fast" ? "" : `, budget_tokens: ${{ Medium: "4_000", High: "32_000", DEEP: "256_000" }[name]}`} }</div>`;
+      codeHost.innerHTML = `<div class="secret-reveal" style="font-size:11.5px;line-height:1.7">thinking: { type: "${name === "Fast" ? "disabled" : "enabled"}"${name === "Fast" ? "" : `, budget_tokens: ${{ Medium: "4_000", High: "32_000", "Extra High": "256_000" }[name]}`} }</div>`;
     };
 
     seg.addEventListener("click", (event) => {

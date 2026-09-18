@@ -28,7 +28,7 @@ const SUITES = [
 
 const FAQ_ITEMS = [
   { q: "Why not just publish the highest number you got?", a: "<p>Because it is not true, and because anyone who deploys on the basis of it will discover that within a week. A five-run mean with a stated spread is less impressive and considerably more useful.</p>" },
-  { q: "How do you handle a benchmark you score badly on?", a: "<p>We publish it. The full report includes the suites where Mere X 5.5 underperforms the previous generation, and the system card enumerates task categories the model still fails outright.</p>" },
+  { q: "How do you handle a benchmark you score badly on?", a: "<p>We publish it. The full report includes the suites where the current models underperform the previous generation, and the system card enumerates task categories the model still fails outright.</p>" },
   { q: "Do you evaluate in the mode that flatters the model?", a: "<p>No. Unless stated otherwise every model is evaluated in High mode, including Nyx, where High is not where it looks best. Mixing modes across a comparison table would make the table meaningless.</p>" },
   { q: "Can I run these suites myself?", a: "<p>Yes. The harness, prompts, and parsing logic are open. The cookbook has a recipe for pointing it at your own data, which is a far better predictor of production behaviour than any public benchmark.</p>" }
 ];
@@ -123,7 +123,7 @@ suite = Suite(
 )
 
 report = suite.run(
-    model="mere-orion-5-5",
+    model="mere-orion-3",
     thinking={"type": "enabled", "budget_tokens": 4000},
     grader=judge.exact_match,
     runs=5,                      # report the mean and the spread

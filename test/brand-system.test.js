@@ -8,6 +8,8 @@ const paths = {
   favicon: new URL("../landing/public/brand/favicon-96.png", import.meta.url)
 };
 
+const source = (path) => readFile(new URL(path, import.meta.url), "utf8");
+
 test("every Mere X surface uses the same transparent master mark", async () => {
   const [workspace, landing, favicon] = await Promise.all(Object.values(paths).map((path) => readFile(path)));
 
@@ -22,49 +24,54 @@ test("every Mere X surface uses the same transparent master mark", async () => {
   assert.ok(favicon.length < 32_000, "the favicon should not download the full master artwork");
 });
 
-test("the brand reads as the Orbitron wordmark, not a dimensional emblem", async () => {
+test("the brand reads as the Orbitron wordmark on every surface", async () => {
   const [workspacePage, workspaceStyles, landingNav, landingFooter] = await Promise.all([
-    readFile(new URL("../index.html", import.meta.url), "utf8"),
-    readFile(new URL("../src/styles/app.css", import.meta.url), "utf8"),
-    readFile(new URL("../landing/src/components/nav.js", import.meta.url), "utf8"),
-    readFile(new URL("../landing/src/components/footer.js", import.meta.url), "utf8")
+    source("../index.html"),
+    source("../src/styles/app.css"),
+    source("../landing/src/components/nav.js"),
+    source("../landing/src/components/footer.js")
   ]);
 
-  // The cinematic ribbon intro and the oversized mark above the composer were
-  // both retired; the wordmark carries the brand on every surface now.
   assert.doesNotMatch(workspacePage, /hero-ribbon-panel|hero-logo-master|hero-mark/);
-  assert.doesNotMatch(workspaceStyles, /hero-mark|hero-logo-motion/);
   assert.match(workspacePage, /class="app-boot-mark">MERE X</);
   assert.match(workspaceStyles, /\.brand-name \{[^}]*font-family: var\(--font-display\)/);
+  for (const style of [workspaceStyles]) assert.match(style, /content: "˚"/);
 
-  for (const source of [landingNav, landingFooter]) {
-    assert.match(source, /<span>MERE X<\/span><span class="brand-deg"/);
+  for (const markup of [landingNav, landingFooter]) {
+    assert.match(markup, /<span>MERE X<\/span><span class="brand-deg"/);
   }
 });
 
-test("the workspace ships one white theme and no theme switch", async () => {
-  const [workspacePage, workspaceStyles, workspaceScript] = await Promise.all([
-    readFile(new URL("../index.html", import.meta.url), "utf8"),
-    readFile(new URL("../src/styles/app.css", import.meta.url), "utf8"),
-    readFile(new URL("../src/js/app.js", import.meta.url), "utf8")
+test("both surfaces ship one monochrome dark theme and no theme switch", async () => {
+  const [workspaceStyles, workspaceScript, workspacePage, tokens, landingPage] = await Promise.all([
+    source("../src/styles/app.css"),
+    source("../src/js/app.js"),
+    source("../index.html"),
+    source("../landing/src/styles/tokens.css"),
+    source("../landing/index.html")
   ]);
 
   assert.doesNotMatch(workspaceStyles, /data-theme/);
   assert.doesNotMatch(workspaceScript, /applyTheme|themePreference|data-theme-option/);
   assert.doesNotMatch(workspacePage, /data-theme|theme-picker/);
-  assert.match(workspaceStyles, /--ink: #000000;/);
-  assert.match(workspaceStyles, /--cream-0: #ffffff;/);
+  assert.doesNotMatch(landingPage, /data-theme/);
+  assert.match(workspaceStyles, /--bg-1: #0a0a0a;/);
+  assert.match(workspaceStyles, /--ink: #f5f5f5;/);
+  assert.match(workspaceStyles, /color-scheme: dark;/);
+  assert.match(tokens, /--paper:\s+#0a0a0a;/);
+  assert.match(tokens, /--ink:\s+#f5f5f5;/);
+  assert.match(tokens, /color-scheme: dark;/);
+  // Monochrome means no colour accents anywhere in the tokens.
+  assert.doesNotMatch(tokens, /#(?:15803d|b45309|b91c1c|475569|64748b)/);
 });
 
 test("an authenticated visitor never sees the sign-in screen flash", async () => {
   const [workspacePage, workspaceStyles, workspaceScript] = await Promise.all([
-    readFile(new URL("../index.html", import.meta.url), "utf8"),
-    readFile(new URL("../src/styles/app.css", import.meta.url), "utf8"),
-    readFile(new URL("../src/js/app.js", import.meta.url), "utf8")
+    source("../index.html"),
+    source("../src/styles/app.css"),
+    source("../src/js/app.js")
   ]);
 
-  // The document boots into a neutral splash; only the session lookup decides
-  // whether sign-in or the workspace is revealed.
   assert.match(workspacePage, /<html lang="en" class="app-booting">/);
   assert.doesNotMatch(workspacePage, /<html[^>]*class="[^"]*auth-open/);
   assert.match(workspaceStyles, /\.app-booting \.auth-screen \{ display: none !important; \}/);
@@ -72,42 +79,61 @@ test("an authenticated visitor never sees the sign-in screen flash", async () =>
   assert.match(workspaceScript, /function showAuthScreen\(\)/);
 });
 
-test("one command registry serves both the + button and the / palette", async () => {
+test("the workspace is a conversation with a code agent, not an IDE", async () => {
   const [workspacePage, workspaceScript] = await Promise.all([
-    readFile(new URL("../index.html", import.meta.url), "utf8"),
-    readFile(new URL("../src/js/app.js", import.meta.url), "utf8")
+    source("../index.html"),
+    source("../src/js/app.js")
   ]);
 
-  assert.match(workspacePage, /id="commandMenu"/);
-  assert.match(workspacePage, /placeholder="Ask Mere X, or type \/ for commands"/);
-  assert.doesNotMatch(workspacePage, /id="attachmentPopover"/);
-  assert.match(workspaceScript, /function commandGroups\(\)/);
-  assert.match(workspaceScript, /function handleCommandKeydown\(event\)/);
-  // "+" must open the same menu rather than a popover of its own.
-  assert.match(workspaceScript, /attachmentButton\.addEventListener\("click"[\s\S]{0,220}openCommandMenu\("plus"\)/);
+  for (const id of ["sidebar", "threadList", "thread", "composerForm", "promptInput", "changesPanel", "previewPane", "fileModal", "commandMenu", "mentionMenu", "paletteModal"]) {
+    assert.match(workspacePage, new RegExp(`id="${id}"`), `missing #${id}`);
+  }
+  assert.match(workspacePage, /data-mode="agent"[\s\S]*data-mode="plan"[\s\S]*data-mode="ask"/);
+  assert.match(workspacePage, /<span>Fast<\/span><span>Medium<\/span><span>High<\/span><span>Extra High<\/span>/);
+  assert.match(workspacePage, /Mere Apex 4[\s\S]*Mere Orion 3[\s\S]*Mere Nyx 2/);
 
-  // Entries are written inline, or spread over lines when they carry a submenu.
-  const ids = [...workspaceScript.matchAll(/\bid: "([a-z-]+)",\s*\n?\s*label: "/g)].map((match) => match[1]);
-  assert.ok(ids.length >= 35, `expected a full registry, found ${ids.length}`);
-  assert.equal(new Set(ids).size, ids.length, "command ids must be unique — rows are matched by them");
-  for (const required of ["image", "research", "voice", "settings", "new", "model", "effort"]) {
+  // No editor, file tree or terminal: the agent does the editing and the thread shows it.
+  assert.doesNotMatch(workspacePage, /id="(fileTree|editorHost|editorReview|terminal|statusBar)"/);
+  assert.doesNotMatch(workspaceScript, /@codemirror|from "\.\/editor\.js"/);
+  assert.match(workspaceScript, /function openFileViewer\(path, line = 0\)/);
+  assert.match(workspaceScript, /function openDiff\(path/);
+
+  // Everything that was not about code is gone from the product.
+  assert.doesNotMatch(workspacePage, /voice-stage|imageViewer|dictateButton|data-tool="Images"|Deep research|Canvas/);
+  assert.doesNotMatch(workspaceScript, /createImage|startRealtimeVoice|speakMessage|RTCPeerConnection|automation/i);
+  assert.doesNotMatch(workspacePage, /Mere \w+ 5\.5|Mere X 5\.5/);
+  assert.doesNotMatch(workspaceScript, /Mere \w+ 5\.5|"DEEP"/);
+});
+
+test("the command menu and the mention menu share one keyboard model", async () => {
+  const workspaceScript = await source("../src/js/app.js");
+  assert.match(workspaceScript, /function commandItems\(query\)/);
+  assert.match(workspaceScript, /function openMentionMenu\(info\)/);
+  assert.match(workspaceScript, /function chooseMenu\(/);
+  const ids = [...workspaceScript.matchAll(/\{ id: "([a-z-]+)", label: "/g)].map((match) => match[1]);
+  assert.ok(ids.length >= 18, `expected a full registry, found ${ids.length}`);
+  assert.equal(new Set(ids).size, ids.length, "command ids must be unique");
+  for (const required of ["new", "agent", "plan", "ask", "model", "effort", "open", "changes", "settings"]) {
     assert.ok(ids.includes(required), `missing /${required}`);
   }
-
-  // Every leaf command has to do something real.
-  const leaves = [...workspaceScript.matchAll(/\{ id: "[a-z-]+", label: "[^"]+", hint: [^}]*?\}/g)].map((m) => m[0]);
-  const inert = leaves.filter((entry) => !/run:|tool:|children:/.test(entry));
+  const leaves = [...workspaceScript.matchAll(/\{ id: "[a-z-]+", label: [^\n]*?\}(?= ?,?\n)/g)].map((match) => match[0]);
+  const inert = leaves.filter((entry) => !/run:|children:/.test(entry));
   assert.equal(inert.length, 0, `commands with no behaviour: ${inert.join(" | ")}`);
 });
 
-test("the voice stage is ink, bracketed, and unbranded", async () => {
-  const [workspacePage, workspaceStyles] = await Promise.all([
-    readFile(new URL("../index.html", import.meta.url), "utf8"),
-    readFile(new URL("../src/styles/app.css", import.meta.url), "utf8")
+test("the models carry distinct generations everywhere the public sees them", async () => {
+  const [server, models, site, workspacePage] = await Promise.all([
+    source("../server/index.js"),
+    source("../landing/src/data/models.js"),
+    source("../landing/src/data/site.js"),
+    source("../index.html")
   ]);
-
-  assert.doesNotMatch(workspacePage, /voice-orb|mere-x-logo-web\.png" alt="" \/><\/span>\s*<\/div>/);
-  assert.doesNotMatch(workspaceStyles, /voice-orb|voice-stage-atmosphere/);
-  assert.match(workspacePage, /class="voice-corner voice-corner-tl"/);
-  assert.match(workspaceStyles, /\.voice-stage \{[^}]*background: var\(--ink\)/);
+  for (const text of [server, models, site, workspacePage]) {
+    assert.match(text, /Mere Apex 4/);
+    assert.match(text, /Mere Orion 3/);
+    assert.match(text, /Mere Nyx 2/);
+    assert.doesNotMatch(text, /Apex 5\.5|Orion 5\.5|Nyx 5\.5|Mere X 5\.5/);
+  }
+  assert.match(models, /id: "mere-apex-4"/);
+  assert.doesNotMatch(models, /mere-iris|mere-lyra/);
 });

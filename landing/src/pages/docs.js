@@ -170,7 +170,7 @@ suite = Suite(
 )
 
 report = suite.run(
-    model="mere-orion-5-5",
+    model="mere-orion-3",
     thinking={"type": "enabled", "budget_tokens": 4000},
     grader=judge.exact_match,
     runs=5,

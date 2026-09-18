@@ -120,7 +120,7 @@ export default {
                 Python: `from mere_x.trace import AttributionGraph
 
 graph = AttributionGraph.from_forward_pass(
-    model="mere-orion-5-5",
+    model="mere-orion-3",
     prompt="The capital of the country north of France is",
     target_token=" Brussels",
 )

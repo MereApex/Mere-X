@@ -8,10 +8,9 @@ import { pct, dateFull } from "../../lib/format.js";
 import { pageHead, sectionHead, textLink, button, ctaBand, benchBars, calloutBox, dataTable, entryList } from "../../components/ui.js";
 
 const CARDS = [
-  { model: "Mere X 5.5", date: "2026-06-18", rev: "rev 2 · 30 July 2026", pages: 118, level: "CSL-3", note: "Apex, Orion, and Nyx in one document, with per-model evaluation tables." },
-  { model: "Mere Lyra", date: "2026-05-14", rev: "rev 1", pages: 44, level: "CSL-2", note: "Realtime speech, voice cloning refusals, and impersonation risk." },
-  { model: "Mere Iris", date: "2026-04-02", rev: "rev 1", pages: 61, level: "CSL-2", note: "Image generation policy, likeness handling, and CSAM prevention." },
-  { model: "Mere 5.0", date: "2025-11-04", rev: "rev 3", pages: 96, level: "CSL-2", note: "The first release under the Responsible Scaling Policy." },
+  { model: "Mere Apex 4 · Orion 3 · Nyx 2", date: "2026-06-18", rev: "rev 2 · 30 July 2026", pages: 118, level: "CSL-3", note: "Apex, Orion, and Nyx in one document, with per-model evaluation tables." },
+  { model: "Mere Code agent", date: "2026-09-10", rev: "rev 1", pages: 72, level: "CSL-3", note: "Autonomous editing, destructive-action gating, prompt injection through repository contents, and secret handling." },
+  { model: "Mere Apex 3 · Orion 2", date: "2026-02-12", rev: "rev 3", pages: 96, level: "CSL-2", note: "The first release under the Responsible Scaling Policy." },
   { model: "Mere Aegis", date: "2026-01-09", rev: "rev 1", pages: 38, level: "n/a", note: "Taxonomy definitions, training data, and human-rater disagreement rates." }
 ];
 
@@ -46,7 +45,7 @@ export default {
         eyebrow: "Per-release reporting",
         title: "Everything we know about a model, published with it.",
         lead: "A system card is not a summary of the good results. It is the capability evaluations, the safety evaluations, the RSP determination, the red-team findings, and a specific list of what the model still gets wrong.",
-        actions: `${button({ label: "Mere X 5.5 system card", href: "#mere-x-4", icon: "arrow-down" }).value}
+        actions: `${button({ label: "Mere Code system card", href: "#mere-x-4", icon: "arrow-down" }).value}
                   ${button({ label: "Responsible Scaling Policy", href: "/safety/scaling-policy", variant: "secondary", icon: "scale" }).value}`
       }).value}
 
@@ -84,7 +83,7 @@ export default {
       <section class="section" id="mere-x-4">
         <div class="shell shell-wide">
           ${sectionHead({
-            eyebrow: "Mere X 5.5 · revision 2",
+            eyebrow: "Mere Apex 4 · revision 2",
             title: "Extract from the current card.",
             lead: "The sections below are reproduced from the full 118-page document."
           }).value}

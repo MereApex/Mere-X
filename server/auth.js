@@ -109,6 +109,20 @@ async function ensureWorkspace(userId, name) {
   );
 }
 
+/* The desktop app identifies itself with a header and carries its session
+   as a bearer token instead of a cookie. */
+function isDesktopClient(req) {
+  return clean(req.get("x-mere-client"), 40).toLowerCase() === "desktop";
+}
+
+function sessionTokenFromRequest(req) {
+  const fromCookie = cookies(req)[SESSION_COOKIE];
+  if (fromCookie) return fromCookie;
+  const authorization = clean(req.get("authorization"), 600);
+  const bearer = /^Bearer\s+mxs_(.+)$/i.exec(authorization)?.[1] || "";
+  return bearer ? bearer.trim() : "";
+}
+
 async function createSession(req, res, user, remember = true) {
   const token = crypto.randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
@@ -116,6 +130,7 @@ async function createSession(req, res, user, remember = true) {
     `INSERT INTO auth_sessions (user_id, token_hash, expires_at, user_agent, ip_hash) VALUES ($1, $2, $3, $4, $5)`,
     [user.id, tokenHash(token), expiresAt, clean(req.headers["user-agent"], 500), requestIpHash(req)]
   );
+  if (isDesktopClient(req)) { req.desktopSessionToken = `mxs_${token}`; return; }
   setSessionCookie(req, res, token, remember);
   /* Expired-session housekeeping must never delay a successful login. */
   void query(`DELETE FROM auth_sessions WHERE expires_at < now()`).catch((error) => {
@@ -124,7 +139,7 @@ async function createSession(req, res, user, remember = true) {
 }
 
 async function userForRequest(req) {
-  const token = cookies(req)[SESSION_COOKIE];
+  const token = sessionTokenFromRequest(req);
   if (!token) return null;
   const result = await query(
     `SELECT u.* FROM auth_sessions s JOIN users u ON u.id = s.user_id
@@ -303,7 +318,7 @@ export function createAuthRouter() {
     }
     await query(`UPDATE users SET last_login_at = now(), updated_at = now() WHERE id = $1`, [row.id]);
     await createSession(req, res, row, req.body?.remember !== false);
-    res.json({ user: publicUser(row) });
+    res.json(req.desktopSessionToken ? { user: publicUser(row), token: req.desktopSessionToken } : { user: publicUser(row) });
   }));
 
   router.post("/google", asyncRoute(async (req, res) => {
@@ -369,7 +384,7 @@ export function createAuthRouter() {
   }));
 
   router.post("/logout", asyncRoute(async (req, res) => {
-    const token = cookies(req)[SESSION_COOKIE];
+    const token = sessionTokenFromRequest(req);
     if (token) await query(`DELETE FROM auth_sessions WHERE token_hash = $1`, [tokenHash(token)]);
     clearSessionCookie(req, res);
     res.status(204).end();

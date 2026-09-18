@@ -1,0 +1,56 @@
+/* ============================================================
+   HOME — the sections beneath the composition: the workspace
+   replay, modes, models, depths, features and the privacy band.
+   ============================================================ */
+
+.home-lead {
+  max-width: 44ch;
+  font-size: clamp(0.92rem, 0.5vw + 0.75rem, 1.15rem);
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+.home-actions { display: flex; align-items: center; gap: clamp(0.9rem, 1.5vw, 1.6rem); flex-wrap: wrap; margin-top: var(--section-gap); }
+.home-cta { margin-top: 0; }
+.home-link { font-size: var(--micro); letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; }
+
+/* ---- Modes ------------------------------------------------- */
+.home-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.home-mode { padding: clamp(22px, 2.6vw, 36px); border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; transition: background var(--d-base) var(--ease-out); }
+.home-mode:first-child { border-left: 0; }
+.home-mode:hover { background: var(--paper-sunken); }
+.home-mode-key { font-family: var(--font-display); font-size: var(--micro); font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); }
+.home-mode h3 { font-family: var(--font-display); font-size: clamp(0.95rem, 0.4vw + 0.8rem, 1.2rem); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.home-mode p { color: var(--ink-3); font-size: var(--t-sm); line-height: 1.65; }
+@media (max-width: 860px) { .home-modes { grid-template-columns: 1fr; } .home-mode { border-left: 0; border-top: 1px solid var(--line); } .home-mode:first-child { border-top: 0; } }
+
+/* ---- Models ------------------------------------------------ */
+.home-models { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.home-model { position: relative; display: flex; flex-direction: column; gap: 10px; padding: clamp(22px, 2.4vw, 32px); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); transition: border-color var(--d-base) var(--ease-out), transform var(--d-base) var(--ease-out); }
+.home-model:hover { border-color: var(--ink); transform: translateY(-2px); }
+.home-model-tier { font-size: var(--micro); letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.home-model-name { font-family: var(--font-display); font-size: clamp(1rem, 0.5vw + 0.8rem, 1.35rem); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+.home-model-tag { color: var(--ink-3); font-size: var(--t-sm); line-height: 1.6; min-height: 3.2em; }
+.home-model-spec { display: grid; gap: 8px; margin: 8px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
+.home-model-spec div { display: flex; justify-content: space-between; gap: 12px; font-size: var(--t-xs); }
+.home-model-spec dt { color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em; font-size: var(--micro); }
+.home-model-spec dd { margin: 0; font-family: var(--font-mono); font-size: 0.92em; color: var(--ink); text-align: right; }
+.home-model-more { position: absolute; top: 18px; right: 18px; color: var(--muted); transition: transform var(--d-base) var(--ease-spring), color var(--d-base) var(--ease-out); }
+.home-model:hover .home-model-more { color: var(--ink); transform: translate(2px, -2px); }
+@media (max-width: 900px) { .home-models { grid-template-columns: 1fr; } }
+
+/* ---- Features --------------------------------------------- */
+.home-features { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.home-feature-card { padding: clamp(20px, 2vw, 28px); background: var(--paper); display: flex; flex-direction: column; gap: 12px; transition: background var(--d-base) var(--ease-out); }
+.home-feature-card:hover { background: var(--paper-sunken); }
+.home-feature-icon { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: var(--r-sm); color: var(--ink); }
+.home-feature-icon .icon { width: 16px; height: 16px; }
+.home-feature-card h3 { font-size: var(--t-h4); font-weight: 600; }
+.home-feature-card p { color: var(--ink-3); font-size: var(--t-sm); line-height: 1.6; }
+@media (max-width: 1000px) { .home-features { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .home-features { grid-template-columns: 1fr; } }
+
+/* ---- Privacy ----------------------------------------------- */
+.home-privacy { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: clamp(24px, 4vw, 64px); padding: clamp(28px, 3.5vw, 56px); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--paper-deep); }
+.home-privacy h2 { margin-top: 14px; max-width: 14ch; }
+.home-privacy-points { display: grid; gap: 16px; align-content: center; color: var(--ink-3); font-size: var(--t-sm); line-height: 1.7; }
+@media (max-width: 800px) { .home-privacy { grid-template-columns: 1fr; } }

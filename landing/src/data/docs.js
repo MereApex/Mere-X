@@ -24,7 +24,7 @@ export const DOCS_NAV = [
       { slug: "tools", title: "Tool use" },
       { slug: "structured-output", title: "Structured output" },
       { slug: "context", title: "Long context & caching" },
-      { slug: "vision", title: "Vision & documents" },
+      { slug: "vision", title: "Screenshots & documents" },
       { slug: "batch", title: "Batch processing" },
       { slug: "embeddings", title: "Embeddings" },
       { slug: "safety", title: "Guard & moderation" }
@@ -64,7 +64,7 @@ export const SAMPLES = {
 client = MereX()  # reads MERE_X_API_KEY
 
 message = client.messages.create(
-    model="mere-orion-5-5",
+    model="mere-orion-3",
     max_tokens=1024,
     messages=[
         {"role": "user", "content": "Explain reasoning budgets in two sentences."}
@@ -77,7 +77,7 @@ print(message.content[0].text)`,
 const client = new MereX(); // reads MERE_X_API_KEY
 
 const message = await client.messages.create({
-  model: "mere-orion-5-5",
+  model: "mere-orion-3",
   max_tokens: 1024,
   messages: [
     { role: "user", content: "Explain reasoning budgets in two sentences." },
@@ -90,7 +90,7 @@ console.log(message.content[0].text);`,
   -H "mere-x-version: 2026-06-18" \\
   -H "content-type: application/json" \\
   -d '{
-    "model": "mere-orion-5-5",
+    "model": "mere-orion-3",
     "max_tokens": 1024,
     "messages": [
       {"role": "user", "content": "Explain reasoning budgets in two sentences."}
@@ -108,7 +108,7 @@ func main() {
     client := mere_x.NewClient()
 
     msg, err := client.Messages.Create(context.Background(), mere_x.MessageRequest{
-        Model:     "mere-orion-5-5",
+        Model:     "mere-orion-3",
         MaxTokens: 1024,
         Messages: []mere_x.Message{
             {Role: "user", Content: "Explain reasoning budgets in two sentences."},
@@ -123,7 +123,7 @@ func main() {
 
   streaming: {
     Python: `with client.messages.stream(
-    model="mere-apex-5-5",
+    model="mere-apex-4",
     max_tokens=4096,
     thinking={"type": "enabled", "budget_tokens": 8000},
     messages=[{"role": "user", "content": "Audit this contract for renewal traps."}],
@@ -137,7 +137,7 @@ func main() {
     final = stream.get_final_message()
     print(final.usage)`,
     TypeScript: `const stream = client.messages.stream({
-  model: "mere-apex-5-5",
+  model: "mere-apex-4",
   max_tokens: 4096,
   thinking: { type: "enabled", budget_tokens: 8000 },
   messages: [{ role: "user", content: "Audit this contract for renewal traps." }],
@@ -167,7 +167,7 @@ console.log(final.usage);`
 ]
 
 response = client.messages.create(
-    model="mere-orion-5-5",
+    model="mere-orion-3",
     max_tokens=2048,
     tools=tools,
     messages=[{"role": "user", "content": "Where is Ana's last order?"}],
@@ -193,7 +193,7 @@ for block in response.content:
 ];
 
 const response = await client.messages.create({
-  model: "mere-orion-5-5",
+  model: "mere-orion-3",
   max_tokens: 2048,
   tools,
   messages: [{ role: "user", content: "Where is Ana's last order?" }],
@@ -214,7 +214,7 @@ const response = await client.messages.create({
 }
 
 response = client.messages.create(
-    model="mere-orion-5-5",
+    model="mere-orion-3",
     max_tokens=1024,
     response_format={"type": "json_schema", "schema": schema},
     messages=[{"role": "user", "content": contract_text}],
@@ -231,7 +231,7 @@ const Contract = z.object({
 });
 
 const response = await client.messages.parse({
-  model: "mere-orion-5-5",
+  model: "mere-orion-3",
   max_tokens: 1024,
   response_format: { type: "zod", schema: Contract },
   messages: [{ role: "user", content: contractText }],
@@ -242,7 +242,7 @@ const record = response.parsed; // typed and validated`
 
   caching: {
     Python: `response = client.messages.create(
-    model="mere-apex-5-5",
+    model="mere-apex-4",
     max_tokens=2048,
     messages=[
         {
@@ -268,7 +268,7 @@ print(response.usage.cache_read_input_tokens)  # billed at 10%`
         {
             "custom_id": row["id"],
             "params": {
-                "model": "mere-nyx-5-5",
+                "model": "mere-nyx-2",
                 "max_tokens": 256,
                 "messages": [{"role": "user", "content": row["text"]}],
             },
@@ -294,7 +294,7 @@ index.upsert([(c.id, v.embedding, c.meta) for c, v in zip(chunks, vectors.data)]
 
   agent: {
     Python: `runner = client.tool_runner(
-    model="mere-apex-5-5",
+    model="mere-apex-4",
     tools=[search_orders, issue_refund, escalate],
     thinking={"type": "enabled", "budget_tokens": 32_000},
     max_steps=200,
@@ -359,7 +359,7 @@ export const API_GROUPS = [
         title: "Create a message",
         description: "Send a conversation and receive the model's reply.",
         params: [
-          { name: "model", type: "string", required: true, desc: "Model ID or alias, e.g. mere-orion-5-5." },
+          { name: "model", type: "string", required: true, desc: "Model ID or alias, e.g. mere-orion-3." },
           { name: "messages", type: "array<Message>", required: true, desc: "The conversation so far. Roles alternate between user and assistant; content is a string or an array of content blocks." },
           { name: "max_tokens", type: "integer", required: true, desc: "Hard cap on tokens generated. Must not exceed the model's max output." },
           { name: "system", type: "string | array", desc: "System instructions. Accepts cache_control for a cacheable prefix." },
@@ -428,36 +428,6 @@ export const API_GROUPS = [
         ],
         returns: "{ data: [{ index, embedding }], usage }"
       }
-    ]
-  },
-  {
-    name: "Images",
-    description: "Generation and editing with Mere Iris.",
-    endpoints: [
-      {
-        method: "post",
-        path: "/v1/images/generations",
-        title: "Generate an image",
-        description: "Create an image from a text prompt.",
-        params: [
-          { name: "model", type: "string", required: true, desc: "mere-iris." },
-          { name: "prompt", type: "string", required: true, desc: "What to draw. Detailed prompts produce more controllable results." },
-          { name: "size", type: "string", desc: "\"1024x1024\", \"1536x1024\", \"1024x1536\", or \"auto\"." },
-          { name: "quality", type: "string", desc: "\"standard\" or \"high\"." },
-          { name: "n", type: "integer", desc: "Number of images, 1–4." }
-        ],
-        returns: "{ data: [{ b64_json | url, revised_prompt }] }"
-      },
-      { method: "post", path: "/v1/images/edits", title: "Edit an image", description: "Apply an instruction to an existing image, optionally with a mask.", params: [{ name: "image", type: "file", required: true, desc: "The source image, PNG or WebP, up to 20 MB." }, { name: "prompt", type: "string", required: true, desc: "The edit to apply." }, { name: "mask", type: "file", desc: "Transparent regions mark the area to change." }], returns: "{ data: [{ b64_json }] }" }
-    ]
-  },
-  {
-    name: "Audio",
-    description: "Transcription, speech synthesis, and realtime duplex sessions.",
-    endpoints: [
-      { method: "post", path: "/v1/audio/transcriptions", title: "Transcribe audio", description: "Convert speech to text with word-level timestamps.", params: [{ name: "file", type: "file", required: true, desc: "Audio up to 500 MB — mp3, wav, m4a, ogg, flac, webm." }, { name: "model", type: "string", required: true, desc: "mere-lyra." }, { name: "timestamps", type: "string", desc: "\"word\" or \"segment\"." }, { name: "language", type: "string", desc: "ISO-639-1 hint. Auto-detected when omitted." }], returns: "{ text, segments, language, duration }" },
-      { method: "post", path: "/v1/audio/speech", title: "Synthesise speech", description: "Turn text into natural audio.", params: [{ name: "model", type: "string", required: true, desc: "mere-lyra." }, { name: "input", type: "string", required: true, desc: "Text to speak, up to 8,000 characters." }, { name: "voice", type: "string", desc: "One of eight voices; see the voice gallery." }, { name: "format", type: "string", desc: "\"mp3\", \"wav\", \"opus\", or \"pcm\"." }], returns: "Binary audio in the requested format." },
-      { method: "post", path: "/v1/realtime/sessions", title: "Create a realtime session", description: "Mint a short-lived client token for a duplex WebRTC or WebSocket session.", params: [{ name: "model", type: "string", required: true, desc: "mere-lyra." }, { name: "voice", type: "string", desc: "Voice for the assistant side of the session." }, { name: "tools", type: "array<Tool>", desc: "Tools the voice agent may call mid-conversation." }, { name: "instructions", type: "string", desc: "System behaviour for the session." }], returns: "{ client_secret, expires_at, model }" }
     ]
   },
   {

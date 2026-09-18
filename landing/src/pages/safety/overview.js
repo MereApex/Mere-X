@@ -46,7 +46,7 @@ export default {
             ${statTile({ value: 41000, label: "Adversarial prompts", note: "In the red-team corpus" }).value}
             ${statTile({ value: 99.4, decimals: 1, suffix: "%", label: "Refusal accuracy", note: "On genuinely harmful requests" }).value}
             ${statTile({ value: 0.8, decimals: 1, suffix: "%", label: "Over-refusal rate", note: "Benign requests wrongly refused" }).value}
-            ${statTile({ value: 6, label: "Weeks", note: "Mere X 5.5 slipped for a red-team finding" }).value}
+            ${statTile({ value: 6, label: "Weeks", note: "Mere Code slipped for a red-team finding" }).value}
           </div>
         </div>
       </section>
@@ -81,7 +81,7 @@ export default {
                 <p class="eyebrow">The gate</p>
                 <h2 style="margin-top:18px;font-size:var(--t-h2)">We have used it.</h2>
                 <p style="margin-top:20px;color:rgba(255,255,255,.66);line-height:1.68;max-width:52ch">
-                  Mere X 5.5 slipped six weeks because a red-team finding on long tool-use chains had no
+                  Mere Code slipped six weeks because a red-team finding on long tool-use chains had no
                   mitigation we were confident in. The finding, the delay, and the eventual fix are all
                   in the system card. A gate that has never been closed is decoration.
                 </p>

@@ -8,34 +8,22 @@ import { mereXSeal } from "../../components/orb.js";
 
 const PRODUCTS = [
   {
-    icon: "sparkle", name: "Mere X", href: "/products/mere-x", tag: "For everyone",
-    tagline: "The assistant, with a complete Studio around it.",
-    body: "Chat, deep research, canvas, projects, memory, and eighty connectors — the whole model family behind one calm interface.",
-    points: ["Free tier, no card", "DEEP research mode", "Files, images, and voice", "Works on web, desktop, and mobile"]
-  },
-  {
-    icon: "users", name: "Mere X for Work", href: "/products/work", tag: "For teams",
-    tagline: "Shared context, administered properly.",
-    body: "Team projects, shared knowledge, SSO and SCIM, audit logs, and a retention policy your security team can actually sign off.",
-    points: ["Shared projects and knowledge", "SSO, SCIM, and SAML", "Admin controls and audit logs", "Zero-retention option"]
-  },
-  {
-    icon: "terminal", name: "Mere X Code", href: "/products/code", tag: "For engineers",
-    tagline: "An agent that lives in your repository.",
-    body: "A terminal-native coding agent that reads the codebase, makes minimal correct changes, runs the tests, and explains what it did.",
-    points: ["CLI, IDE extensions, and CI", "Repo-scale understanding", "Runs and reads your tests", "Reviews diffs like a colleague"]
+    icon: "terminal", name: "Mere Code", href: "/products/code", tag: "For engineers",
+    tagline: "The coding agent, in your browser.",
+    body: "Open a folder, describe the change, and watch Mere read, plan, edit and explain. Every diff is reviewable, every turn has a checkpoint, and nothing needs installing.",
+    points: ["Agent, Plan and Ask modes", "Four thinking depths", "Checkpoints and per-file review", "Works on your local files"]
   },
   {
     icon: "code", name: "The API", href: "/products/api", tag: "For builders",
-    tagline: "Build Mere X into your own product.",
-    body: "One endpoint for everything conversational, agentic, and multimodal. Six SDKs, a console that shows you what is happening, and pricing you can model.",
-    points: ["Messages, batch, embeddings, images, audio", "Tool use and structured output", "Prompt caching and half-price batch", "Provisioned throughput available"]
+    tagline: "Build the Mere models into your own product.",
+    body: "One endpoint for conversational and agentic work. Six SDKs, a console that shows you what is happening, and pricing you can model before you ship.",
+    points: ["Messages, batch, embeddings", "Tool use and structured output", "Prompt caching and half-price batch", "Provisioned throughput available"]
   },
   {
-    icon: "plug", name: "Connectors", href: "/products/connectors", tag: "Integrations",
-    tagline: "Eighty tools Mere X can operate.",
-    body: "Gmail, GitHub, Slack, Drive, Notion, Snowflake, Salesforce — read and act, with per-connector permissions you control.",
-    points: ["80+ first-party connectors", "MCP connector specification", "Per-tool permission scopes", "Build your own in an afternoon"]
+    icon: "network", name: "Mere Atlas", href: "/technology/models/mere-atlas", tag: "Retrieval",
+    tagline: "Code embeddings trained beside the models that read them.",
+    body: "Index a repository by symbol, file and concept so the agent — or your own search — finds what it should read first.",
+    points: ["Repository-scale indexing", "Truncatable dimensions", "Multilingual", "Free classification alongside"]
   },
   {
     icon: "building", name: "Enterprise", href: "/products/enterprise", tag: "For institutions",
@@ -47,16 +35,16 @@ const PRODUCTS = [
 
 export default {
   title: "Products",
-  description: "Mere X the assistant, Mere X for Work, Mere X Code, the API, connectors, and enterprise deployment.",
+  description: "Mere Code, the API, Mere Atlas, and enterprise deployment.",
 
   render() {
     return `
       ${pageHead({
         crumb: [{ label: "Products" }],
         eyebrow: "Products",
-        title: "One model family. Six ways to put it to work.",
-        lead: "Whether you want an assistant, a coding agent, or an API to build on, it is the same Mere X underneath — same safety layer, same reasoning budgets, same bill.",
-        actions: `${button({ label: "Try Mere X free", href: "/app", icon: "arrow-ne" }).value}
+        title: "One model family. Four ways to put it to work.",
+        lead: "Whether you want the coding agent or an API to build on, it is the same Mere family underneath — same safety layer, same thinking budgets, same bill.",
+        actions: `${button({ label: "Open Mere Code", href: "/app", icon: "arrow-ne" }).value}
                   ${button({ label: "See pricing", href: "/pricing", variant: "secondary", icon: "card" }).value}`
       }).value}
 
@@ -91,9 +79,9 @@ export default {
             <table class="data">
               <thead><tr><th>If you want to…</th><th>Start with</th><th>And add</th></tr></thead>
               <tbody>
-                <tr><td>use a very good assistant</td><td><a class="link-plain" href="/products/mere-x"><strong>Mere X</strong></a></td><td class="small muted">Connectors, for the tools you already use</td></tr>
-                <tr><td>roll it out to a team</td><td><a class="link-plain" href="/products/work"><strong>Mere X for Work</strong></a></td><td class="small muted">SSO and a retention policy</td></tr>
-                <tr><td>ship code faster</td><td><a class="link-plain" href="/products/code"><strong>Mere X Code</strong></a></td><td class="small muted">CI integration for review on every PR</td></tr>
+                <tr><td>hand a task to an agent</td><td><a class="link-plain" href="/products/code"><strong>Mere Code</strong></a></td><td class="small muted">In the browser, on your own files</td></tr>
+                <tr><td>roll it out to a team</td><td><a class="link-plain" href="/products/enterprise"><strong>Enterprise</strong></a></td><td class="small muted">SSO and a retention policy</td></tr>
+                <tr><td>ship code faster</td><td><a class="link-plain" href="/products/code"><strong>Mere Code</strong></a></td><td class="small muted">CI integration for review on every PR</td></tr>
                 <tr><td>build it into your product</td><td><a class="link-plain" href="/products/api"><strong>The API</strong></a></td><td class="small muted">Batch, for anything not user-facing</td></tr>
                 <tr><td>deploy inside a regulated estate</td><td><a class="link-plain" href="/products/enterprise"><strong>Enterprise</strong></a></td><td class="small muted">Residency pinning and zero retention</td></tr>
               </tbody>

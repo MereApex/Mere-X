@@ -61,7 +61,7 @@ export default {
               </article>`).join("")}
           </div>
           <p class="xs muted center" style="margin-top:26px">
-            Paid individual plans include 30 days of access and Mere X Studio. Starter includes Nyx and Orion; Plus, Pro, and Max include the full Mere X 5.5 family. Free includes Mere Nyx 5.5 chat.
+            Paid individual plans include 30 days of access. Starter includes Nyx 2 and Orion 3; Plus, Pro, and Max include the full Mere model family with Extra High thinking. Free includes Mere Nyx 2.
             Education and non-profit pricing is available — <a class="link-plain" href="/company/contact">ask us</a>.
           </p>
         </div>
@@ -100,10 +100,10 @@ export default {
                 <table class="data" style="min-width:0">
                   <tbody>
                     <tr><td>Embeddings — Embed 3</td><td class="num">$0.03 / MTok</td></tr>
-                    <tr><td>Image generation — Iris</td><td class="num">$0.04 / image</td></tr>
-                    <tr><td>Transcription — Lyra</td><td class="num">$0.06 / min</td></tr>
-                    <tr><td>Speech synthesis — Lyra</td><td class="num">$0.12 / min</td></tr>
-                    <tr><td>Realtime session — Lyra</td><td class="num">$0.18 / min</td></tr>
+                    <tr><td>Embeddings — Atlas</td><td class="num">$0.03 / 1M tokens</td></tr>
+                    <tr><td>Classification — Aegis</td><td class="num">Free</td></tr>
+                    <tr><td>Batch API</td><td class="num">50% off</td></tr>
+                    <tr><td>Cached input</td><td class="num">10% of input</td></tr>
                     <tr><td>Guard classification</td><td class="num">Free</td></tr>
                     <tr><td>File storage</td><td class="num">$0.02 / GB / month</td></tr>
                   </tbody>
@@ -117,7 +117,7 @@ export default {
                 <div class="field">
                   <label class="field-label" for="calc-model">Model</label>
                   <select class="select" id="calc-model" data-calc-model>
-                    ${CHAT_MODELS.map((m) => `<option value="${m.id}" ${m.id === "mere-orion-5-5" ? "selected" : ""}>${m.name}</option>`).join("")}
+                    ${CHAT_MODELS.map((m) => `<option value="${m.id}" ${m.id === "mere-orion-3" ? "selected" : ""}>${m.name}</option>`).join("")}
                   </select>
                 </div>
                 <div class="pg-control">

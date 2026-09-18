@@ -1,6 +1,8 @@
 // The single browser-side seam to Mere X's private server-side AI gateway.
 // Permanent service credentials never cross this boundary or reach the browser.
 
+import { apiFetch } from "./api-config.js";
+
 export class AssistantError extends Error {
   constructor(message, { retryable = true, code = "assistant_error" } = {}) {
     super(message);
@@ -31,28 +33,24 @@ function parseLine(line) {
 }
 
 /**
- * Streams a Mere X reply from the same-origin backend as newline-delimited JSON.
- * @param {object} request
- * @param {{role: string, text: string, attachments?: object[]}[]} request.messages
- * @param {object} request.context
- * @param {AbortSignal} request.signal
- * @param {(event: object) => void} [request.onEvent]
- * @yields {string} the next text delta
+ * One model round: the whole exchange goes up as Responses items and the
+ * server streams back text, thoughts, tool calls and every completed item.
+ * Resolves with the completed output items and whether tools are pending.
  */
-export async function* streamAssistantReply({ messages, context, signal, onEvent }) {
-  if (!messages.length) throw new AssistantError("There is nothing to answer yet.", { retryable: false });
+export async function streamAgentRound({ items, context, signal, onEvent }) {
+  if (!items.length) throw new AssistantError("There is nothing to work on yet.", { retryable: false });
 
   let response;
   try {
-    response = await fetch("/api/chat", {
+    response = await apiFetch("/api/agent", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
-      body: JSON.stringify({ messages, context }),
+      body: JSON.stringify({ items, context }),
       signal
     });
   } catch (error) {
     if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
-    throw new AssistantError("Mere X's AI server is unavailable. Make sure `npm run dev` is running.", { code: "network_error" });
+    throw new AssistantError("Mere X's AI server is unavailable. Make sure the server is running.", { code: "network_error" });
   }
 
   if (!response.ok) throw await errorFromResponse(response);
@@ -61,37 +59,38 @@ export async function* streamAssistantReply({ messages, context, signal, onEvent
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  const output = [];
+  let done = null;
+
+  const handle = (event) => {
+    onEvent?.(event);
+    if (event.type === "item" && event.item) output.push(event.item);
+    if (event.type === "done") done = event;
+    if (event.type === "error") {
+      throw new AssistantError(event.error?.message || "Mere X could not complete the response.", {
+        code: event.error?.code || "ai_error",
+        retryable: event.error?.code !== "content_blocked"
+      });
+    }
+  };
 
   try {
     while (true) {
-      const { done, value } = await reader.read();
-      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const { done: finished, value } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !finished });
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
-
       for (const line of lines) {
         if (!line.trim()) continue;
-        const event = parseLine(line);
-        onEvent?.(event);
-        if (event.type === "delta" && typeof event.delta === "string") yield event.delta;
-        if (event.type === "error") {
-          throw new AssistantError(event.error?.message || "Mere X could not complete the response.", {
-            code: event.error?.code || "ai_error",
-            retryable: event.error?.code !== "content_blocked"
-          });
-        }
+        handle(parseLine(line));
       }
-
-      if (done) break;
+      if (finished) break;
     }
-
-    if (buffer.trim()) {
-      const event = parseLine(buffer);
-      onEvent?.(event);
-      if (event.type === "delta" && typeof event.delta === "string") yield event.delta;
-      if (event.type === "error") throw new AssistantError(event.error?.message || "Mere X could not complete the response.", { code: event.error?.code || "ai_error" });
-    }
+    if (buffer.trim()) handle(parseLine(buffer));
   } finally {
     reader.releaseLock();
   }
+
+  if (!done) throw new AssistantError("The connection closed before the model finished.", { code: "stream_closed" });
+  return { output, pending: Number(done.pending || 0), usage: done.usage || null, model: done.model || "" };
 }

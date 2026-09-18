@@ -315,8 +315,8 @@ table.data td strong { font-weight: 600; }
    ------------------------------------------------------------ */
 .code-block {
   border-radius: var(--r-md);
-  border: 1px solid var(--ink);
-  background: var(--ink);
+  border: 1px solid var(--line-strong);
+  background: #000000;
   overflow: hidden;
 }
 .code-head {
@@ -620,7 +620,7 @@ code.inline {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   animation: fade-in 0.25s var(--ease-out) both;

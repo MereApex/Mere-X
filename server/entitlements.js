@@ -2,70 +2,58 @@ import { query, transaction } from "./database.js";
 
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1_000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1_000;
-const MODEL_KEYS = Object.freeze(["nyx", "orion", "apex"]);
-const EFFORT_KEYS = Object.freeze(["Fast", "Medium", "High", "DEEP"]);
+export const MODEL_KEYS = Object.freeze(["nyx", "orion", "apex"]);
+export const EFFORT_KEYS = Object.freeze(["Fast", "Medium", "High", "Extra High"]);
 
 /* One catalog drives the API guardrails and the client UI. Commercial limits
-   can be tuned here without scattering plan checks throughout the product. */
+   can be tuned here without scattering plan checks throughout the product.
+
+   `message` is one agent turn (a prompt and every tool round it needs);
+   `inline` is a quick edit or a completion inside the editor. */
 export const PLAN_CATALOG = Object.freeze({
   Free: Object.freeze({
-    studio: false,
     models: Object.freeze(["nyx"]),
-    defaultChatModel: "nyx",
-    efforts: Object.freeze(["Fast", "Medium", "High"]),
+    defaultModel: "nyx",
+    efforts: Object.freeze(["Fast", "Medium"]),
     limits: Object.freeze({
-      message: Object.freeze({ fiveHours: 20, week: 100 }),
-      image: Object.freeze({ fiveHours: 2, week: 8 }),
-      voice: Object.freeze({ fiveHours: 2, week: 10 }),
-      transcription: Object.freeze({ fiveHours: 12, week: 60 })
+      message: Object.freeze({ fiveHours: 15, week: 60 }),
+      inline: Object.freeze({ fiveHours: 40, week: 200 })
     })
   }),
   Starter: Object.freeze({
-    studio: true,
     models: Object.freeze(["nyx", "orion"]),
-    defaultChatModel: "orion",
+    defaultModel: "orion",
     efforts: Object.freeze(["Fast", "Medium", "High"]),
     limits: Object.freeze({
       message: Object.freeze({ fiveHours: 80, week: 500 }),
-      image: Object.freeze({ fiveHours: 20, week: 100 }),
-      voice: Object.freeze({ fiveHours: 12, week: 70 }),
-      transcription: Object.freeze({ fiveHours: 60, week: 350 })
+      inline: Object.freeze({ fiveHours: 200, week: 1_200 })
     })
   }),
   Plus: Object.freeze({
-    studio: true,
     models: Object.freeze(MODEL_KEYS),
-    defaultChatModel: "orion",
+    defaultModel: "orion",
     efforts: Object.freeze(EFFORT_KEYS),
     limits: Object.freeze({
       message: Object.freeze({ fiveHours: 160, week: 1_000 }),
-      image: Object.freeze({ fiveHours: 40, week: 220 }),
-      voice: Object.freeze({ fiveHours: 30, week: 180 }),
-      transcription: Object.freeze({ fiveHours: 120, week: 700 })
+      inline: Object.freeze({ fiveHours: 400, week: 2_500 })
     })
   }),
   Pro: Object.freeze({
-    studio: true,
     models: Object.freeze(MODEL_KEYS),
-    defaultChatModel: "apex",
+    defaultModel: "apex",
     efforts: Object.freeze(EFFORT_KEYS),
     limits: Object.freeze({
       message: Object.freeze({ fiveHours: 320, week: 2_000 }),
-      image: Object.freeze({ fiveHours: 80, week: 450 }),
-      voice: Object.freeze({ fiveHours: 70, week: 420 }),
-      transcription: Object.freeze({ fiveHours: 240, week: 1_400 })
+      inline: Object.freeze({ fiveHours: 800, week: 5_000 })
     })
   }),
   Max: Object.freeze({
-    studio: true,
     models: Object.freeze(MODEL_KEYS),
-    defaultChatModel: "apex",
+    defaultModel: "apex",
     efforts: Object.freeze(EFFORT_KEYS),
     limits: Object.freeze({
       message: Object.freeze({ fiveHours: 800, week: 5_000 }),
-      image: Object.freeze({ fiveHours: 200, week: 1_100 }),
-      voice: Object.freeze({ fiveHours: 180, week: 1_000 }),
-      transcription: Object.freeze({ fiveHours: 600, week: 3_500 })
+      inline: Object.freeze({ fiveHours: 2_000, week: 12_000 })
     })
   })
 });
@@ -83,9 +71,8 @@ export function entitlementsFor(user, now = new Date()) {
   const value = PLAN_CATALOG[plan];
   return {
     plan,
-    studio: value.studio,
     models: [...value.models],
-    defaultChatModel: value.defaultChatModel,
+    defaultModel: value.defaultModel,
     efforts: [...value.efforts],
     limits: Object.fromEntries(Object.entries(value.limits).map(([category, limits]) => [category, { ...limits }]))
   };
@@ -98,27 +85,19 @@ function accessError(code, message, status = 403) {
   return error;
 }
 
-export function resolveChatAccess(user, context = {}) {
+/* Every agent request names a model and an effort; both must be inside the
+   plan, and the answer is what the server actually runs. */
+export function resolveAgentAccess(user, context = {}) {
   const entitlements = entitlementsFor(user);
-  const surface = context?.surface === "studio" ? "studio" : "chat";
-  if (surface === "studio" && !entitlements.studio) {
-    throw accessError("studio_plan_required", "Studio is available on paid Mere X plans.");
-  }
-
-  const requestedEffort = EFFORT_KEYS.includes(context?.effort) ? context.effort : "High";
+  const requestedEffort = EFFORT_KEYS.includes(context?.effort) ? context.effort : "Medium";
   if (!entitlements.efforts.includes(requestedEffort)) {
     throw accessError("effort_plan_required", `${requestedEffort} reasoning is not included with the ${entitlements.plan} plan.`);
   }
-
-  let model = entitlements.defaultChatModel;
-  if (surface === "studio") {
-    const requestedModel = MODEL_KEYS.includes(context?.model) ? context.model : entitlements.defaultChatModel;
-    if (!entitlements.models.includes(requestedModel)) {
-      throw accessError("model_plan_required", "That model is not included with this Mere X plan.");
-    }
-    model = requestedModel;
+  const requestedModel = MODEL_KEYS.includes(context?.model) ? context.model : entitlements.defaultModel;
+  if (!entitlements.models.includes(requestedModel)) {
+    throw accessError("model_plan_required", "That model is not included with this Mere X plan.");
   }
-  return { entitlements, surface, model, effort: requestedEffort };
+  return { entitlements, model: requestedModel, effort: requestedEffort };
 }
 
 function quotaError(windowName, limit, resetAt) {

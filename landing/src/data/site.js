@@ -9,10 +9,10 @@ export const COMPANY = {
   offices: ["San Francisco", "London", "Zürich", "Tokyo", "Tbilisi"],
   people: 640,
   researchers: 210,
-  tagline: "Building intelligence that advances humanity.",
+  tagline: "Building the agent that works in your codebase.",
   mission:
-    "Mere X exists to make advanced AI a dependable part of human work — capable enough to matter, and understood well enough to trust.",
-  model: "Mere X",
+    "Mere X exists to make a coding agent a dependable part of engineering work — capable enough to hand a real task to, and transparent enough to review every change it makes.",
+  model: "Mere",
   email: "hello@merex.ai",
   press: "press@merex.ai",
   security: "security@merex.ai",
@@ -29,39 +29,35 @@ export const NAV = [
       { title: "Research overview", href: "/research", desc: "How we work and what we are pursuing", icon: "flask" },
       { title: "Publications", href: "/research/publications", desc: "Papers, technical reports, and notes", icon: "book" },
       { title: "Interpretability", href: "/research/interpretability", desc: "Reading what a model is actually doing", icon: "microscope" },
-      { title: "Alignment", href: "/research/alignment", desc: "Making capable systems behave as intended", icon: "target" },
+      { title: "Alignment", href: "/research/alignment", desc: "Making capable agents behave as intended", icon: "target" },
       { title: "Evaluations", href: "/research/evaluations", desc: "How we measure capability and harm", icon: "gauge" },
       { title: "Residency & fellows", href: "/research/residency", desc: "Come do a year of research with us", icon: "graduation" }
     ]
   },
   {
     id: "technology",
-    label: "Technology",
+    label: "Models",
     href: "/technology",
     panelWide: true,
     links: [
-      { title: "The Mere X family", href: "/technology", desc: "Every model, side by side", icon: "orbit" },
-      { title: "Mere Apex 5.5", href: "/technology/models/mere-apex-5-5", desc: "Frontier reasoning", icon: "sun" },
-      { title: "Mere Orion 5.5", href: "/technology/models/mere-orion-5-5", desc: "The production workhorse", icon: "globe" },
-      { title: "Mere Nyx 5.5", href: "/technology/models/mere-nyx-5-5", desc: "Fast and inexpensive", icon: "moon" },
-      { title: "Reasoning modes", href: "/technology/reasoning", desc: "Fast, Medium, High, and DEEP", icon: "atom" },
-      { title: "Architecture", href: "/technology/architecture", desc: "How Mere X is built", icon: "cpu" },
-      { title: "Multimodality", href: "/technology/multimodal", desc: "Vision, documents, audio", icon: "image" },
+      { title: "The Mere family", href: "/technology", desc: "Every model, side by side", icon: "orbit" },
+      { title: "Mere Apex 4", href: "/technology/models/mere-apex-4", desc: "Frontier reasoning for the hardest work", icon: "sun" },
+      { title: "Mere Orion 3", href: "/technology/models/mere-orion-3", desc: "The daily driver", icon: "globe" },
+      { title: "Mere Nyx 2", href: "/technology/models/mere-nyx-2", desc: "Instant and inexpensive", icon: "moon" },
+      { title: "Thinking depths", href: "/technology/reasoning", desc: "Fast, Medium, High, and Extra High", icon: "atom" },
+      { title: "Architecture", href: "/technology/architecture", desc: "How the models are built", icon: "cpu" },
       { title: "Infrastructure", href: "/technology/infrastructure", desc: "The compute behind the models", icon: "server" },
       { title: "Benchmarks", href: "/technology/benchmarks", desc: "Evaluation results in full", icon: "chart" }
     ]
   },
   {
     id: "products",
-    label: "Products",
+    label: "Product",
     href: "/products",
     panelWide: false,
     links: [
-      { title: "Mere X", href: "/products/mere-x", desc: "The assistant, for everyone", icon: "sparkle" },
-      { title: "Mere X for Work", href: "/products/work", desc: "Shared context for teams", icon: "users" },
-      { title: "Mere X Code", href: "/products/code", desc: "An agent that lives in your repo", icon: "terminal" },
-      { title: "The API", href: "/products/api", desc: "Build Mere X into your product", icon: "code" },
-      { title: "Connectors", href: "/products/connectors", desc: "80+ tools Mere X can operate", icon: "plug" },
+      { title: "Mere Code", href: "/products/code", desc: "The coding agent, in your browser", icon: "terminal" },
+      { title: "The API", href: "/products/api", desc: "Build the Mere models into your product", icon: "code" },
       { title: "Enterprise", href: "/products/enterprise", desc: "Deployment, residency, and support", icon: "building" },
       { title: "Pricing", href: "/pricing", desc: "Plans and per-token rates", icon: "card" }
     ]
@@ -72,7 +68,7 @@ export const NAV = [
     href: "/safety",
     panelWide: false,
     links: [
-      { title: "Our approach", href: "/safety", desc: "What safety means here in practice", icon: "shield" },
+      { title: "Our approach", href: "/safety", desc: "What safety means for an agent that edits code", icon: "shield" },
       { title: "Responsible Scaling Policy", href: "/safety/scaling-policy", desc: "What must be true before we ship", icon: "scale" },
       { title: "System cards", href: "/safety/system-cards", desc: "Per-release capability and risk reports", icon: "file" },
       { title: "Usage policy", href: "/safety/usage-policy", desc: "What Mere X may and may not be used for", icon: "list" },
@@ -89,7 +85,7 @@ export const NAV = [
       { title: "About Mere X", href: "/company", desc: "Who we are and how we got here", icon: "building" },
       { title: "Careers", href: "/company/careers", desc: "Open roles across research and product", icon: "briefcase" },
       { title: "News", href: "/company/news", desc: "Announcements and press", icon: "news" },
-      { title: "Customers", href: "/company/customers", desc: "What people build on Mere X", icon: "star" },
+      { title: "Customers", href: "/company/customers", desc: "What teams ship with Mere X", icon: "star" },
       { title: "Trust centre", href: "/company/trust", desc: "Compliance, security, and privacy", icon: "lock" },
       { title: "Contact", href: "/company/contact", desc: "Sales, press, and support", icon: "mail" }
     ]
@@ -115,25 +111,25 @@ export const NAV = [
 
 export const FOOTER = [
   {
-    title: "Platform",
+    title: "Product",
     links: [
-      { label: "Developer console", href: "/console" },
-      { label: "API reference", href: "/docs/api" },
-      { label: "Quickstart", href: "/docs/quickstart" },
-      { label: "SDKs", href: "/docs/sdks" },
-      { label: "Cookbook", href: "/docs/cookbook" },
+      { label: "Mere Code", href: "/products/code" },
+      { label: "Open the workspace", href: "/app" },
+      { label: "The API", href: "/products/api" },
+      { label: "Enterprise", href: "/products/enterprise" },
       { label: "Pricing", href: "/pricing" },
+      { label: "Developer console", href: "/console" },
       { label: "Status", href: "/status" }
     ]
   },
   {
     title: "Models",
     links: [
-      { label: "Mere Apex 5.5", href: "/technology/models/mere-apex-5-5" },
-      { label: "Mere Orion 5.5", href: "/technology/models/mere-orion-5-5" },
-      { label: "Mere Nyx 5.5", href: "/technology/models/mere-nyx-5-5" },
-      { label: "Mere Iris", href: "/technology/models/mere-iris" },
-      { label: "Mere Lyra", href: "/technology/models/mere-lyra" },
+      { label: "Mere Apex 4", href: "/technology/models/mere-apex-4" },
+      { label: "Mere Orion 3", href: "/technology/models/mere-orion-3" },
+      { label: "Mere Nyx 2", href: "/technology/models/mere-nyx-2" },
+      { label: "Mere Atlas", href: "/technology/models/mere-atlas" },
+      { label: "Thinking depths", href: "/technology/reasoning" },
       { label: "Benchmarks", href: "/technology/benchmarks" }
     ]
   },
@@ -170,9 +166,9 @@ export const LEGAL_LINKS = [
 
 export const HERO_STATS = [
   { value: 3, suffix: "", label: "Mere models" },
-  { value: 4, suffix: "", label: "Reasoning depths" },
-  { value: 5, suffix: "h", label: "Rolling usage window" },
-  { value: 1, suffix: "", label: "Synchronized Studio" }
+  { value: 4, suffix: "", label: "Thinking depths" },
+  { value: 1, suffix: "M", label: "Token context" },
+  { value: 0, suffix: "", label: "Installs required" }
 ];
 
 export const TRUST_LOGOS = [
@@ -185,12 +181,12 @@ export const VALUES = [
   {
     icon: "target",
     title: "Useful before impressive",
-    body: "A model that wins a benchmark and loses a user has not helped anyone. We optimise for the work people actually bring us."
+    body: "A model that wins a benchmark and loses an engineer has not helped anyone. We optimise for the pull requests people actually need to ship."
   },
   {
     icon: "eye",
-    title: "Understand what we build",
-    body: "Capability without interpretability is a liability. Every capability push is matched by investment in reading the system from the inside."
+    title: "Every change reviewable",
+    body: "An agent that edits code must show its work. Every file it touches is a diff you can read, keep, or revert — nothing lands silently."
   },
   {
     icon: "scale",
@@ -206,11 +202,11 @@ export const VALUES = [
 
 export const MILESTONES = [
   { date: "March 2023", title: "Mere X is founded", body: "Eleven researchers and engineers leave frontier labs to work on interpretable, reliable systems. The first office is a converted print shop in the Mission." },
-  { date: "January 2024", title: "Mere 3.5 — internal only", body: "The first model in the family. Never released publicly; it existed to prove the training stack and the evaluation harness worked end to end." },
-  { date: "September 2024", title: "Mere 4.0 and the first API", body: "A private beta with 40 companies. The reasoning-budget control that defines the family ships in its first, crude form." },
-  { date: "May 2025", title: "Mere 4.5 and Studio", body: "The consumer product launches alongside the API. Connectors arrive; the model can finally act on the tools people already use." },
-  { date: "November 2025", title: "Mere 5.0 and the Responsible Scaling Policy", body: "We publish the commitments that gate every future release, and the evaluation suite that decides whether a model has met them." },
-  { date: "June 2026", title: "Mere X 5.5", body: "Apex, Orion, and Nyx ship together with a million-token window, DEEP reasoning, and the agent stack that had been running internally for eight months." }
+  { date: "January 2024", title: "Mere Nyx — internal only", body: "The first model in the family. Never released publicly; it existed to prove the training stack and the evaluation harness worked end to end." },
+  { date: "September 2024", title: "Mere Orion 1 and the first API", body: "A private beta with 40 companies. The thinking-budget control that defines the family ships in its first, crude form." },
+  { date: "May 2025", title: "Mere Apex 2 and the first agent", body: "The agent runs internally on our own repositories for eight months before anyone outside sees it. Most of what it learned is about when to stop and ask." },
+  { date: "November 2025", title: "The Responsible Scaling Policy", body: "We publish the commitments that gate every future release, and the evaluation suite that decides whether a model has met them." },
+  { date: "September 2026", title: "Mere Code", body: "Apex 4, Orion 3, and Nyx 2 ship together inside a coding agent that runs in the browser, with a million-token window, Extra High thinking, and every edit reviewable." }
 ];
 
 export const LEADERSHIP = [
@@ -218,6 +214,6 @@ export const LEADERSHIP = [
   { name: "Marcus Adeyemi", role: "Co-founder & Chief Scientist", bio: "Works on interpretability and the internal geometry of large models. Believes an unexplained capability is an unfinished one." },
   { name: "Sana Ghorbani", role: "Chief Technology Officer", bio: "Built the training and serving stack. Cares more about the tail of the latency distribution than almost anyone should." },
   { name: "Peter Lindqvist", role: "Head of Safety", bio: "Runs the evaluation and red-team organisation. Holds the release gate, and has used it." },
-  { name: "Renata Oyelaran", role: "Head of Product", bio: "Shapes Studio and the developer platform. Convinced that most AI products fail on ergonomics, not intelligence." },
+  { name: "Renata Oyelaran", role: "Head of Product", bio: "Shapes Mere Code and the developer platform. Convinced that most AI products fail on ergonomics, not intelligence." },
   { name: "Dai Watanabe", role: "General Counsel", bio: "Policy, privacy, and the long negotiations that make regulated deployments possible." }
 ];

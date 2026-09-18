@@ -15,23 +15,23 @@ import { onNavigate, navigate } from "../lib/router.js";
 import { getStack, inStack, addToStack, removeFromStack, onStackChange } from "../lib/stack.js";
 import { toast } from "../lib/toast.js";
 
-const CATALOG = ["mere-apex-5-5", "mere-orion-5-5", "mere-nyx-5-5", "mere-iris", "mere-lyra"]
+const CATALOG = ["mere-apex-4", "mere-orion-3", "mere-nyx-2", "mere-atlas"]
   .map((id) => MODEL_BY_ID[id])
   .filter(Boolean);
 
 const PLATFORM = [
-  { n: "01", title: "The API", href: "/products/api", desc: "One endpoint, six SDKs, and a million-token window behind every call." },
-  { n: "02", title: "Developer console", href: "/console", desc: "Keys, usage, request logs, limits, and billing — read in one place." },
-  { n: "03", title: "Mere X Studio", href: "/app", desc: "The assistant workspace for chat, deep research, images, code, and voice." },
-  { n: "04", title: "Documentation", href: "/docs", desc: "Quickstart, API reference, cookbook, and the prompt library." },
-  { n: "05", title: "Pricing", href: "/pricing", desc: "Flat plans for people, per-token rates for builders, batch at half price." },
-  { n: "06", title: "Enterprise", href: "/products/enterprise", desc: "Deployment, data residency, and support for regulated teams." }
+  { n: "01", title: "Mere Code", href: "/app", desc: "The coding agent, in your browser. Open a folder, describe the change, review the diff." },
+  { n: "02", title: "How it works", href: "/products/code", desc: "Agent, Plan and Ask modes, four thinking depths, checkpoints and review." },
+  { n: "03", title: "The API", href: "/products/api", desc: "One endpoint, six SDKs, and a million-token window behind every call." },
+  { n: "04", title: "Developer console", href: "/console", desc: "Keys, usage, request logs, limits, and billing — read in one place." },
+  { n: "05", title: "Documentation", href: "/docs", desc: "Quickstart, API reference, cookbook, and the prompt library." },
+  { n: "06", title: "Pricing", href: "/pricing", desc: "Flat plans for people, per-token rates for builders, batch at half price." }
 ];
 
 const INDEX = [
   { label: "Research", href: "/research" },
-  { label: "Technology", href: "/technology" },
-  { label: "Products", href: "/products" },
+  { label: "Models", href: "/technology" },
+  { label: "Product", href: "/products/code" },
   { label: "Safety", href: "/safety" },
   { label: "Company", href: "/company" },
   { label: "Docs", href: "/docs" },
@@ -61,7 +61,7 @@ function catalogBody() {
     <div class="drawer-links">
       <a class="link" href="/technology"><span>Compare all models</span>${icon("arrow-ne", "icon").value}</a>
       <a class="link link-quiet" href="/technology/benchmarks"><span>Benchmarks</span>${icon("arrow-ne", "icon").value}</a>
-      <a class="link link-quiet" href="/technology/reasoning"><span>Reasoning modes</span>${icon("arrow-ne", "icon").value}</a>
+      <a class="link link-quiet" href="/technology/reasoning"><span>Thinking depths</span>${icon("arrow-ne", "icon").value}</a>
     </div>`;
 }
 
@@ -116,8 +116,8 @@ function stackBody() {
 }
 
 const DRAWERS = {
-  models: { title: "Model Family", sub: `${escapeHtml(COMPANY.model)} 5.5 lineup`, body: catalogBody },
-  platform: { title: "Developer Platform", sub: "Build on Mere X", body: platformBody },
+  models: { title: "Model Family", sub: "Apex 4 · Orion 3 · Nyx 2", body: catalogBody },
+  platform: { title: "Product", sub: "Mere Code and the platform", body: platformBody },
   research: { title: "Research", sub: "Latest dispatches", body: researchBody },
   stack: { title: "Your Stack", sub: "Models to build with", body: stackBody }
 };
@@ -125,8 +125,8 @@ const DRAWERS = {
 function drawerFoot(kind) {
   if (kind === "stack" && getStack().length) {
     return `
-      <a class="btn btn-primary btn-block drawer-checkout" href="/console" data-stack-go>
-        <span>Start building</span>${icon("chevron-right", "icon").value}
+      <a class="btn btn-primary btn-block drawer-checkout" href="/app" data-stack-go>
+        <span>Open Mere Code</span>${icon("chevron-right", "icon").value}
       </a>
       <a class="link link-quiet" href="/technology" style="align-self:center"><span>Compare the stack</span>${icon("arrow-ne", "icon").value}</a>`;
   }
@@ -149,8 +149,9 @@ export function renderNav() {
       </a>
       <nav class="nav-links" aria-label="Main">
         <button class="nav-link-btn" type="button" data-drawer-open="models" aria-haspopup="dialog" aria-expanded="false">Models</button>
-        <button class="nav-link-btn" type="button" data-drawer-open="platform" aria-haspopup="dialog" aria-expanded="false">Platform</button>
+        <button class="nav-link-btn" type="button" data-drawer-open="platform" aria-haspopup="dialog" aria-expanded="false">Product</button>
         <button class="nav-link-btn" type="button" data-drawer-open="research" aria-haspopup="dialog" aria-expanded="false">Research</button>
+        <a class="nav-link-btn nav-link-app" href="/app">Open Code</a>
         <span class="nav-sep" aria-hidden="true">|</span>
         <button class="nav-stack" type="button" data-drawer-open="stack" aria-haspopup="dialog" aria-expanded="false" aria-label="Your stack">
           ${icon("layers").value}

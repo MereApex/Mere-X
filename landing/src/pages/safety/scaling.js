@@ -22,7 +22,7 @@ const LEVELS = [
     level: "CSL-3", name: "Significant uplift", state: "Current",
     definition: "The model meaningfully lowers the effort required by a non-expert in at least one tracked risk domain, or shows early autonomous-replication capability.",
     safeguards: "Everything above, plus enhanced classifiers on tracked domains, mandatory KYC for high-throughput access, weights-security controls at the level of a well-resourced attacker, and an incident response plan with named owners.",
-    models: "Mere X 5.5"
+    models: "Mere Apex 4"
   },
   {
     level: "CSL-4", name: "Expert-level uplift", state: "Not reached",
@@ -139,7 +139,7 @@ export default {
           <div class="split split-60" style="gap:clamp(24px,3vw,48px);align-items:center">
             <div class="prose" data-reveal="left">
               <p>
-                In April 2026, six weeks before the planned Mere X 5.5 launch, a red-team exercise found
+                In April 2026, six weeks before the planned Mere Apex 4 launch, a red-team exercise found
                 that long tool-use chains could be steered into producing operational detail we had
                 classified as CSL-3-restricted — by routing the request across enough intermediate steps
                 that no single step triggered the classifier.
@@ -147,7 +147,7 @@ export default {
               <p>
                 We did not have a mitigation we were confident in. The launch moved six weeks while we
                 built chain-level classification rather than per-message classification. The finding, the
-                delay, and the fix are documented in the Mere X 5.5 system card.
+                delay, and the fix are documented in the Mere Code system card.
               </p>
               <p>
                 We are describing this because a policy nobody has ever been inconvenienced by is not
@@ -183,7 +183,7 @@ export default {
 
       ${ctaBand({
         title: "See how it applied to the current model.",
-        body: "The Mere X 5.5 system card documents the evaluations, the findings, and the residual risks.",
+        body: "The Mere Code system card documents the evaluations, the findings, and the residual risks.",
         primary: { label: "Read the system card", href: "/safety/system-cards", icon: "arrow-ne" },
         secondary: { label: "Our safety approach", href: "/safety" }
       }).value}

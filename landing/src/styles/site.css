@@ -412,3 +412,18 @@
 .seal.spin .seal-mark { animation: spin 40s linear infinite; }
 [data-motion="reduced"] .seal.spin .seal-mark { animation: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+
+/* ------------------------------------------------------------
+   DARK PAPER — panels that used to invert to black now sit as
+   raised graphite; buttons inside them read as white ink.
+   ------------------------------------------------------------ */
+.panel-dark, .cta-band { background: var(--paper-deep); color: var(--ink); border: 1px solid var(--line-strong); }
+.panel-dark h2, .panel-dark h3, .cta-band h2 { color: var(--ink); }
+.panel-dark .muted, .panel-dark .lead, .cta-band p { color: var(--ink-3); }
+.panel-dark .eyebrow { color: var(--muted); }
+.cta-band .btn-invert { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.cta-band .btn-invert:hover { background: transparent; color: var(--ink); }
+.cta-band .link { color: var(--ink) !important; }
+.mode-bar { background: var(--line-strong); }
+.bench-track { background: var(--paper-deep); }

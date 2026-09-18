@@ -11,7 +11,7 @@ export const PUBLICATIONS = [
     title: "Reasoning budgets: separating deliberation from answering",
     summary:
       "We describe the training and inference changes that let a single model spend anywhere from zero to 256,000 tokens thinking before it responds, and what that buys on eight capability suites.",
-    tags: ["Reasoning", "Mere X 5.5", "Inference"],
+    tags: ["Reasoning", "Mere Apex 4", "Inference"],
     authors: "Adeyemi, Vantrop, Ghorbani, and 14 others"
   },
   {
@@ -20,7 +20,7 @@ export const PUBLICATIONS = [
     kind: "Paper",
     title: "Recall does not decay: adversarial retrieval across a million tokens",
     summary:
-      "Standard needle-in-a-haystack tests overstate long-context ability. We introduce an eight-needle adversarial variant with distractors that share surface form with the target, and report where Mere X 5.5 still fails.",
+      "Standard needle-in-a-haystack tests overstate long-context ability. We introduce an eight-needle adversarial variant with distractors that share surface form with the target, and report where Mere Code still fails.",
     tags: ["Long context", "Evaluation"],
     authors: "Park, Nadar, Weiss"
   },
@@ -30,7 +30,7 @@ export const PUBLICATIONS = [
     kind: "Interpretability",
     title: "Circuit tracing in a production-scale model",
     summary:
-      "Attribution graphs over Mere Orion 5.5 reveal reusable computational motifs for arithmetic, entity binding, and refusal. We release the tracing tooling and 1,400 annotated circuits.",
+      "Attribution graphs over Mere Orion 3 reveal reusable computational motifs for arithmetic, entity binding, and refusal. We release the tracing tooling and 1,400 annotated circuits.",
     tags: ["Interpretability", "Open tooling"],
     authors: "Adeyemi, Okafor, Lindqvist, and 9 others"
   },
@@ -122,18 +122,18 @@ export const RESEARCH_AREAS = [
 export const NEWS = [
   { date: "2026-08-28", kind: "Product", title: "Batch API now supports one million requests per job", summary: "Large offline workloads no longer need chunking. Batch jobs accept up to a million requests and stream results as they complete." },
   { date: "2026-08-12", kind: "Company", title: "Mere X opens an engineering office in Tbilisi", summary: "Our fifth office, focused on inference systems and the developer platform." },
-  { date: "2026-07-30", kind: "Safety", title: "Mere X 5.5 system card, second revision", summary: "Updated with post-launch evaluation data, three newly discovered failure modes, and the mitigations shipped for each." },
-  { date: "2026-07-14", kind: "Product", title: "Connectors reaches 80 integrations", summary: "Databricks, Snowflake, and ServiceNow join the directory, alongside a public MCP connector specification." },
-  { date: "2026-06-18", kind: "Product", title: "Mere X 5.5 is here", summary: "Apex, Orion, and Nyx ship together with a million-token context window, DEEP reasoning, and a rebuilt agent stack." },
-  { date: "2026-05-14", kind: "Product", title: "Mere Lyra enters general availability", summary: "Sub-300 ms duplex speech with the same tool-calling surface as the text models." },
+  { date: "2026-07-30", kind: "Safety", title: "Mere Code system card, second revision", summary: "Updated with post-launch evaluation data, three newly discovered failure modes, and the mitigations shipped for each." },
+  { date: "2026-07-14", kind: "Product", title: "Plan mode and project rules", summary: "Plan mode proposes steps before touching a file, and rules in AGENTS.md or MERE.md are read at the start of every turn." },
+  { date: "2026-06-18", kind: "Product", title: "Mere Apex 4, Orion 3 and Nyx 2 are here", summary: "Three lines, three generations, shipped together inside Mere Code with a million-token window and Extra High thinking." },
+  { date: "2026-05-14", kind: "Product", title: "Checkpoints and per-hunk review", summary: "Every prompt becomes a restore point, and every changed file can be accepted or reverted hunk by hunk in the editor." },
   { date: "2026-04-22", kind: "Research", title: "We are releasing our circuit-tracing tooling", summary: "The attribution-graph tooling behind our interpretability work is now open source, with 1,400 annotated circuits." },
   { date: "2026-03-03", kind: "Company", title: "Series C: $1.4B to scale training and safety", summary: "The round funds our next training cluster and doubles the size of the evaluation organisation." }
 ];
 
 export const CUSTOMERS = [
   { name: "Northwind Health", sector: "Healthcare", quote: "Clinical documentation that used to take our physicians ninety minutes a day now takes eleven. The part that mattered was Mere X knowing when to leave a field blank.", person: "Dr. Marta Kovač, Chief Medical Information Officer", metric: "87%", metricLabel: "reduction in documentation time" },
-  { name: "Aster Financial", sector: "Financial services", quote: "We run every draft disclosure through Apex in DEEP mode before it reaches counsel. It has caught inconsistencies our own review process missed for years.", person: "Julian Reyes, Head of Regulatory Reporting", metric: "3.2×", metricLabel: "faster filing cycle" },
-  { name: "Helios Robotics", sector: "Manufacturing", quote: "Iris reads our technicians' hand-annotated schematics. That was the blocker for eighteen months, and it stopped being one in a weekend.", person: "Anke Lindholm, VP Engineering", metric: "94%", metricLabel: "schematic extraction accuracy" },
+  { name: "Aster Financial", sector: "Financial services", quote: "We run every draft disclosure through Apex in Extra High mode before it reaches counsel. It has caught inconsistencies our own review process missed for years.", person: "Julian Reyes, Head of Regulatory Reporting", metric: "3.2×", metricLabel: "faster filing cycle" },
+  { name: "Helios Robotics", sector: "Manufacturing", quote: "We pointed the agent at a firmware repository nobody wanted to touch. It read the whole thing before it changed a line, and the diff was smaller than ours would have been.", person: "Anke Lindholm, VP Engineering", metric: "94%", metricLabel: "schematic extraction accuracy" },
   { name: "Larkspur Legal", sector: "Legal", quote: "A million tokens means the whole matter fits. No chunking strategy, no retrieval tuning, no arguing about what got left out.", person: "Devon Marsh, Partner", metric: "1M", metricLabel: "token matters, single pass" },
   { name: "Quillon Media", sector: "Media", quote: "Nyx sits in the editing surface and never makes anyone wait. Orion does the heavy passes overnight on the Batch API at half price.", person: "Ravi Chandrasekar, CTO", metric: "$0.31", metricLabel: "cost per finished article" },
   { name: "Orbital Freight", sector: "Logistics", quote: "The agent stack handles exception routing end to end — reads the email, checks the manifest, calls the carrier API, and escalates when it genuinely should.", person: "Ingrid Halvorsen, Director of Operations", metric: "61%", metricLabel: "exceptions resolved without a human" }
@@ -146,7 +146,7 @@ export const CAREERS = [
   { title: "Member of Technical Staff, Inference", team: "Systems", location: "San Francisco · Tbilisi", type: "Full-time", level: "Senior" },
   { title: "Member of Technical Staff, Training Infrastructure", team: "Systems", location: "San Francisco", type: "Full-time", level: "Staff" },
   { title: "Software Engineer, Developer Platform", team: "Product", location: "Tbilisi · Remote (EU)", type: "Full-time", level: "Mid–Senior" },
-  { title: "Software Engineer, Mere X Studio", team: "Product", location: "San Francisco · Remote (US)", type: "Full-time", level: "Mid–Senior" },
+  { title: "Software Engineer, Mere Code", team: "Product", location: "San Francisco · Remote (US)", type: "Full-time", level: "Mid–Senior" },
   { title: "Design Engineer", team: "Product", location: "Remote (EU/US)", type: "Full-time", level: "Senior" },
   { title: "Red Team Lead", team: "Safety", location: "London", type: "Full-time", level: "Staff" },
   { title: "Policy Manager, EU", team: "Policy", location: "Zürich", type: "Full-time", level: "Senior" },
@@ -168,7 +168,7 @@ export const BENEFITS = [
 export const CHANGELOG = [
   { date: "2026-08-28", version: "API", items: [
     { kind: "added", text: "Batch jobs now accept up to 1,000,000 requests, with incremental result streaming." },
-    { kind: "added", text: "`thinking.summary` returns a structured reasoning summary for DEEP requests." },
+    { kind: "added", text: "`thinking.summary` returns a structured reasoning summary for Extra High requests." },
     { kind: "changed", text: "Rate-limit headers now include `mere-x-ratelimit-tokens-reset` as an RFC 3339 timestamp." }
   ]},
   { date: "2026-08-14", version: "SDKs", items: [
@@ -176,7 +176,7 @@ export const CHANGELOG = [
     { kind: "fixed", text: "Streaming reconnection no longer duplicates the final content block on flaky networks." }
   ]},
   { date: "2026-07-30", version: "Models", items: [
-    { kind: "added", text: "`mere-apex-5-5-20260730` — improved instruction adherence in long tool-use chains." },
+    { kind: "added", text: "`mere-apex-4-20260730` — improved instruction adherence in long tool-use chains." },
     { kind: "changed", text: "Guard 1 taxonomy updated with two new subcategories under `deception`." }
   ]},
   { date: "2026-07-14", version: "Console", items: [
@@ -184,15 +184,15 @@ export const CHANGELOG = [
     { kind: "added", text: "Request logs with full prompt and response inspection, subject to your retention setting." },
     { kind: "changed", text: "Usage charts now break down by key as well as by model." }
   ]},
-  { date: "2026-06-18", version: "Mere X 5.5", items: [
-    { kind: "added", text: "Mere Apex 5.5, Orion, and Nyx are generally available." },
+  { date: "2026-06-18", version: "Mere Apex 4 · Orion 3 · Nyx 2", items: [
+    { kind: "added", text: "Mere Apex 4, Orion, and Nyx are generally available." },
     { kind: "added", text: "One-million-token context on Apex and Orion." },
-    { kind: "added", text: "DEEP reasoning mode with budgets up to 256K thinking tokens." },
+    { kind: "added", text: "Extra High reasoning mode with budgets up to 256K thinking tokens." },
     { kind: "added", text: "Server-side tools: web search, code execution, and file handling." },
     { kind: "deprecated", text: "Mere 5.0 models enter legacy support; retirement 18 March 2027." }
   ]},
   { date: "2026-05-14", version: "Voice", items: [
-    { kind: "added", text: "Mere Lyra reaches general availability with the realtime sessions endpoint." }
+    { kind: "added", text: "Checkpoints, per-hunk review and project rules files ship in Mere Code." }
   ]}
 ];
 
@@ -203,7 +203,7 @@ export const STATUS_SERVICES = [
   { name: "Images", state: "operational", uptime: 99.94 },
   { name: "Realtime voice", state: "degraded", uptime: 99.61 },
   { name: "Developer console", state: "operational", uptime: 99.98 },
-  { name: "Mere X Studio", state: "operational", uptime: 99.96 }
+  { name: "Mere Code", state: "operational", uptime: 99.96 }
 ];
 
 export const STATUS_INCIDENTS = [

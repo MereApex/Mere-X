@@ -6,6 +6,7 @@
 
 html {
   overflow-x: clip;
+  overscroll-behavior-y: none;
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--nav-h) + 24px);
@@ -24,6 +25,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: clip;
+  overscroll-behavior-y: none;
 }
 
 /* Display type is Orbitron — uppercase, tracked, geometric.
@@ -268,6 +270,6 @@ main { flex: 1 1 auto; position: relative; z-index: 10; }
    PRINT
    ============================================================ */
 @media print {
-  .site-nav, .site-footer, .console-rail, .reveal-bg, .drawer-layer { display: none !important; }
+  .site-nav, .site-footer, .console-rail, .cover-bg, .drawer-layer { display: none !important; }
   body { background: #fff; color: #000; }
 }
