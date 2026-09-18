@@ -81,6 +81,10 @@ export default {
             ${BUILDS.map((build) => buildCard(build, build.id === primary.id)).join("")}
           </div>
           <p class="dl-checks" data-reveal>SHA-256 · <code data-dl-sum>${escapeHtml(primary.file)}</code> <span data-dl-sum-value>loading…</span> · <a class="link-plain" href="${RELEASE_PAGE}" target="_blank" rel="noopener">All files and checksums</a></p>
+          <div class="dl-notice" data-reveal>
+            <strong>Your browser may say the file “isn’t commonly downloaded”.</strong>
+            <p>That is Microsoft SmartScreen’s reputation check: it flags every new installer that is not yet signed with a publisher certificate, until enough people have installed it. The file is exactly what is published on GitHub — compare the SHA-256 above. To keep it: in Edge open the download list, choose <em>⋯ → Keep → Show more → Keep anyway</em>; in Chrome choose <em>Keep</em>. When you run it, pick <em>More info → Run anyway</em> once. Signed builds are coming.</p>
+          </div>
         </div>
       </section>
 
@@ -115,7 +119,7 @@ export default {
           <div class="dl-req" data-reveal>
             <div><strong>Windows</strong><p>Windows 10 (1809+) or 11, 64-bit. Microsoft Edge WebView2 (installed automatically). Git on your PATH for the repository panel. About 30 MB of disk.</p></div>
             <div><strong>Account</strong><p>A Mere X account. Free includes Mere Nyx 2 at Fast and Medium; Starter and above unlock Orion 3, Apex 4 and the deeper thinking levels.</p></div>
-            <div><strong>Not signed yet</strong><p>The first build is not code-signed, so Windows SmartScreen may ask once: choose “More info → Run anyway”. Compare the SHA-256 above if you want to be sure.</p></div>
+            <div><strong>Not signed yet</strong><p>The first builds carry no publisher certificate, so Windows SmartScreen warns once at download and once at first run. Every file is published on GitHub with its SHA-256; compare it if you want to be sure. Signed, warning-free builds follow as soon as the certificate is issued.</p></div>
           </div>
         </div>
       </section>

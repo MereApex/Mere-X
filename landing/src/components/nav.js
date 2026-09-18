@@ -152,7 +152,7 @@ export function renderNav() {
         <button class="nav-link-btn" type="button" data-drawer-open="models" aria-haspopup="dialog" aria-expanded="false">Models</button>
         <button class="nav-link-btn" type="button" data-drawer-open="platform" aria-haspopup="dialog" aria-expanded="false">Product</button>
         <button class="nav-link-btn" type="button" data-drawer-open="research" aria-haspopup="dialog" aria-expanded="false">Research</button>
-        <a class="nav-link-btn nav-link-app" href="/app">Open Code</a>
+        <a class="nav-link-btn nav-link-app" href="/download">Download</a>
         <span class="nav-sep" aria-hidden="true">|</span>
         <button class="nav-stack" type="button" data-drawer-open="stack" aria-haspopup="dialog" aria-expanded="false" aria-label="Your stack">
           ${icon("layers").value}
