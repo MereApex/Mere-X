@@ -40,7 +40,7 @@ const DESKTOP_FACTS = [
   { icon: "terminal", title: "A real terminal", body: "Runs your tests, scripts and builds on your machine, and reads the output back." },
   { icon: "branch", title: "Git, built in", body: "Branches, diffs and commits from the thread. Every prompt is a checkpoint." },
   { icon: "folder", title: "Your files, on disk", body: "Works directly on the repository. Nothing is uploaded to be edited." },
-  { icon: "orbit", title: "The same agent as the web", body: "Apex 4, Orion 3 and Nyx 2, with the four thinking depths. The desktop app is in development." }
+  { icon: "orbit", title: "The same agent as the web", body: "Apex 4, Orion 3 and Nyx 2, with the four thinking depths. Free download for Windows; macOS and Linux next." }
 ];
 
 function modelCard(model, index = 0) {
@@ -71,7 +71,7 @@ export default {
 
     <section class="section home-demo-section" id="how-it-works">
       <div class="shell shell-wide">
-        ${sectionHead({ eyebrow: `How it works<span class="demo-badge"><i></i>Mere Code for desktop · in development</span>`, title: "Hand it the task. Watch it work.", lead: "This is Mere Code for desktop, replaying one real change: it reads the code it needs, writes the plan, edits in the editor, runs the suite in a terminal and hands you the diff. Every step is a row in the thread. Nothing happens silently." }).value}
+        ${sectionHead({ eyebrow: `How it works<a class="demo-badge" href="/download"><i></i>Mere Code for desktop · download for Windows</a>`, title: "Hand it the task. Watch it work.", lead: "This is Mere Code for desktop, replaying one real change: it reads the code it needs, writes the plan, edits in the editor, runs the suite in a terminal and hands you the diff. Every step is a row in the thread. Nothing happens silently." }).value}
         ${demoMarkup()}
         <div class="demo-facts" data-stagger="80" data-spotlight>
           ${DESKTOP_FACTS.map((fact) => `<div class="demo-fact" data-reveal>${icon(fact.icon, "icon").value}<div><strong>${escapeHtml(fact.title)}</strong><span>${escapeHtml(fact.body)}</span></div></div>`).join("")}
@@ -168,7 +168,7 @@ export default {
       title: "Open a folder and start.",
       body: "No install, no extension, no setup. Sign in, open the project, describe the change.",
       primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
-      secondary: { label: "See pricing", href: "/pricing" }
+      secondary: { label: "Download for desktop", href: "/download" }
     }).value}`;
   },
 

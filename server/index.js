@@ -471,6 +471,45 @@ async function createResponseStream(client, params) {
   }
 }
 
+/* The desktop app's latest release, read from GitHub and cached, so the
+   download page and the checksums always match the published files. */
+const DESKTOP_RELEASE = "https://github.com/MereApex/Mere-X/releases/latest/download";
+let desktopRelease = { at: 0, value: null };
+app.get("/api/desktop/latest", asyncRoute(async (req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=300");
+  if (desktopRelease.value && Date.now() - desktopRelease.at < 10 * 60 * 1000) return res.json(desktopRelease.value);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const [manifestResponse, sumsResponse] = await Promise.all([
+      fetch(`${DESKTOP_RELEASE}/latest.json`, { signal: controller.signal, redirect: "follow" }),
+      fetch(`${DESKTOP_RELEASE}/SHA256SUMS.txt`, { signal: controller.signal, redirect: "follow" })
+    ]);
+    if (!manifestResponse.ok) throw new Error(`release manifest ${manifestResponse.status}`);
+    const manifest = await manifestResponse.json();
+    const sums = sumsResponse.ok ? await sumsResponse.text() : "";
+    const checksums = Object.fromEntries(sums.split("\n").map((line) => line.trim().split(/\s+/)).filter((parts) => parts.length === 2).map(([digest, name]) => [name, digest]));
+    const version = String(manifest.version || "");
+    const base = `https://github.com/MereApex/Mere-X/releases/download/desktop-v${version}`;
+    const setup = `MereCode-${version}-windows-x64-setup.exe`;
+    const msi = `MereCode-${version}-windows-x64.msi`;
+    const value = {
+      version,
+      publishedAt: manifest.pub_date || null,
+      notes: manifest.notes || "",
+      windows: { setup: { url: `${base}/${setup}`, file: setup, sha256: checksums[setup] || "" }, msi: { url: `${base}/${msi}`, file: msi, sha256: checksums[msi] || "" } },
+      releasePage: `https://github.com/MereApex/Mere-X/releases/tag/desktop-v${version}`
+    };
+    desktopRelease = { at: Date.now(), value };
+    res.json(value);
+  } catch (error) {
+    if (desktopRelease.value) return res.json(desktopRelease.value);
+    res.status(503).json({ error: { code: "release_unavailable", message: "The desktop release could not be read right now." } });
+  } finally {
+    clearTimeout(timer);
+  }
+}));
+
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,

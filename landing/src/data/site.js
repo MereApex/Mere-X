@@ -57,6 +57,7 @@ export const NAV = [
     panelWide: false,
     links: [
       { title: "Mere Code", href: "/products/code", desc: "The coding agent, in your browser", icon: "terminal" },
+      { title: "Download for desktop", href: "/download", desc: "Windows now, macOS and Linux next", icon: "download" },
       { title: "The API", href: "/products/api", desc: "Build the Mere models into your product", icon: "code" },
       { title: "Enterprise", href: "/products/enterprise", desc: "Deployment, residency, and support", icon: "building" },
       { title: "Pricing", href: "/pricing", desc: "Plans and per-token rates", icon: "card" }
@@ -114,6 +115,7 @@ export const FOOTER = [
     title: "Product",
     links: [
       { label: "Mere Code", href: "/products/code" },
+      { label: "Download for desktop", href: "/download" },
       { label: "Open the workspace", href: "/app" },
       { label: "The API", href: "/products/api" },
       { label: "Enterprise", href: "/products/enterprise" },

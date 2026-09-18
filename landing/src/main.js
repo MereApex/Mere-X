@@ -14,6 +14,7 @@ import "./styles/hero.css";
 import "./styles/home.css";
 import "./styles/demo.css";
 import "./styles/alive.css";
+import "./styles/download.css";
 
 import { renderNav, mountNav } from "./components/nav.js";
 import { renderFooter } from "./components/footer.js";
@@ -49,6 +50,7 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(publishHea
    Routes
    ------------------------------------------------------------ */
 route("/", () => import("./pages/home.js"));
+route("/download", () => import("./pages/download.js"));
 
 /* Research */
 route("/research", () => import("./pages/research/overview.js"));

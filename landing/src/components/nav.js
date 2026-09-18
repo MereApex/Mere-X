@@ -21,11 +21,12 @@ const CATALOG = ["mere-apex-4", "mere-orion-3", "mere-nyx-2", "mere-atlas"]
 
 const PLATFORM = [
   { n: "01", title: "Mere Code", href: "/app", desc: "The coding agent, in your browser. Open a folder, describe the change, review the diff." },
-  { n: "02", title: "How it works", href: "/products/code", desc: "Agent, Plan and Ask modes, four thinking depths, checkpoints and review." },
-  { n: "03", title: "The API", href: "/products/api", desc: "One endpoint, six SDKs, and a million-token window behind every call." },
-  { n: "04", title: "Developer console", href: "/console", desc: "Keys, usage, request logs, limits, and billing — read in one place." },
-  { n: "05", title: "Documentation", href: "/docs", desc: "Quickstart, API reference, cookbook, and the prompt library." },
-  { n: "06", title: "Pricing", href: "/pricing", desc: "Flat plans for people, per-token rates for builders, batch at half price." }
+  { n: "02", title: "Download for desktop", href: "/download", desc: "A real terminal, git and reviewable diffs on your computer. Windows now; macOS and Linux next." },
+  { n: "03", title: "How it works", href: "/products/code", desc: "Agent, Plan and Ask modes, four thinking depths, checkpoints and review." },
+  { n: "04", title: "The API", href: "/products/api", desc: "One endpoint, six SDKs, and a million-token window behind every call." },
+  { n: "05", title: "Developer console", href: "/console", desc: "Keys, usage, request logs, limits, and billing — read in one place." },
+  { n: "06", title: "Documentation", href: "/docs", desc: "Quickstart, API reference, cookbook, and the prompt library." },
+  { n: "07", title: "Pricing", href: "/pricing", desc: "Flat plans for people, per-token rates for builders, batch at half price." }
 ];
 
 const INDEX = [

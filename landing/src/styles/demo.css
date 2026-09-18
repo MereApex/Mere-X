@@ -15,7 +15,8 @@
           mask-image: radial-gradient(ellipse 70% 60% at 50% 55%, #000 20%, transparent 100%);
 }
 .home-demo-section .shell { position: relative; }
-.demo-badge { display: inline-flex; align-items: center; gap: 8px; margin-left: 14px; padding: 4px 9px 4px 7px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: var(--micro); font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); vertical-align: middle; }
+.demo-badge { display: inline-flex; align-items: center; gap: 8px; margin-left: 14px; padding: 4px 9px 4px 7px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: var(--micro); font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); vertical-align: middle; transition: border-color var(--d-base) var(--ease-out), color var(--d-base) var(--ease-out); }
+.demo-badge:hover { border-color: var(--ink); color: var(--ink); }
 .demo-badge i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 0 rgba(255,255,255,0.5); animation: demo-ping 2.4s var(--ease-out) infinite; }
 @keyframes demo-ping { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.45); } 70% { box-shadow: 0 0 0 7px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
 
