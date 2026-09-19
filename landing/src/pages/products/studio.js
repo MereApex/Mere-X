@@ -1,12 +1,12 @@
 /* ============================================================
-   MERE CODE — the coding agent, in the browser
+   MERE STUDIO — the coding agent, in the browser
    ============================================================ */
 
 import { icon } from "../../lib/icons.js";
 import { pageHead, sectionHead, textLink, button, codeBlock, ctaBand, accordion } from "../../components/ui.js";
 
 const STEPS = [
-  { n: "01", t: "Open a folder", d: "Chrome and Edge can hand the browser a folder on your computer. Mere Code indexes it in seconds and reads or writes files only when the agent needs to. No install, no extension, no upload." },
+  { n: "01", t: "Open a folder", d: "Chrome and Edge can hand the browser a folder on your computer. Mere Studio indexes it in seconds and reads or writes files only when the agent needs to. No install, no extension, no upload." },
   { n: "02", t: "Describe the change", d: "Plain language, with @ to pin a file, a folder, a selection or the whole codebase. Rules in AGENTS.md or MERE.md are read automatically. Choose Agent, Plan or Ask, a model and a thinking depth." },
   { n: "03", t: "Watch it work", d: "Every tool call is a row in the thread — searched, read, edited — with the arguments and the result one click away. The reasoning summary streams while the model thinks." },
   { n: "04", t: "Review the diff", d: "Changed files appear as a review card. Open one and the editor shows a unified diff with accept and reject per hunk. Keep everything, revert everything, or restore the checkpoint before any prompt." }
@@ -23,24 +23,24 @@ const ABILITIES = [
 
 const FAQ_ITEMS = [
   { q: "Does it upload my whole codebase?", a: "<p>No. Your browser reads the folder and the agent receives only the files it opens for that turn, plus a compact file tree. Nothing is stored server-side beyond your threads, and nothing is used for training.</p>" },
-  { q: "Which browsers can open a local folder?", a: "<p>Chrome and Edge, through the File System Access API. Other browsers can still use Mere Code with a project that lives in the browser, or with a folder dropped onto the window, which copies its text files in.</p>" },
+  { q: "Which browsers can open a local folder?", a: "<p>Chrome and Edge, through the File System Access API. Other browsers can still use Mere Studio with a project that lives in the browser, or with a folder dropped onto the window, which copies its text files in.</p>" },
   { q: "Which model should I use?", a: "<p>4.2 Core in High for most work. Drop to 4.0 Lite in Fast for mechanical edits and quick questions, and rise to 4.2 Peak with Extra High for a refactor that spans many files or a bug nobody has managed to reproduce.</p>" },
   { q: "Can it run my tests?", a: "<p>Not yet — the browser has no shell. It can run an isolated JavaScript snippet to check logic, and it will tell you exactly which command to run yourself.</p>" },
   { q: "How is it billed?", a: "<p>By agent turns: one prompt and every tool round it needs counts once against a rolling 5-hour and weekly limit. Plans from Free upward include a monthly allowance; the API bills per token.</p>" }
 ];
 
 export default {
-  title: "Mere Code",
+  title: "Mere Studio",
   description: "The coding agent that works on your project in the browser. Open a folder, describe the change, review the diff. Powered by Mere 4.2 Peak, 4.2 Core and 4.0 Lite.",
 
   render() {
     return `
       ${pageHead({
-        crumb: [{ label: "Product", href: "/products" }, { label: "Mere Code" }],
+        crumb: [{ label: "Product", href: "/products" }, { label: "Mere Studio" }],
         eyebrow: "For engineers",
         title: "The agent that works in your codebase.",
         lead: "Not autocomplete. A colleague that reads unfamiliar code, makes the smallest change that works, shows you the diff, and tells you what it could not figure out. In the browser, on your own files.",
-        actions: `${button({ label: "Open Mere Code", href: "/app", icon: "arrow-ne", magnetic: true }).value}
+        actions: `${button({ label: "Open Mere Studio", href: "/app", icon: "arrow-ne", magnetic: true }).value}
                   ${button({ label: "See pricing", href: "/pricing", variant: "secondary", icon: "card" }).value}`
       }).value}
 
@@ -166,7 +166,7 @@ export default {
       ${ctaBand({
         title: "Open a folder and start.",
         body: "The first task is usually one you have been avoiding.",
-        primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
+        primary: { label: "Open Mere Studio", href: "/app", icon: "arrow-ne" },
         secondary: { label: "Compare the models", href: "/technology" }
       }).value}
     `;

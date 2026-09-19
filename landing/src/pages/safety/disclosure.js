@@ -8,7 +8,7 @@ import { pageHead, sectionHead, textLink, button, ctaBand, calloutBox, dataTable
 
 const SCOPE = [
   { in: true, item: "Model behaviour that bypasses safety training — jailbreaks, prompt injection, refusal steering" },
-  { in: true, item: "Vulnerabilities in the API, console, or Mere Code: authentication, authorisation, injection, SSRF" },
+  { in: true, item: "Vulnerabilities in the API, console, or Mere Studio: authentication, authorisation, injection, SSRF" },
   { in: true, item: "Data exposure across tenant boundaries, including cache or log leakage" },
   { in: true, item: "Weaknesses in Guard classification that allow prohibited content through at scale" },
   { in: true, item: "Supply-chain issues in our published SDKs" },

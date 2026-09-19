@@ -16,7 +16,7 @@ const KIND_STYLE = {
   removed: "badge-danger"
 };
 
-const AREAS = ["All", "API", "Models", "SDKs", "Console", "Models", "Code"];
+const AREAS = ["All", "API", "Models", "SDKs", "Console", "Models", "Studio"];
 
 export default {
   title: "Changelog",

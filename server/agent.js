@@ -1,5 +1,5 @@
 /* ============================================================
-   MERE CODE — the agent contract.
+   MERE STUDIO — the agent contract.
 
    The model runs here; its tools run in the person's browser
    against the open project. Every tool below is a function the
@@ -293,7 +293,7 @@ const MODE_GUIDANCE = {
 
 export function agentInstructions({ modelName, mode, context = {} }) {
   const pieces = [
-    `You are ${modelName}, the coding agent inside Mere Code. You work directly on the person's project, which is open in their browser.`,
+    `You are ${modelName}, the coding agent inside Mere Studio. You work directly on the person's project, which is open in their browser.`,
     "Environment: your tools run in the browser against the project's real files. Every read is live and every write is applied immediately, then shown to the person as a reviewable diff they can accept or reject. There is no shell, no package manager and no way to run the project's build or tests; run_javascript is an isolated sandbox for checking logic only. Never claim to have run a command, a build, a test suite or a server.",
     "Path rules: all paths are relative to the project root and use forward slashes. Never invent files; list or search first when unsure.",
     "Editing rules: prefer edit_file with a unique old_string over rewriting a whole file. Keep edits minimal and in the surrounding code's style, naming and indentation. Do not reformat unrelated lines. Do not add comments that narrate the change. Create new files only when the task needs them. When an edit fails, read the file again and retry with an exact match instead of guessing.",

@@ -34,7 +34,7 @@ export default {
         title: "Tell us what you are trying to do.",
         lead: "We will tell you honestly whether Mere X is the right fit — including when it is not, which happens more often than a sales page usually admits.",
         actions: `${button({ label: "Talk to sales", href: "#form", icon: "arrow-down" }).value}
-                  ${button({ label: "Open Mere Code", href: "/app", variant: "secondary", icon: "arrow-ne" }).value}`
+                  ${button({ label: "Open Mere Studio", href: "/app", variant: "secondary", icon: "arrow-ne" }).value}`
       }).value}
 
       <section class="section-tight">
@@ -66,7 +66,7 @@ export default {
                 someone who can actually answer.
               </p>
               <div style="margin-top:26px">
-                ${calloutBox("Trying it out? You do not need to talk to anyone — <a class=\"link-plain\" href=\"/app\">open Mere Code</a>, point it at a folder, and start.", { variant: "accent", icon: "bolt" }).value}
+                ${calloutBox("Trying it out? You do not need to talk to anyone — <a class=\"link-plain\" href=\"/app\">open Mere Studio</a>, point it at a folder, and start.", { variant: "accent", icon: "bolt" }).value}
               </div>
               <div class="stack stack-3" style="margin-top:28px">
                 ${[
@@ -154,8 +154,8 @@ export default {
       ${ctaBand({
         title: "Or just start building.",
         body: "Open a folder and hand the agent a real task. No card, no setup.",
-        primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
-        secondary: { label: "How it works", href: "/products/code" }
+        primary: { label: "Open Mere Studio", href: "/app", icon: "arrow-ne" },
+        secondary: { label: "How it works", href: "/products/studio" }
       }).value}
     `;
   },

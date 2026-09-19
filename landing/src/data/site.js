@@ -56,7 +56,7 @@ export const NAV = [
     href: "/products",
     panelWide: false,
     links: [
-      { title: "Mere Code", href: "/products/code", desc: "The coding agent, in your browser", icon: "terminal" },
+      { title: "Mere Studio", href: "/products/studio", desc: "The coding agent, in your browser", icon: "terminal" },
       { title: "Enterprise", href: "/products/enterprise", desc: "Deployment, residency, and support", icon: "building" },
       { title: "Pricing", href: "/pricing", desc: "Plans for every way of working", icon: "card" }
     ]
@@ -106,7 +106,7 @@ export const FOOTER = [
   {
     title: "Product",
     links: [
-      { label: "Mere Code", href: "/products/code" },
+      { label: "Mere Studio", href: "/products/studio" },
       { label: "Open the workspace", href: "/app" },
       { label: "Enterprise", href: "/products/enterprise" },
       { label: "Pricing", href: "/pricing" },
@@ -196,7 +196,7 @@ export const MILESTONES = [
   { date: "September 2024", title: "Mere Core 1, in private beta", body: "A private beta with 40 companies. The thinking-budget control that defines the family ships in its first, crude form." },
   { date: "May 2025", title: "Mere 2.0 Peak and the first agent", body: "The agent runs internally on our own repositories for eight months before anyone outside sees it. Most of what it learned is about when to stop and ask." },
   { date: "November 2025", title: "The Responsible Scaling Policy", body: "We publish the commitments that gate every future release, and the evaluation suite that decides whether a model has met them." },
-  { date: "September 2026", title: "Mere Code", body: "4.2 Peak, 4.2 Core, and 4.0 Lite ship together inside a coding agent that runs in the browser, with a million-token window, Extra High thinking, and every edit reviewable." }
+  { date: "September 2026", title: "Mere Studio", body: "4.2 Peak, 4.2 Core, and 4.0 Lite ship together inside a coding agent that runs in the browser, with a million-token window, Extra High thinking, and every edit reviewable." }
 ];
 
 export const LEADERSHIP = [
@@ -204,6 +204,6 @@ export const LEADERSHIP = [
   { name: "Marcus Adeyemi", role: "Co-founder & Chief Scientist", bio: "Works on interpretability and the internal geometry of large models. Believes an unexplained capability is an unfinished one." },
   { name: "Sana Ghorbani", role: "Chief Technology Officer", bio: "Built the training and serving stack. Cares more about the tail of the latency distribution than almost anyone should." },
   { name: "Peter Lindqvist", role: "Head of Safety", bio: "Runs the evaluation and red-team organisation. Holds the release gate, and has used it." },
-  { name: "Renata Oyelaran", role: "Head of Product", bio: "Shapes Mere Code and the developer platform. Convinced that most AI products fail on ergonomics, not intelligence." },
+  { name: "Renata Oyelaran", role: "Head of Product", bio: "Shapes Mere Studio and the developer platform. Convinced that most AI products fail on ergonomics, not intelligence." },
   { name: "Dai Watanabe", role: "General Counsel", bio: "Policy, privacy, and the long negotiations that make regulated deployments possible." }
 ];

@@ -33,7 +33,7 @@ const NUMBERS = [
   { value: 3, label: "Models", note: "4.2 Peak · 4.2 Core · 4.0 Lite" },
   { value: 4, label: "Thinking depths", note: "Fast to Extra High" },
   { value: 14, label: "Agent tools", note: "Read, search, edit, run, delegate" },
-  { value: 99.96, decimals: 2, suffix: "%", label: "Uptime", note: "Mere Code, last 90 days" }
+  { value: 99.96, decimals: 2, suffix: "%", label: "Uptime", note: "Mere Studio, last 90 days" }
 ];
 
 const WORKSPACE_FACTS = [
@@ -62,7 +62,7 @@ function modelCard(model, index = 0) {
 export default {
   title: "Future Forward Intelligence",
   description:
-    "Mere Code is the coding agent that works on your project in the browser — powered by Mere 4.2 Peak, 4.2 Core and 4.0 Lite, with four depths of thinking and every edit reviewable.",
+    "Mere Studio is the coding agent that works on your project in the browser — powered by Mere 4.2 Peak, 4.2 Core and 4.0 Lite, with four depths of thinking and every edit reviewable.",
 
   render() {
     return `
@@ -71,7 +71,7 @@ export default {
 
     <section class="section home-demo-section" id="how-it-works">
       <div class="shell shell-wide">
-        ${sectionHead({ eyebrow: "How it works", title: "Hand it the task. Watch it work.", lead: "Mere Code replaying one real change: it reads the code it needs, writes the plan, edits the files and hands you the diff. Every step is a row in the thread. Nothing happens silently." }).value}
+        ${sectionHead({ eyebrow: "How it works", title: "Hand it the task. Watch it work.", lead: "Mere Studio replaying one real change: it reads the code it needs, writes the plan, edits the files and hands you the diff. Every step is a row in the thread. Nothing happens silently." }).value}
         ${demoMarkup()}
         <div class="demo-facts" data-stagger="80" data-spotlight>
           ${WORKSPACE_FACTS.map((fact) => `<div class="demo-fact" data-reveal>${icon(fact.icon, "icon").value}<div><strong>${escapeHtml(fact.title)}</strong><span>${escapeHtml(fact.body)}</span></div></div>`).join("")}
@@ -164,10 +164,10 @@ export default {
     </section>
 
     ${ctaBand({
-      eyebrow: "Mere Code",
+      eyebrow: "Mere Studio",
       title: "Open a folder and start.",
       body: "No install, no extension, no setup. Sign in, open the project, describe the change.",
-      primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
+      primary: { label: "Open Mere Studio", href: "/app", icon: "arrow-ne" },
       secondary: { label: "See pricing", href: "/pricing" }
     }).value}`;
   },

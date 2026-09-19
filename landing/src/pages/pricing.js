@@ -60,8 +60,8 @@ export default {
       ${ctaBand({
         title: "Start on the free plan.",
         body: "Open a folder and hand the agent a real task. Upgrade when you run out of turns, not before.",
-        primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
-        secondary: { label: "See how it works", href: "/products/code" }
+        primary: { label: "Open Mere Studio", href: "/app", icon: "arrow-ne" },
+        secondary: { label: "See how it works", href: "/products/studio" }
       }).value}
     `;
   },

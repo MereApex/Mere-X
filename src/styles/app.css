@@ -1,5 +1,5 @@
 /* ============================================================
-   MERE CODE — design tokens
+   MERE STUDIO — design tokens
    Monochrome: near-black surfaces, gray hairlines, white ink.
    Type is Orbitron for the marks and headings, Plus Jakarta Sans
    for everything that has to be read, JetBrains Mono for code.
@@ -97,7 +97,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .auth-open .toast { z-index: 260; }
 
 .auth-showcase { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 34px; padding: 46px 52px; overflow: hidden; color: #fff; background: #000; border-right: 1px solid var(--line); }
-.auth-showcase::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: url("../assets/mere-code-portrait.webp"); background-size: cover; background-position: center bottom; background-color: #050506; filter: brightness(.55) saturate(.85); opacity: .95; }
+.auth-showcase::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: url("../assets/mere-studio-portrait.webp"); background-size: cover; background-position: center bottom; background-color: #050506; filter: brightness(.55) saturate(.85); opacity: .95; }
 .auth-showcase::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 55% 45%, transparent 30%, rgba(0,0,0,.72) 80%); }
 .auth-showcase > * { position: relative; z-index: 1; }
 .auth-showcase-glow { position: absolute; z-index: 0; inset: 0; background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px); background-size: 48px 48px; pointer-events: none; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%); }

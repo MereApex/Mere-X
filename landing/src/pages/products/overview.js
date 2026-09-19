@@ -8,7 +8,7 @@ import { mereXSeal } from "../../components/orb.js";
 
 const PRODUCTS = [
   {
-    icon: "terminal", name: "Mere Code", href: "/products/code", tag: "For engineers",
+    icon: "terminal", name: "Mere Studio", href: "/products/studio", tag: "For engineers",
     tagline: "The coding agent, in your browser.",
     body: "Open a folder, describe the change, and watch Mere read, plan, edit and explain. Every diff is reviewable, every turn has a checkpoint, and nothing needs installing.",
     points: ["Agent, Plan and Ask modes", "Four thinking depths", "Checkpoints and per-file review", "Works on your local files"]
@@ -23,7 +23,7 @@ const PRODUCTS = [
 
 export default {
   title: "Products",
-  description: "Mere Code in the browser, and enterprise deployment.",
+  description: "Mere Studio in the browser, and enterprise deployment.",
 
   render() {
     return `
@@ -32,7 +32,7 @@ export default {
         eyebrow: "Products",
         title: "One model family. Three ways to put it to work.",
         lead: "For one engineer or a whole institution, it is the same agent and the same Mere family underneath — same safety layer, same thinking budgets, same bill.",
-        actions: `${button({ label: "Open Mere Code", href: "/app", icon: "arrow-ne" }).value}
+        actions: `${button({ label: "Open Mere Studio", href: "/app", icon: "arrow-ne" }).value}
                   ${button({ label: "See pricing", href: "/pricing", variant: "secondary", icon: "card" }).value}`
       }).value}
 
@@ -67,9 +67,9 @@ export default {
             <table class="data">
               <thead><tr><th>If you want to…</th><th>Start with</th><th>And add</th></tr></thead>
               <tbody>
-                <tr><td>hand a task to an agent</td><td><a class="link-plain" href="/products/code"><strong>Mere Code</strong></a></td><td class="small muted">In the browser, on your own files</td></tr>
+                <tr><td>hand a task to an agent</td><td><a class="link-plain" href="/products/studio"><strong>Mere Studio</strong></a></td><td class="small muted">In the browser, on your own files</td></tr>
                 <tr><td>roll it out to a team</td><td><a class="link-plain" href="/products/enterprise"><strong>Enterprise</strong></a></td><td class="small muted">SSO and a retention policy</td></tr>
-                <tr><td>ship code faster</td><td><a class="link-plain" href="/products/code"><strong>Mere Code</strong></a></td><td class="small muted">CI integration for review on every PR</td></tr>
+                <tr><td>ship code faster</td><td><a class="link-plain" href="/products/studio"><strong>Mere Studio</strong></a></td><td class="small muted">CI integration for review on every PR</td></tr>
                 <tr><td>deploy inside a regulated estate</td><td><a class="link-plain" href="/products/enterprise"><strong>Enterprise</strong></a></td><td class="small muted">Residency pinning and zero retention</td></tr>
               </tbody>
             </table>

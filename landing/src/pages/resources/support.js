@@ -1,5 +1,5 @@
 /* ============================================================
-   RESOURCES — support for Mere Code
+   RESOURCES — support for Mere Studio
    ============================================================ */
 
 import { FAQ } from "../../data/content.js";
@@ -8,7 +8,7 @@ import { icon } from "../../lib/icons.js";
 import { pageHead, sectionHead, textLink, button, ctaBand, accordion, dataTable, calloutBox } from "../../components/ui.js";
 
 const ROUTES = [
-  { icon: "terminal", t: "How it works", d: "What Agent, Plan and Ask do, how the four thinking depths behave, and what the agent may and may not touch.", href: "/products/code", cta: "Read how it works" },
+  { icon: "terminal", t: "How it works", d: "What Agent, Plan and Ask do, how the four thinking depths behave, and what the agent may and may not touch.", href: "/products/studio", cta: "Read how it works" },
   { icon: "activity", t: "Status", d: "Before you write to us, check whether it is us. Live health for the workspace, the models and the account service.", href: "/status", cta: "Check status" },
   { icon: "card", t: "Plans and limits", d: "Which models and thinking depths each plan includes, and how many agent turns you get in five hours.", href: "/pricing", cta: "Compare plans" },
   { icon: "mail", t: "Email support", d: `Write to ${COMPANY.support} with the thread title and roughly when it happened. It cuts resolution time about in half.`, href: `mailto:${COMPANY.support}`, cta: "Email us" },
@@ -43,7 +43,7 @@ const TROUBLESHOOT = [
 
 export default {
   title: "Support",
-  description: "Get help with Mere Code — troubleshooting, plans and limits, and human support.",
+  description: "Get help with Mere Studio — troubleshooting, plans and limits, and human support.",
 
   render() {
     return `

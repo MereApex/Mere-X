@@ -66,8 +66,10 @@ route("/technology/benchmarks", () => import("./pages/technology/benchmarks.js")
 
 /* Products */
 route("/products", () => import("./pages/products/overview.js"));
-route("/products/mere-x", () => import("./pages/products/code.js"));
-route("/products/code", () => import("./pages/products/code.js"));
+route("/products/studio", () => import("./pages/products/studio.js"));
+/* Old product URLs keep working. */
+route("/products/code", () => import("./pages/products/studio.js"));
+route("/products/mere-x", () => import("./pages/products/studio.js"));
 route("/products/enterprise", () => import("./pages/products/enterprise.js"));
 route("/pricing", () => import("./pages/pricing.js"));
 

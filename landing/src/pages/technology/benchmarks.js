@@ -25,7 +25,7 @@ const LONG_CONTEXT = [
 
 const NOTES = [
   { q: "Why don't you publish parameter counts alongside these?", a: "<p>Because the comparison it invites is misleading. A sparse model and a dense model with the same nominal count behave nothing alike, and the number tells you nothing about whether the model will work for your task. Throughput, latency, context, and evaluation results do.</p>" },
-  { q: "Where does Mere Code still lose?", a: "<p>Several places, and we would rather say so. Symbolic integration beyond undergraduate level; multi-hop spatial reasoning over floor plans; sustained consistency in fiction past roughly 40,000 words; and any task requiring genuinely current information without a search tool attached. The system card enumerates these with examples.</p>" },
+  { q: "Where does Mere Studio still lose?", a: "<p>Several places, and we would rather say so. Symbolic integration beyond undergraduate level; multi-hop spatial reasoning over floor plans; sustained consistency in fiction past roughly 40,000 words; and any task requiring genuinely current information without a search tool attached. The system card enumerates these with examples.</p>" },
   { q: "Do you evaluate against competitors?", a: "<p>Internally, yes; publicly, no. Cross-lab comparisons are almost always run under conditions that favour whoever published them, and we do not think ours would be an exception. We publish our own numbers, our methodology, and our prompts so you can run the comparison yourself.</p>" },
   { q: "How often are these refreshed?", a: "<p>On every model release, and whenever a suite is revised. The date on each table is the date the run happened, not the date the page was edited.</p>" }
 ];

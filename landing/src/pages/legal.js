@@ -14,7 +14,7 @@ const PAGES = {
     lead: "What we collect, why, how long we keep it, and what we will never do with it.",
     sections: [
       { h: "The short version", blocks: [
-        { t: "callout", v: { text: "<strong>We do not train on your data.</strong> What you send to Mere Code is never used to train Mere X models. Mere Code conversations are excluded by default; contributing them is opt-in and revocable.", variant: "accent", icon: "shield" } },
+        { t: "callout", v: { text: "<strong>We do not train on your data.</strong> What you send to Mere Studio is never used to train Mere X models. Mere Studio conversations are excluded by default; contributing them is opt-in and revocable.", variant: "accent", icon: "shield" } },
         { t: "p", v: "Everything below is the detail behind that sentence. If any of it contradicts the sentence, the sentence is what we meant and the detail is a drafting error we would like to hear about." }
       ]},
       { h: "What we collect", blocks: [

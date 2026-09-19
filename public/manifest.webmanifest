@@ -1,6 +1,6 @@
 {
-  "name": "Mere Code",
-  "short_name": "Mere Code",
+  "name": "Mere Studio",
+  "short_name": "Mere Studio",
   "description": "The coding agent that works on your project in the browser.",
   "id": "/app/",
   "start_url": "/app/",

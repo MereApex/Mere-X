@@ -86,7 +86,7 @@ export default {
           <div class="grid g-3" data-stagger="70">
             ${[
               { icon: "download", t: "Brand assets", d: "Logo files in SVG and PNG, in light and dark variants, with clear-space rules." },
-              { icon: "image", t: "Product imagery", d: "Screenshots of Mere Code and the console at press resolution." },
+              { icon: "image", t: "Product imagery", d: "Screenshots of Mere Studio and the console at press resolution." },
               { icon: "file", t: "Fact sheet", d: "Founding date, headcount, offices, funding, and product timeline in one page." },
               { icon: "users", t: "Executive bios", d: "Headshots and approved biographies for the leadership team." },
               { icon: "book", t: "Research summaries", d: "Plain-language summaries of our published work, written for non-specialists." },

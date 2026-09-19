@@ -63,8 +63,8 @@ export default {
         eyebrow: "Core concept",
         title: "Thinking is a resource. You decide how much to spend.",
         lead: "Most systems make you choose a different model when a problem gets hard. Mere X makes you choose a budget — on the same model, in the same request, with the same tools available.",
-        actions: `${button({ label: "Open Mere Code", href: "/app", icon: "arrow-ne" }).value}
-                  ${button({ label: "How it works", href: "/products/code", variant: "secondary", icon: "arrow-right" }).value}`
+        actions: `${button({ label: "Open Mere Studio", href: "/app", icon: "arrow-ne" }).value}
+                  ${button({ label: "How it works", href: "/products/studio", variant: "secondary", icon: "arrow-right" }).value}`
       }).value}
 
       <!-- ---- Interactive explorer ---- -->
@@ -177,8 +177,8 @@ export default {
       ${ctaBand({
         title: "Watch a budget change an answer.",
         body: "The playground runs the same prompt at two depths side by side.",
-        primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
-        secondary: { label: "How it works", href: "/products/code" }
+        primary: { label: "Open Mere Studio", href: "/app", icon: "arrow-ne" },
+        secondary: { label: "How it works", href: "/products/studio" }
       }).value}
     `;
   },

@@ -25,12 +25,12 @@ export function heroMarkup() {
         <div class="cover-portrait" data-cover-portrait>
           <div class="cover-enter"><div class="cover-breathe">
             <img class="cover-img" data-cover-img
-              src="/hero/mere-code-hero.webp"
-              srcset="/hero/mere-code-hero.webp 1448w, /hero/mere-code-hero-2x.webp 2896w"
+              src="/hero/mere-studio-hero.webp"
+              srcset="/hero/mere-studio-hero.webp 1448w, /hero/mere-studio-hero-2x.webp 2896w"
               sizes="(max-width: 1023px) 96vh, 134vh"
               width="1448" height="1086" alt="" fetchpriority="high" decoding="async">
-            <img class="cover-neon" src="/hero/mere-code-hero-neon-2x.webp" width="2896" height="2172" alt="" decoding="async" loading="eager">
-            <img class="cover-glow" src="/hero/mere-code-hero-glow.webp" width="1448" height="1086" alt="" decoding="async" loading="eager">
+            <img class="cover-neon" src="/hero/mere-studio-hero-neon-2x.webp" width="2896" height="2172" alt="" decoding="async" loading="eager">
+            <img class="cover-glow" src="/hero/mere-studio-hero-glow.webp" width="1448" height="1086" alt="" decoding="async" loading="eager">
           </div></div>
         </div>
         <canvas class="cover-dust is-front" data-cover-dust-front></canvas>
@@ -52,11 +52,11 @@ export function heroMarkup() {
         </div>
         <p class="cover-lead">The coding agent that works in your codebase. Open a folder, describe the change, review the diff.</p>
         <div class="cover-actions">
-          <a class="cover-cta" href="/app" data-magnetic><span>Open Mere Code</span>${icon("arrow-ne", "icon").value}<i class="cover-cta-sheen"></i></a>
+          <a class="cover-cta" href="/app" data-magnetic><span>Open Mere Studio</span>${icon("arrow-ne", "icon").value}<i class="cover-cta-sheen"></i></a>
           <a class="cover-link" href="#how-it-works"><span>See it work</span>${icon("chevron-right", "icon").value}</a>
         </div>
         <p class="cover-spec">
-          <span>Mere Code</span><i></i>
+          <span>Mere Studio</span><i></i>
           <span>4.2 Peak · 4.2 Core · 4.0 Lite</span><i></i>
           <span>1,000,000-token context</span><i></i>
           <span>Four thinking depths</span>
@@ -92,7 +92,7 @@ export function heroMarkup() {
     </section>`;
 }
 
-const TICKER = ["<b>Mere Code</b>", "4.2 Peak", "4.2 Core", "4.0 Lite", "1,000,000-token context", "Four thinking depths", "Agent · Plan · Ask", "Checkpoints", "Reviewable diffs", "Project memory", "MCP servers", "GitHub · Linear · Figma", "Web search with sources", "Never trained on your code"];
+const TICKER = ["<b>Mere Studio</b>", "4.2 Peak", "4.2 Core", "4.0 Lite", "1,000,000-token context", "Four thinking depths", "Agent · Plan · Ask", "Checkpoints", "Reviewable diffs", "Project memory", "MCP servers", "GitHub · Linear · Figma", "Web search with sources", "Never trained on your code"];
 
 export function tickerMarkup() {
   const group = `<div class="ticker-group">${TICKER.map((item) => `<span>${item}</span>`).join("")}</div>`;

@@ -6,7 +6,7 @@
    below are illustrative and labelled as such wherever shown.
    ============================================================ */
 
-export const GENERATION = "Mere Code";
+export const GENERATION = "Mere Studio";
 export const KNOWLEDGE_CUTOFF = "June 2026";
 
 export const MODELS = [
@@ -207,7 +207,7 @@ export const CAPABILITIES = [
       "Repo-scale edits with patch-format output",
       "Terminal and computer-use tooling",
       "Structured diagnostics and stack-trace reasoning",
-      "Mere Code CLI and IDE extensions"
+      "Mere Studio CLI and IDE extensions"
     ]
   },
   {

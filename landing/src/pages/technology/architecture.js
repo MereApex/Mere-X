@@ -103,7 +103,7 @@ export default {
                 They run in parallel and meet at a release gate that the safety organisation controls.
               </p>
               <div style="margin-top:26px">
-                ${calloutBox("We have used the gate. Mere Code slipped six weeks because a red-team finding on tool-use chains had no mitigation we were confident in. The finding is documented in the system card.", { variant: "accent", icon: "shield" }).value}
+                ${calloutBox("We have used the gate. Mere Studio slipped six weeks because a red-team finding on tool-use chains had no mitigation we were confident in. The finding is documented in the system card.", { variant: "accent", icon: "shield" }).value}
               </div>
               <div style="margin-top:22px">${textLink("Read the Responsible Scaling Policy", "/safety/scaling-policy").value}</div>
             </div>

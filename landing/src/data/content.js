@@ -20,7 +20,7 @@ export const PUBLICATIONS = [
     kind: "Paper",
     title: "Recall does not decay: adversarial retrieval across a million tokens",
     summary:
-      "Standard needle-in-a-haystack tests overstate long-context ability. We introduce an eight-needle adversarial variant with distractors that share surface form with the target, and report where Mere Code still fails.",
+      "Standard needle-in-a-haystack tests overstate long-context ability. We introduce an eight-needle adversarial variant with distractors that share surface form with the target, and report where Mere Studio still fails.",
     tags: ["Long context", "Evaluation"],
     authors: "Park, Nadar, Weiss"
   },
@@ -120,11 +120,11 @@ export const RESEARCH_AREAS = [
 ];
 
 export const NEWS = [
-  { date: "2026-08-28", kind: "Product", title: "Checkpoints and per-file review ship in Mere Code", summary: "Every prompt is now a checkpoint you can return to, and every touched file is a diff you accept or revert. Large offline workloads no longer need chunking. Batch jobs accept up to a million requests and stream results as they complete." },
+  { date: "2026-08-28", kind: "Product", title: "Checkpoints and per-file review ship in Mere Studio", summary: "Every prompt is now a checkpoint you can return to, and every touched file is a diff you accept or revert. Large offline workloads no longer need chunking. Batch jobs accept up to a million requests and stream results as they complete." },
   { date: "2026-08-12", kind: "Company", title: "Mere X opens an engineering office in Tbilisi", summary: "Our fifth office, focused on inference systems and the developer platform." },
-  { date: "2026-07-30", kind: "Safety", title: "Mere Code system card, second revision", summary: "Updated with post-launch evaluation data, three newly discovered failure modes, and the mitigations shipped for each." },
+  { date: "2026-07-30", kind: "Safety", title: "Mere Studio system card, second revision", summary: "Updated with post-launch evaluation data, three newly discovered failure modes, and the mitigations shipped for each." },
   { date: "2026-07-14", kind: "Product", title: "Plan mode and project rules", summary: "Plan mode proposes steps before touching a file, and rules in AGENTS.md or MERE.md are read at the start of every turn." },
-  { date: "2026-06-18", kind: "Product", title: "Mere 4.2 Peak, 4.2 Core and 4.0 Lite are here", summary: "Three lines, three generations, shipped together inside Mere Code with a million-token window and Extra High thinking." },
+  { date: "2026-06-18", kind: "Product", title: "Mere 4.2 Peak, 4.2 Core and 4.0 Lite are here", summary: "Three lines, three generations, shipped together inside Mere Studio with a million-token window and Extra High thinking." },
   { date: "2026-05-14", kind: "Product", title: "Checkpoints and per-hunk review", summary: "Every prompt becomes a restore point, and every changed file can be accepted or reverted hunk by hunk in the editor." },
   { date: "2026-04-22", kind: "Research", title: "We are releasing our circuit-tracing tooling", summary: "The attribution-graph tooling behind our interpretability work is now open source, with 1,400 annotated circuits." },
   { date: "2026-03-03", kind: "Company", title: "Series C: $1.4B to scale training and safety", summary: "The round funds our next training cluster and doubles the size of the evaluation organisation." }
@@ -146,7 +146,7 @@ export const CAREERS = [
   { title: "Member of Technical Staff, Inference", team: "Systems", location: "San Francisco · Tbilisi", type: "Full-time", level: "Senior" },
   { title: "Member of Technical Staff, Training Infrastructure", team: "Systems", location: "San Francisco", type: "Full-time", level: "Staff" },
   { title: "Software Engineer, Developer Platform", team: "Product", location: "Tbilisi · Remote (EU)", type: "Full-time", level: "Mid–Senior" },
-  { title: "Software Engineer, Mere Code", team: "Product", location: "San Francisco · Remote (US)", type: "Full-time", level: "Mid–Senior" },
+  { title: "Software Engineer, Mere Studio", team: "Product", location: "San Francisco · Remote (US)", type: "Full-time", level: "Mid–Senior" },
   { title: "Design Engineer", team: "Product", location: "Remote (EU/US)", type: "Full-time", level: "Senior" },
   { title: "Red Team Lead", team: "Safety", location: "London", type: "Full-time", level: "Staff" },
   { title: "Policy Manager, EU", team: "Policy", location: "Zürich", type: "Full-time", level: "Senior" },
@@ -192,7 +192,7 @@ export const CHANGELOG = [
     { kind: "deprecated", text: "Mere 5.0 models enter legacy support; retirement 18 March 2027." }
   ]},
   { date: "2026-05-14", version: "Voice", items: [
-    { kind: "added", text: "Checkpoints, per-hunk review and project rules files ship in Mere Code." }
+    { kind: "added", text: "Checkpoints, per-hunk review and project rules files ship in Mere Studio." }
   ]}
 ];
 
@@ -203,7 +203,7 @@ export const STATUS_SERVICES = [
   { name: "Account service", state: "operational", uptime: 99.94 },
   { name: "Realtime voice", state: "degraded", uptime: 99.61 },
   { name: "Developer console", state: "operational", uptime: 99.98 },
-  { name: "Mere Code", state: "operational", uptime: 99.96 }
+  { name: "Mere Studio", state: "operational", uptime: 99.96 }
 ];
 
 export const STATUS_INCIDENTS = [

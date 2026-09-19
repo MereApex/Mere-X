@@ -9,7 +9,7 @@ import { pageHead, sectionHead, textLink, button, ctaBand, benchBars, calloutBox
 
 const CARDS = [
   { model: "Mere 4.2 Peak · 4.2 Core · 4.0 Lite", date: "2026-06-18", rev: "rev 2 · 30 July 2026", pages: 118, level: "CSL-3", note: "Peak, Core, and Lite in one document, with per-model evaluation tables." },
-  { model: "Mere Code agent", date: "2026-09-10", rev: "rev 1", pages: 72, level: "CSL-3", note: "Autonomous editing, destructive-action gating, prompt injection through repository contents, and secret handling." },
+  { model: "Mere Studio agent", date: "2026-09-10", rev: "rev 1", pages: 72, level: "CSL-3", note: "Autonomous editing, destructive-action gating, prompt injection through repository contents, and secret handling." },
   { model: "Mere 3.8 Peak · 3.8 Core", date: "2026-02-12", rev: "rev 3", pages: 96, level: "CSL-2", note: "The first release under the Responsible Scaling Policy." },
   { model: "Mere Aegis", date: "2026-01-09", rev: "rev 1", pages: 38, level: "n/a", note: "Taxonomy definitions, training data, and human-rater disagreement rates." }
 ];
@@ -45,7 +45,7 @@ export default {
         eyebrow: "Per-release reporting",
         title: "Everything we know about a model, published with it.",
         lead: "A system card is not a summary of the good results. It is the capability evaluations, the safety evaluations, the RSP determination, the red-team findings, and a specific list of what the model still gets wrong.",
-        actions: `${button({ label: "Mere Code system card", href: "#mere-x-4", icon: "arrow-down" }).value}
+        actions: `${button({ label: "Mere Studio system card", href: "#mere-x-4", icon: "arrow-down" }).value}
                   ${button({ label: "Responsible Scaling Policy", href: "/safety/scaling-policy", variant: "secondary", icon: "scale" }).value}`
       }).value}
 

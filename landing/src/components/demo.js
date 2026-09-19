@@ -1,5 +1,5 @@
 /* ============================================================
-   DEMO — Mere Code, replayed.
+   DEMO — Mere Studio, replayed.
    A window of the workspace working through one real
    change: it searches, reads (the editor is scanned as it reads),
    plans, lands the edit in the editor, writes a test with an
@@ -157,10 +157,10 @@ export function demoMarkup() {
         <div class="demo-beam" aria-hidden="true"></div>
         <div class="demo-glow" aria-hidden="true"><i></i><i></i></div>
         <div class="demo-corners" aria-hidden="true">${cornerFrame().value}</div>
-        <div class="demo-window" data-demo aria-label="Mere Code, replaying a change">
+        <div class="demo-window" data-demo aria-label="Mere Studio, replaying a change">
           <div class="dm-titlebar">
             <span class="dm-lights" aria-hidden="true"><i></i><i></i><i></i></span>
-            <span class="dm-brand">MERE CODE<i>˚</i></span>
+            <span class="dm-brand">MERE STUDIO<i>˚</i></span>
             <span class="dm-crumbs">
               <span class="dm-chip">${icon("folder", "icon").value}checkout-service</span>
               <span class="dm-chip">${icon("branch", "icon").value}fix/half-open-probe</span>

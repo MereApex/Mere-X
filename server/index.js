@@ -729,7 +729,7 @@ if (isProduction) {
   /* The retired developer console and API page land on the product. */
   const RETIRED = [
     [/^\/console(?:\/.*)?$/, "/app"],
-    [/^\/products\/api\/?$/, "/products/code"]
+    [/^\/products\/api\/?$/, "/products/studio"]
   ];
   app.get(RETIRED.map(([pattern]) => pattern), (req, res) => {
     const target = RETIRED.find(([pattern]) => pattern.test(req.path))?.[1] || "/";

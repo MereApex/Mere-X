@@ -1,5 +1,5 @@
 /* ============================================================
-   MERE CODE — the workspace
+   MERE STUDIO — the workspace
    One conversation with the agent, a sidebar of threads, and
    the project it works on. Files are read and written on the
    person's machine; every step and every diff shows up in the
@@ -16,13 +16,6 @@ import { escapeHtml, renderUserMessage, renderAssistantMessage, LiveTurn, render
 import { diffStats } from "./diff.js";
 import { highlight } from "./highlight.js";
 import { buildPreviewDocument, pickEntry } from "./preview.js";
-import merexThemeUrl from "../styles/merex-app.css?url";
-
-const merexTheme = document.createElement("link");
-merexTheme.rel = "stylesheet";
-merexTheme.href = merexThemeUrl;
-document.head.append(merexTheme);
-
 const body = document.body;
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -476,7 +469,7 @@ function updateProjectUI() {
   els.welcomeStarters.hidden = !has;
   renderRecentProjects();
   renderThreadList();
-  document.title = has ? `${project.name} — Mere Code` : "Mere Code";
+  document.title = has ? `${project.name} — Mere Studio` : "Mere Studio";
 }
 
 function rememberProject(record) {
@@ -2029,7 +2022,7 @@ function usageCardHtml() {
 
 const settingsPanels = {
   general: () =>
-    settingUI.header("Workspace", "General", "How Mere Code starts and reads.") +
+    settingUI.header("Workspace", "General", "How Mere Studio starts and reads.") +
     settingUI.group(
       settingUI.row("Default model", "Used for new threads.", settingUI.select("model-profile", MODEL_KEYS.filter(modelAvailable).map((key) => MODEL_NAMES[key]), MODEL_NAMES[selectedModel])) +
       settingUI.row("Default thinking", "How long the model deliberates before acting.", settingUI.select("default-effort", EFFORT_LEVELS.filter((level) => accountEntitlements.efforts.includes(level.name)).map((level) => level.name), selectedEffort)) +
@@ -2039,7 +2032,7 @@ const settingsPanels = {
       settingUI.row("Text size", "Reading size for the thread.", settingUI.choice("text-size", ["Compact", "Default", "Large"], "Default")) +
       settingUI.row("Reduced motion", "Minimise interface animation.", settingUI.toggle("reduced-motion")) +
       settingUI.row("Completion sound", "A short tone when a turn finishes.", settingUI.toggle("sound")) +
-      settingUI.row("Install Mere Code", "Add a full-screen app to this device.", settingUI.action("Install app", "install-app", "primary-action"))
+      settingUI.row("Install Mere Studio", "Add a full-screen app to this device.", settingUI.action("Install app", "install-app", "primary-action"))
     , "Interface"),
 
   agent: () =>
@@ -2210,7 +2203,7 @@ els.settingsPanel.addEventListener("click", async (event) => {
 
 async function handleSettingAction(name) {
   if (name === "install-app") {
-    if (window.matchMedia("(display-mode: standalone)").matches) return showToast("Mere Code is already installed");
+    if (window.matchMedia("(display-mode: standalone)").matches) return showToast("Mere Studio is already installed");
     if (!deferredInstallPrompt) return showToast("Use your browser menu and choose Install");
     deferredInstallPrompt.prompt();
     deferredInstallPrompt.userChoice.finally(() => { deferredInstallPrompt = null; });
@@ -2225,7 +2218,7 @@ async function handleSettingAction(name) {
       : `<div class="action-empty"><svg><use href="#i-card"></use></svg><strong>No payments yet</strong><p>Completed payments will appear here.</p></div>` });
     return;
   }
-  if (name === "export-data") { downloadJson("mere-x-code-threads.json", { exportedAt: new Date().toISOString(), threads: appState.conversations }); return; }
+  if (name === "export-data") { downloadJson("mere-studio-threads.json", { exportedAt: new Date().toISOString(), threads: appState.conversations }); return; }
   if (name === "delete-threads") {
     const ok = await confirmAction("Delete all threads", "Every thread will be removed from your account. Files are not affected.", "Delete all");
     if (!ok) return;
@@ -2606,7 +2599,7 @@ async function initializeSession() {
 }
 
 window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstallPrompt = event; });
-window.addEventListener("appinstalled", () => { deferredInstallPrompt = null; showToast("Mere Code installed"); });
+window.addEventListener("appinstalled", () => { deferredInstallPrompt = null; showToast("Mere Studio installed"); });
 window.addEventListener("beforeunload", (event) => {
   if (runs.size) { event.preventDefault(); event.returnValue = ""; }
 });

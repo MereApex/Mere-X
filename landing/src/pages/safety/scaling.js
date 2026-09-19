@@ -147,7 +147,7 @@ export default {
               <p>
                 We did not have a mitigation we were confident in. The launch moved six weeks while we
                 built chain-level classification rather than per-message classification. The finding, the
-                delay, and the fix are documented in the Mere Code system card.
+                delay, and the fix are documented in the Mere Studio system card.
               </p>
               <p>
                 We are describing this because a policy nobody has ever been inconvenienced by is not
@@ -183,7 +183,7 @@ export default {
 
       ${ctaBand({
         title: "See how it applied to the current model.",
-        body: "The Mere Code system card documents the evaluations, the findings, and the residual risks.",
+        body: "The Mere Studio system card documents the evaluations, the findings, and the residual risks.",
         primary: { label: "Read the system card", href: "/safety/system-cards", icon: "arrow-ne" },
         secondary: { label: "Our safety approach", href: "/safety" }
       }).value}

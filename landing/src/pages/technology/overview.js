@@ -20,7 +20,7 @@ export default {
         title: "One family, engineered around a single idea: thinking is a resource you should control.",
         lead: "Three models share a training run, a tokenizer, and a safety layer. What separates them is capability ceiling, latency, and how much deliberation they can afford.",
         actions: `${button({ label: "See the benchmarks", href: "/technology/benchmarks", icon: "arrow-right" }).value}
-                  ${button({ label: "How it works", href: "/products/code", variant: "secondary", icon: "arrow-right" }).value}`,
+                  ${button({ label: "How it works", href: "/products/studio", variant: "secondary", icon: "arrow-right" }).value}`,
         meta: `
           <div class="stat"><span class="stat-value" style="font-size:1.5rem">${MODELS.length}</span><span class="stat-label">Models</span></div>
           <div class="stat"><span class="stat-value" style="font-size:1.5rem">1M</span><span class="stat-label">Max context</span></div>
@@ -172,8 +172,8 @@ export default {
         eyebrow: "Start building",
         title: "Pick a model. Send a message. See what it does.",
         body: "Ten dollars of credit and a key in under a minute.",
-        primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
-        secondary: { label: "How it works", href: "/products/code" }
+        primary: { label: "Open Mere Studio", href: "/app", icon: "arrow-ne" },
+        secondary: { label: "How it works", href: "/products/studio" }
       }).value}
     `;
   }

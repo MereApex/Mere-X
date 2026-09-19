@@ -41,7 +41,7 @@ export default {
         eyebrow: `${model.tier} · ${model.status}`,
         title: model.name,
         lead: model.tagline,
-        actions: `${button({ label: "Open Mere Code", href: "/app", icon: "arrow-ne" }).value}
+        actions: `${button({ label: "Open Mere Studio", href: "/app", icon: "arrow-ne" }).value}
                   ${button({ label: "Compare the family", href: "/technology", variant: "secondary", icon: "layers" }).value}`
       }).value}
 
@@ -175,7 +175,7 @@ export default {
       ${ctaBand({
         title: `Put ${model.name} to work.`,
         body: "Open a folder, describe a change, and watch which parts of it this model gets right.",
-        primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
+        primary: { label: "Open Mere Studio", href: "/app", icon: "arrow-ne" },
         secondary: { label: "See pricing", href: "/pricing" }
       }).value}
     `;
