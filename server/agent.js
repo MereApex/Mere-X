@@ -197,54 +197,6 @@ const TOOLS = {
     description: "Read the console output and runtime errors captured from the live preview of the project (the person's web page rendered in the workspace). Use it to debug what the page actually does after an edit.",
     parameters: { type: "object", properties: {}, additionalProperties: false }
   },
-  /* Desktop only: a real shell and git, in the project folder. */
-  run_command: {
-    type: "function",
-    name: "run_command",
-    description: "Run a shell command in the project folder on the person's computer and return its output and exit code (desktop only). Use it to run the project's tests, build, linters or scripts. Commands time out after 5 minutes; long-running servers are not supported here. Never run destructive commands (rm -rf, git reset --hard, force pushes) without the person asking for exactly that.",
-    parameters: {
-      type: "object",
-      properties: {
-        command: { type: "string", description: "The command line, as the person would type it in their terminal." },
-        cwd: { type: "string", description: "Working directory relative to the project root. Defaults to the root." },
-        timeout_seconds: { type: "integer", description: "Optional timeout, up to 300." }
-      },
-      required: ["command"],
-      additionalProperties: false
-    }
-  },
-  git_status: {
-    type: "function",
-    name: "git_status",
-    description: "The repository's current branch, ahead/behind counts and every changed, staged and untracked file (desktop only).",
-    parameters: { type: "object", properties: {}, additionalProperties: false }
-  },
-  git_diff: {
-    type: "function",
-    name: "git_diff",
-    description: "The unified diff of uncommitted changes (desktop only). Pass a path to limit it to one file; staged: true shows the index instead of the working tree.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "Optional file path to limit the diff to." },
-        staged: { type: "boolean", description: "Show staged changes instead of the working tree." }
-      },
-      additionalProperties: false
-    }
-  },
-  git_log: {
-    type: "function",
-    name: "git_log",
-    description: "Recent commits on the current branch (desktop only): hash, author, date and subject.",
-    parameters: {
-      type: "object",
-      properties: {
-        count: { type: "integer", description: "How many commits, up to 50. Default 15." },
-        path: { type: "string", description: "Optional file path to show the history of." }
-      },
-      additionalProperties: false
-    }
-  },
   update_plan: {
     type: "function",
     name: "update_plan",
@@ -274,9 +226,6 @@ const TOOLS = {
 
 const READ_TOOLS = ["list_files", "read_file", "search_files", "find_files", "run_javascript", "read_url", "read_preview_console"];
 const WRITE_TOOLS = ["write_file", "edit_file", "delete_file", "move_file"];
-/* Only the desktop app has a shell and a repository on disk. */
-const DESKTOP_READ_TOOLS = ["git_status", "git_diff", "git_log"];
-const DESKTOP_WRITE_TOOLS = ["run_command"];
 /* Tools the server answers itself, in the same request. */
 export const SERVER_TOOLS = Object.freeze(["read_url"]);
 const MAX_MCP = 5;
@@ -299,9 +248,9 @@ export function normalizeMcp(value) {
   return out;
 }
 
-export function toolsForMode(mode, { web = false, mcp = [], nested = false, desktop = false } = {}) {
-  const reads = desktop ? [...READ_TOOLS, ...DESKTOP_READ_TOOLS] : READ_TOOLS;
-  const writes = desktop ? [...WRITE_TOOLS, ...DESKTOP_WRITE_TOOLS] : WRITE_TOOLS;
+export function toolsForMode(mode, { web = false, mcp = [], nested = false } = {}) {
+  const reads = READ_TOOLS;
+  const writes = WRITE_TOOLS;
   const names = mode === "ask"
     ? [...reads, "delegate"]
     : mode === "plan"
@@ -343,14 +292,9 @@ const MODE_GUIDANCE = {
 };
 
 export function agentInstructions({ modelName, mode, context = {} }) {
-  const desktop = context.desktop === true;
   const pieces = [
-    desktop
-      ? `You are ${modelName}, the coding agent inside Mere Code for desktop. You work directly on the person's project folder on their computer.`
-      : `You are ${modelName}, the coding agent inside Mere Code. You work directly on the person's project, which is open in their browser.`,
-    desktop
-      ? "Environment: your tools run on the person's machine against the project's real files. Every read is live and every write is applied immediately, then shown to the person as a reviewable diff they can accept or reject. run_command runs in a real shell in the project folder: use it to run the project's tests, build, linters and scripts, and read the output back before claiming anything passed. git_status, git_diff and git_log read the repository; do not commit, push, reset or check out branches unless the person asks for exactly that. Never claim to have run something you did not run."
-      : "Environment: your tools run in the browser against the project's real files. Every read is live and every write is applied immediately, then shown to the person as a reviewable diff they can accept or reject. There is no shell, no package manager and no way to run the project's build or tests; run_javascript is an isolated sandbox for checking logic only. Never claim to have run a command, a build, a test suite or a server.",
+    `You are ${modelName}, the coding agent inside Mere Code. You work directly on the person's project, which is open in their browser.`,
+    "Environment: your tools run in the browser against the project's real files. Every read is live and every write is applied immediately, then shown to the person as a reviewable diff they can accept or reject. There is no shell, no package manager and no way to run the project's build or tests; run_javascript is an isolated sandbox for checking logic only. Never claim to have run a command, a build, a test suite or a server.",
     "Path rules: all paths are relative to the project root and use forward slashes. Never invent files; list or search first when unsure.",
     "Editing rules: prefer edit_file with a unique old_string over rewriting a whole file. Keep edits minimal and in the surrounding code's style, naming and indentation. Do not reformat unrelated lines. Do not add comments that narrate the change. Create new files only when the task needs them. When an edit fails, read the file again and retry with an exact match instead of guessing.",
     "Verification: after editing, read back the changed region if the edit was non-trivial, and search for other usages you may have broken (renamed symbols, changed signatures, moved files). Fix what you find.",

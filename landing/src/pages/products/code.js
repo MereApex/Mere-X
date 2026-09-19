@@ -25,7 +25,7 @@ const FAQ_ITEMS = [
   { q: "Does it upload my whole codebase?", a: "<p>No. Your browser reads the folder and the agent receives only the files it opens for that turn, plus a compact file tree. Nothing is stored server-side beyond your threads, and nothing is used for training.</p>" },
   { q: "Which browsers can open a local folder?", a: "<p>Chrome and Edge, through the File System Access API. Other browsers can still use Mere Code with a project that lives in the browser, or with a folder dropped onto the window, which copies its text files in.</p>" },
   { q: "Which model should I use?", a: "<p>4.2 Core in High for most work. Drop to 4.0 Lite in Fast for mechanical edits and quick questions, and rise to 4.2 Peak with Extra High for a refactor that spans many files or a bug nobody has managed to reproduce.</p>" },
-  { q: "Can it run my tests?", a: "<p>Not yet — the browser has no shell. It can run an isolated JavaScript snippet to check logic, and it will tell you exactly which command to run yourself. The desktop application, which will run commands, is next.</p>" },
+  { q: "Can it run my tests?", a: "<p>Not yet — the browser has no shell. It can run an isolated JavaScript snippet to check logic, and it will tell you exactly which command to run yourself.</p>" },
   { q: "How is it billed?", a: "<p>By agent turns: one prompt and every tool round it needs counts once against a rolling 5-hour and weekly limit. Plans from Free upward include a monthly allowance; the API bills per token.</p>" }
 ];
 

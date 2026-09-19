@@ -16,6 +16,12 @@ import { escapeHtml, renderUserMessage, renderAssistantMessage, LiveTurn, render
 import { diffStats } from "./diff.js";
 import { highlight } from "./highlight.js";
 import { buildPreviewDocument, pickEntry } from "./preview.js";
+import merexThemeUrl from "../styles/merex-app.css?url";
+
+const merexTheme = document.createElement("link");
+merexTheme.rel = "stylesheet";
+merexTheme.href = merexThemeUrl;
+document.head.append(merexTheme);
 
 const body = document.body;
 const $ = (selector) => document.querySelector(selector);
@@ -2401,7 +2407,7 @@ async function enterWorkspace(user, message) {
   setAuthView("signin");
   if (window.location.pathname === "/login") {
     const requested = new URLSearchParams(window.location.search).get("returnTo") || "/app";
-    const returnTo = /^\/(?:app|console)(?:[/?]|$)/.test(requested) || /^\/checkout(?:\?|$)/.test(requested) ? requested : "/app";
+    const returnTo = /^\/app(?:[/?]|$)/.test(requested) || /^\/checkout(?:\?|$)/.test(requested) ? requested : "/app";
     if (!returnTo.startsWith("/app")) { window.location.replace(returnTo); return; }
     history.replaceState({}, "", returnTo);
   }
@@ -2577,13 +2583,14 @@ async function loadGoogleIdentity() {
 }
 
 async function initializeSession() {
-  const resetToken = new URLSearchParams(window.location.search).get("reset");
+  const authQuery = new URLSearchParams(window.location.search);
+  const resetToken = authQuery.get("reset");
   if (resetToken) {
     setAuthView("reset");
     $("#resetEmail").closest(".auth-field").hidden = true;
     $("#resetPasswordFields").hidden = false;
     $("#resetSubmitLabel").innerHTML = 'Save new password<svg><use href="#i-arrow-ne"></use></svg>';
-  } else setAuthView("signin");
+  } else setAuthView(authQuery.get("view") === "signup" ? "signup" : "signin");
   /* Load Google's identity library alongside the session lookup instead of
      serially afterwards, so the account button is ready as soon as login is. */
   const googleIdentity = loadGoogleIdentity().catch((error) => console.warn(error.message));

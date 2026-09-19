@@ -21,9 +21,8 @@ const CATALOG = ["mere-4-2-peak", "mere-4-2-core", "mere-4-0-lite", "mere-atlas"
 
 const PLATFORM = [
   { n: "01", title: "Mere Code", href: "/app", desc: "The coding agent, in your browser. Open a folder, describe the change, review the diff." },
-  { n: "02", title: "Download for desktop", href: "/download", desc: "A real terminal, git and reviewable diffs on your computer. Windows now; macOS and Linux next." },
-  { n: "03", title: "How it works", href: "/products/code", desc: "Agent, Plan and Ask modes, four thinking depths, checkpoints and review." },
-  { n: "04", title: "Pricing", href: "/pricing", desc: "Plans for every way of working, from a side project to a whole team." }
+  { n: "02", title: "How it works", href: "/products/code", desc: "Agent, Plan and Ask modes, four thinking depths, checkpoints and review." },
+  { n: "03", title: "Pricing", href: "/pricing", desc: "Plans for every way of working, from a side project to a whole team." }
 ];
 
 const INDEX = [
@@ -148,7 +147,7 @@ export function renderNav() {
         <button class="nav-link-btn" type="button" data-drawer-open="models" aria-haspopup="dialog" aria-expanded="false">Models</button>
         <button class="nav-link-btn" type="button" data-drawer-open="platform" aria-haspopup="dialog" aria-expanded="false">Product</button>
         <button class="nav-link-btn" type="button" data-drawer-open="research" aria-haspopup="dialog" aria-expanded="false">Research</button>
-        <a class="nav-link-btn nav-link-app" href="/download">Download</a>
+        <a class="nav-link-btn nav-link-app" href="/app">Open Code</a>
         <span class="nav-sep" aria-hidden="true">|</span>
         <button class="nav-stack" type="button" data-drawer-open="stack" aria-haspopup="dialog" aria-expanded="false" aria-label="Your stack">
           ${icon("layers").value}

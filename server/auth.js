@@ -109,18 +109,8 @@ async function ensureWorkspace(userId, name) {
   );
 }
 
-/* The desktop app identifies itself with a header and carries its session
-   as a bearer token instead of a cookie. */
-function isDesktopClient(req) {
-  return clean(req.get("x-mere-client"), 40).toLowerCase() === "desktop";
-}
-
 function sessionTokenFromRequest(req) {
-  const fromCookie = cookies(req)[SESSION_COOKIE];
-  if (fromCookie) return fromCookie;
-  const authorization = clean(req.get("authorization"), 600);
-  const bearer = /^Bearer\s+mxs_(.+)$/i.exec(authorization)?.[1] || "";
-  return bearer ? bearer.trim() : "";
+  return cookies(req)[SESSION_COOKIE] || "";
 }
 
 async function createSession(req, res, user, remember = true) {
@@ -130,7 +120,6 @@ async function createSession(req, res, user, remember = true) {
     `INSERT INTO auth_sessions (user_id, token_hash, expires_at, user_agent, ip_hash) VALUES ($1, $2, $3, $4, $5)`,
     [user.id, tokenHash(token), expiresAt, clean(req.headers["user-agent"], 500), requestIpHash(req)]
   );
-  if (isDesktopClient(req)) { req.desktopSessionToken = `mxs_${token}`; return; }
   setSessionCookie(req, res, token, remember);
   /* Expired-session housekeeping must never delay a successful login. */
   void query(`DELETE FROM auth_sessions WHERE expires_at < now()`).catch((error) => {
@@ -180,7 +169,7 @@ export async function requirePageAuth(req, res, next) {
       return next();
     }
     const requested = String(req.originalUrl || "/app");
-    const returnTo = /^\/(?:app|console)(?:[/?]|$)/.test(requested) || /^\/checkout(?:\?|$)/.test(requested)
+    const returnTo = /^\/app(?:[/?]|$)/.test(requested) || /^\/checkout(?:\?|$)/.test(requested)
       ? requested
       : "/app";
     res.setHeader("Cache-Control", "no-store");
@@ -272,7 +261,7 @@ export function createAuthRouter() {
     }
     await query(`UPDATE users SET last_login_at = now(), updated_at = now() WHERE id = $1`, [row.id]);
     await createSession(req, res, row, req.body?.remember !== false);
-    res.json(req.desktopSessionToken ? { user: publicUser(row), token: req.desktopSessionToken } : { user: publicUser(row) });
+    res.json({ user: publicUser(row) });
   }));
 
   router.post("/google", asyncRoute(async (req, res) => {

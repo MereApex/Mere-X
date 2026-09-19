@@ -9,7 +9,6 @@ import { pageHead, sectionHead, textLink, button, ctaBand, accordion, dataTable,
 
 const ROUTES = [
   { icon: "terminal", t: "How it works", d: "What Agent, Plan and Ask do, how the four thinking depths behave, and what the agent may and may not touch.", href: "/products/code", cta: "Read how it works" },
-  { icon: "download", t: "Desktop app", d: "Install, update and troubleshoot Mere Code for desktop — the build with a real terminal and git.", href: "/download", cta: "Download and install" },
   { icon: "activity", t: "Status", d: "Before you write to us, check whether it is us. Live health for the workspace, the models and the account service.", href: "/status", cta: "Check status" },
   { icon: "card", t: "Plans and limits", d: "Which models and thinking depths each plan includes, and how many agent turns you get in five hours.", href: "/pricing", cta: "Compare plans" },
   { icon: "mail", t: "Email support", d: `Write to ${COMPANY.support} with the thread title and roughly when it happened. It cuts resolution time about in half.`, href: `mailto:${COMPANY.support}`, cta: "Email us" },
@@ -26,7 +25,7 @@ const TIERS = [
 const TROUBLESHOOT = [
   {
     q: "The agent says there is no project open",
-    a: "<p>Mere works on a folder you choose. In the browser, open one from the project menu — Chrome and Edge can hand a local folder to the page, and any browser can hold a project in its own storage. In the desktop app press <code class=\"inline\">Ctrl O</code>.</p><p>If the folder was opened in a previous session and the browser has forgotten permission, open it again; the agent never keeps a handle you did not grant.</p>"
+    a: "<p>Mere works on a folder you choose. In the browser, open one from the project menu — Chrome and Edge can hand a local folder to the page, and any browser can hold a project in its own storage.</p><p>If the folder was opened in a previous session and the browser has forgotten permission, open it again; the agent never keeps a handle you did not grant.</p>"
   },
   {
     q: "It cannot find a file I know exists",
@@ -39,14 +38,6 @@ const TROUBLESHOOT = [
   {
     q: "An edit went in that I did not want",
     a: "<p>Nothing is final. Every touched file sits in Changes until you accept or reject it, and rejecting restores the exact bytes from before the turn.</p><p>To undo a whole exchange, use <em>Restore checkpoint</em> on your prompt: the files go back to how they were before that message and the later messages leave the thread.</p>"
-  },
-  {
-    q: "The desktop terminal or git panel is empty",
-    a: "<p>The terminal starts in the open project folder — if no folder is open there is nothing to start. The repository panel needs <code class=\"inline\">git</code> on your PATH; install Git for Windows and reopen the folder.</p><p>Commands the agent runs appear under <em>Agent output</em>, separately from your own shell.</p>"
-  },
-  {
-    q: "The app will not install or update",
-    a: "<p>Windows SmartScreen warns about installers it has not seen often. Choose <em>More info → Run anyway</em>; the SHA-256 of every build is published beside the download so you can verify it first.</p><p>Updates arrive in the title bar. If one fails, download the current installer again — it installs over the existing copy and keeps your settings.</p>"
   }
 ];
 

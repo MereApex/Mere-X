@@ -14,12 +14,6 @@ const PRODUCTS = [
     points: ["Agent, Plan and Ask modes", "Four thinking depths", "Checkpoints and per-file review", "Works on your local files"]
   },
   {
-    icon: "download", name: "Mere Code for desktop", href: "/download", tag: "For your machine",
-    tagline: "The same agent, with a real terminal.",
-    body: "A native app that works on a folder on your computer: it runs your tests and scripts in a built-in terminal, reads the repository through git, and shows every diff in the editor before you keep it.",
-    points: ["A real terminal in the project", "Git status, diffs and commits", "Review changes chunk by chunk", "Windows now, macOS and Linux next"]
-  },
-  {
     icon: "building", name: "Enterprise", href: "/products/enterprise", tag: "For institutions",
     tagline: "Deployment on your terms.",
     body: "Private tenancy, committed throughput, data residency, air-gapped installations, and a named solutions architect.",
@@ -29,7 +23,7 @@ const PRODUCTS = [
 
 export default {
   title: "Products",
-  description: "Mere Code in the browser, Mere Code for desktop, and enterprise deployment.",
+  description: "Mere Code in the browser, and enterprise deployment.",
 
   render() {
     return `
@@ -37,7 +31,7 @@ export default {
         crumb: [{ label: "Products" }],
         eyebrow: "Products",
         title: "One model family. Three ways to put it to work.",
-        lead: "In the browser or on your desktop, it is the same agent and the same Mere family underneath — same safety layer, same thinking budgets, same bill.",
+        lead: "For one engineer or a whole institution, it is the same agent and the same Mere family underneath — same safety layer, same thinking budgets, same bill.",
         actions: `${button({ label: "Open Mere Code", href: "/app", icon: "arrow-ne" }).value}
                   ${button({ label: "See pricing", href: "/pricing", variant: "secondary", icon: "card" }).value}`
       }).value}
@@ -76,7 +70,6 @@ export default {
                 <tr><td>hand a task to an agent</td><td><a class="link-plain" href="/products/code"><strong>Mere Code</strong></a></td><td class="small muted">In the browser, on your own files</td></tr>
                 <tr><td>roll it out to a team</td><td><a class="link-plain" href="/products/enterprise"><strong>Enterprise</strong></a></td><td class="small muted">SSO and a retention policy</td></tr>
                 <tr><td>ship code faster</td><td><a class="link-plain" href="/products/code"><strong>Mere Code</strong></a></td><td class="small muted">CI integration for review on every PR</td></tr>
-                <tr><td>run tests and git while it works</td><td><a class="link-plain" href="/download"><strong>Mere Code for desktop</strong></a></td><td class="small muted">Batch, for anything not user-facing</td></tr>
                 <tr><td>deploy inside a regulated estate</td><td><a class="link-plain" href="/products/enterprise"><strong>Enterprise</strong></a></td><td class="small muted">Residency pinning and zero retention</td></tr>
               </tbody>
             </table>
@@ -109,9 +102,9 @@ export default {
 
       ${ctaBand({
         title: "Start wherever makes sense.",
-        body: "The free plan takes about a minute, and the desktop app installs in one more.",
+        body: "The free plan takes about a minute. Sign in, open a folder, describe the change.",
         primary: { label: "Try Mere X", href: "/app", icon: "arrow-ne" },
-        secondary: { label: "Download for desktop", href: "/download" }
+        secondary: { label: "See pricing", href: "/pricing" }
       }).value}
     `;
   }

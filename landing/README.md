@@ -79,7 +79,7 @@ from. There is one theme. Motion respects `prefers-reduced-motion` throughout.
 
 The home page is a single full-viewport composition: wordmark and nav, the
 `FUTURE / FORWARD / INTELLIGENCE` headline with its checker, one CTA, the globe
-tagline, and — on desktop — the dual-portrait reveal in `components/reveal.js`
+tagline
 (spotlight eased at 0.1, radius `clamp(160, 16vw, 420)`, parallax grid eased at
 0.06, and a scanner reticle that rides the lens). Below `lg` the interactive
 background is replaced by a bordered still of the base portrait. Both portraits

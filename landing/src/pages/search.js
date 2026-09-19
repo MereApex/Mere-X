@@ -37,7 +37,6 @@ function buildIndex() {
 
   entries.push(
     { kind: "Product", title: "Mere Code", desc: "The coding agent that works on your project", href: "/products/code", icon: "terminal" },
-    { kind: "Product", title: "Download for desktop", desc: "A real terminal, git and reviewable diffs", href: "/download", icon: "download" },
     { kind: "Pricing", title: "Pricing", desc: "Plans for every way of working", href: "/pricing", icon: "card" },
     { kind: "Status", title: "Platform status", desc: "Live health for every service and region", href: "/status", icon: "activity" }
   );
@@ -48,7 +47,7 @@ function buildIndex() {
 const INDEX = buildIndex();
 
 const SUGGESTIONS = [
-  "thinking depths", "download", "Mere 4.2 Peak", "pricing", "agent mode",
+  "thinking depths", "Mere 4.2 Peak", "pricing", "agent mode",
   "checkpoints", "long context", "safety", "system card", "benchmarks"
 ];
 

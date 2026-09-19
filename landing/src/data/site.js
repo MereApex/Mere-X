@@ -57,7 +57,6 @@ export const NAV = [
     panelWide: false,
     links: [
       { title: "Mere Code", href: "/products/code", desc: "The coding agent, in your browser", icon: "terminal" },
-      { title: "Download for desktop", href: "/download", desc: "Windows now, macOS and Linux next", icon: "download" },
       { title: "Enterprise", href: "/products/enterprise", desc: "Deployment, residency, and support", icon: "building" },
       { title: "Pricing", href: "/pricing", desc: "Plans for every way of working", icon: "card" }
     ]
@@ -96,7 +95,6 @@ export const NAV = [
     href: "/changelog",
     panelWide: false,
     links: [
-      { title: "Download for desktop", href: "/download", desc: "Windows now, macOS and Linux next", icon: "download" },
       { title: "Changelog", href: "/changelog", desc: "What shipped, and when", icon: "list" },
       { title: "Status", href: "/status", desc: "Live platform health", icon: "activity" },
       { title: "Support", href: "/support", desc: "Get help from a human", icon: "help" }
@@ -109,7 +107,6 @@ export const FOOTER = [
     title: "Product",
     links: [
       { label: "Mere Code", href: "/products/code" },
-      { label: "Download for desktop", href: "/download" },
       { label: "Open the workspace", href: "/app" },
       { label: "Enterprise", href: "/products/enterprise" },
       { label: "Pricing", href: "/pricing" },

@@ -95,7 +95,7 @@ export default {
         title: "Never miss a breaking change.",
         body: "Turn on deprecation notices in the console and we will tell you six months ahead.",
         primary: { label: "Get support", href: "/support", icon: "arrow-ne" },
-        secondary: { label: "Download for desktop", href: "/download" }
+        secondary: { label: "See pricing", href: "/pricing" }
       }).value}
     `;
   },

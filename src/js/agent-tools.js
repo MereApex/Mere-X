@@ -136,7 +136,7 @@ function runInSandbox(code, timeout = 5_000) {
 /* ------------------------------------------------------------
    Tools
    ------------------------------------------------------------ */
-export function createToolRunner({ fs, tracker, onPlan, confirmDelete, delegate, onMemory, previewConsole, extra = {} }) {
+export function createToolRunner({ fs, tracker, onPlan, confirmDelete, delegate, onMemory, previewConsole }) {
   const ensureProject = () => {
     if (!fs) throw new Error("No project is open. Ask the person to open a folder or create a project first.");
   };
@@ -305,9 +305,6 @@ export function createToolRunner({ fs, tracker, onPlan, confirmDelete, delegate,
       return `Plan shown to the person: ${list.map((step) => `[${step.status}] ${step.title}`).join("; ")}`;
     }
   };
-  /* Tools only this host can run (the desktop app's shell and git). */
-  Object.assign(tools, extra);
-
   return async function run(name, args) {
     const tool = tools[name];
     if (!tool) return `${name} is not available in this workspace.`;

@@ -90,23 +90,8 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: "6mb" }));
-/* The desktop app (Tauri) calls the API from its own origin with a bearer
-   session instead of a cookie; it gets CORS, everything else must be
-   same-origin. */
-const DESKTOP_ORIGINS = new Set(["http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"]);
-/* The app's dev server, only against a server that itself runs on localhost. */
-const isDesktopDevOrigin = (req, origin) => origin === "http://localhost:1420" && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.get("host") || "");
 app.use("/api", (req, res, next) => {
   const origin = req.get("origin");
-  if (origin && (DESKTOP_ORIGINS.has(origin) || isDesktopDevOrigin(req, origin))) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, X-Mere-Client");
-    res.setHeader("Access-Control-Max-Age", "600");
-    res.setHeader("Vary", "Origin");
-    if (req.method === "OPTIONS") return res.status(204).end();
-    return next();
-  }
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
   if (!origin) return next();
   try {
@@ -130,11 +115,15 @@ const generationLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: { code: "generation_rate_limit", message: "Generation limit reached. Wait a moment and try again." } }
 });
+/* Guessing a password, a code or a reset link is what this protects against.
+   Reading your own session is not an attempt at anything, and every page
+   load makes one, so it stays on the ordinary API budget. */
 const authLimiter = rateLimit({
   windowMs: 15 * 60_000,
   limit: 30,
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  skip: (req) => req.method === "GET" && /^\/session\/?$/.test(req.path),
   message: { error: { code: "auth_rate_limit", message: "Too many account attempts. Try again later." } }
 });
 const paymentLimiter = rateLimit({
@@ -469,44 +458,6 @@ async function createResponseStream(client, params) {
   }
 }
 
-/* The desktop app's latest release, read from GitHub and cached, so the
-   download page and the checksums always match the published files. */
-const DESKTOP_RELEASE = "https://github.com/MereApex/Mere-X/releases/latest/download";
-let desktopRelease = { at: 0, value: null };
-app.get("/api/desktop/latest", asyncRoute(async (req, res) => {
-  res.setHeader("Cache-Control", "public, max-age=300");
-  if (desktopRelease.value && Date.now() - desktopRelease.at < 10 * 60 * 1000) return res.json(desktopRelease.value);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const [manifestResponse, sumsResponse] = await Promise.all([
-      fetch(`${DESKTOP_RELEASE}/latest.json`, { signal: controller.signal, redirect: "follow" }),
-      fetch(`${DESKTOP_RELEASE}/SHA256SUMS.txt`, { signal: controller.signal, redirect: "follow" })
-    ]);
-    if (!manifestResponse.ok) throw new Error(`release manifest ${manifestResponse.status}`);
-    const manifest = await manifestResponse.json();
-    const sums = sumsResponse.ok ? await sumsResponse.text() : "";
-    const checksums = Object.fromEntries(sums.split("\n").map((line) => line.trim().split(/\s+/)).filter((parts) => parts.length === 2).map(([digest, name]) => [name, digest]));
-    const version = String(manifest.version || "");
-    const base = `https://github.com/MereApex/Mere-X/releases/download/desktop-v${version}`;
-    const setup = `MereCode-${version}-windows-x64-setup.exe`;
-    const msi = `MereCode-${version}-windows-x64.msi`;
-    const value = {
-      version,
-      publishedAt: manifest.pub_date || null,
-      notes: manifest.notes || "",
-      windows: { setup: { url: `${base}/${setup}`, file: setup, sha256: checksums[setup] || "" }, msi: { url: `${base}/${msi}`, file: msi, sha256: checksums[msi] || "" } },
-      releasePage: `https://github.com/MereApex/Mere-X/releases/tag/desktop-v${version}`
-    };
-    desktopRelease = { at: Date.now(), value };
-    res.json(value);
-  } catch (error) {
-    if (desktopRelease.value) return res.json(desktopRelease.value);
-    res.status(503).json({ error: { code: "release_unavailable", message: "The desktop release could not be read right now." } });
-  } finally {
-    clearTimeout(timer);
-  }
-}));
 
 app.get("/api/health", (req, res) => {
   res.json({
@@ -615,7 +566,7 @@ app.post("/api/agent", generationLimiter, asyncRoute(async (req, res) => {
 
   const pluginTools = await pluginToolsFor(req.user?.id, requestContext);
   const tools = [
-    ...toolsForMode(mode, { web: requestContext.web === true, mcp: requestContext.mcp, nested: requestContext.nested === true, desktop: requestContext.desktop === true }),
+    ...toolsForMode(mode, { web: requestContext.web === true, mcp: requestContext.mcp, nested: requestContext.nested === true }),
     ...pluginTools.map((tool) => tool.definition)
   ];
   const safetyIdentifier = crypto.createHash("sha256").update(`mere-x:${req.user.id}`).digest("hex").slice(0, 64);
@@ -768,16 +719,16 @@ if (isProduction) {
     res.sendFile(path.join(workspaceDist, "sw.js"));
   });
   app.get("/login", (req, res) => res.sendFile(path.join(workspaceDist, "index.html")));
+  app.get("/signin", (req, res) => res.redirect(302, "/login"));
+  app.get("/signup", (req, res) => res.redirect(302, "/login?view=signup"));
   app.use("/app", requirePageAuth, express.static(workspaceDist, { index: false }));
   app.get(/^\/app(?:\/.*)?$/, requirePageAuth, (req, res) => res.sendFile(path.join(workspaceDist, "index.html")));
   app.get("/checkout", requirePageAuth, (req, res) => res.sendFile(path.join(workspaceDist, "pricing", "index.html")));
   app.use("/assets", express.static(path.join(landingDist, "assets"), { index: false, immutable: true, maxAge: "1y" }));
   app.use("/brand", express.static(path.join(landingDist, "brand"), { index: false, maxAge: "7d" }));
-  /* The developer API, its documentation and the console were retired;
-     anything still pointing at them lands on the product instead. */
+  /* The retired developer console and API page land on the product. */
   const RETIRED = [
     [/^\/console(?:\/.*)?$/, "/app"],
-    [/^\/docs(?:\/.*)?$/, "/products/code"],
     [/^\/products\/api\/?$/, "/products/code"]
   ];
   app.get(RETIRED.map(([pattern]) => pattern), (req, res) => {

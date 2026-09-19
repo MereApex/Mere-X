@@ -61,7 +61,7 @@ export default {
         title: "Start on the free plan.",
         body: "Open a folder and hand the agent a real task. Upgrade when you run out of turns, not before.",
         primary: { label: "Open Mere Code", href: "/app", icon: "arrow-ne" },
-        secondary: { label: "Download for desktop", href: "/download" }
+        secondary: { label: "See how it works", href: "/products/code" }
       }).value}
     `;
   },

@@ -1,7 +1,6 @@
 // The single browser-side seam to Mere X's private server-side AI gateway.
 // Permanent service credentials never cross this boundary or reach the browser.
 
-import { apiFetch } from "./api-config.js";
 
 export class AssistantError extends Error {
   constructor(message, { retryable = true, code = "assistant_error" } = {}) {
@@ -42,7 +41,7 @@ export async function streamAgentRound({ items, context, signal, onEvent }) {
 
   let response;
   try {
-    response = await apiFetch("/api/agent", {
+    response = await fetch("/api/agent", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
       body: JSON.stringify({ items, context }),
